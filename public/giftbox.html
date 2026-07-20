@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>선물함 - Iksan Gift</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            background-color: #f5f5f5;
+            max-width: 430px;
+            margin: 0 auto;
+            position: relative;
+        }
+        .tabs-container {
+            display: flex;
+            background-color: #fff;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .tab-btn {
+            flex: 1;
+            text-align: center;
+            padding: 14px 0;
+            font-size: 15px;
+            color: var(--text-sub);
+            background: none;
+            border: none;
+            cursor: pointer;
+            position: relative;
+        }
+        .tab-btn.active {
+            color: #191919;
+            font-weight: 700;
+        }
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #191919;
+        }
+        
+        .integrated-card {
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            margin: 20px 16px;
+            overflow: hidden;
+        }
+        .gift-list {
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+        .gift-card {
+            background-color: #fff;
+            border-radius: 0;
+            padding: 16px 20px;
+            display: flex;
+            gap: 16px;
+            cursor: pointer;
+            box-shadow: none;
+            border-bottom: 1px solid #EAEAEA;
+        }
+        .gift-card:last-child {
+            border-bottom: none;
+        }
+        .gift-img-wrapper {
+            width: 80px;
+            height: 80px;
+            flex-shrink: 0;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.05);
+            position: relative;
+        }
+        .gift-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .used-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .gift-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            flex: 1;
+        }
+        .gift-brand {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .gift-name {
+            font-size: 14px;
+            color: #191919;
+            line-height: 1.4;
+            margin-bottom: 6px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .gift-sender-info {
+            font-size: 12px;
+            color: var(--text-sub);
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .gift-date {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .empty-state {
+            padding: 60px 20px;
+            text-align: center;
+            color: var(--text-sub);
+            font-size: 14px;
+        }
+        .skeleton-gift-card {
+            display: flex;
+            gap: 16px;
+            padding: 16px 20px;
+            border-bottom: 1px solid #EAEAEA;
+        }
+        .skeleton-gift-card .skeleton-gift-img {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+        .skeleton-gift-card .skeleton-gift-lines {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 8px;
+        }
+        .skeleton-gift-card .skeleton-line {
+            height: 12px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Main Header -->
+    <!-- Main Header -->
+    <header class="main-header" style="border-bottom: none;">
+        <div class="header-container" style="justify-content: space-between;">
+            <a href="#" id="btn-back" class="header-icon" title="뒤로가기">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><line x1="20" y1="12" x2="4" y2="12"></line><polyline points="10 18 4 12 10 6"></polyline></svg>
+            </a>
+            <div class="header-right-icons" style="gap: 16px;">
+                <a href="#" id="btn-search-open" class="header-icon" title="검색">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16" y2="16"></line></svg>
+                </a>
+                <a href="index.html" class="header-icon" title="홈">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 10l8-7 8 7v10H4z"></path>
+                        <line x1="10" y1="16" x2="14" y2="16"></line>
+                    </svg>
+                </a>
+                <a href="giftbox.html" class="header-icon" title="선물함">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 8h14l1 13H4L5 8z"></path>
+                        <path d="M9 11V6a3 3 0 0 1 6 0v5"></path>
+                    </svg>
+                </a>
+                <a href="#" class="header-icon" title="더보기">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content" style="padding-bottom: 70px; padding-top: 0;">
+        <div class="integrated-card">
+            <div class="tabs-container">
+                <button class="tab-btn active" id="tab-unused">미사용</button>
+                <button class="tab-btn" id="tab-used">사용완료</button>
+            </div>
+
+            <div class="gift-list" id="gift-list-container">
+                <!-- Gift cards will be injected here by JS -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l8-7 8 7v11H4z"></path><line x1="9" y1="17" x2="15" y2="17"></line></svg>
+            <span class="nav-text">HOME</span>
+        </a>
+        <a href="#" class="nav-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="4" width="16" height="16"></rect>
+                <path d="M8 9.5a2.5 2.5 0 0 1 5 0c0 3-5 5.5-5 5.5s-5-2.5-5-5.5a2.5 2.5 0 0 1 5 0z" fill="currentColor" stroke="none"></path>
+                <line x1="8" y1="16" x2="16" y2="16"></line>
+                <line x1="8" y1="18" x2="14" y2="18"></line>
+            </svg>
+            <span class="nav-text">STYLE</span>
+        </a>
+        <a href="#" class="nav-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="14" cy="10" r="6"></circle>
+                <line x1="18.5" y1="14.5" x2="22" y2="18"></line>
+                <line x1="2" y1="10" x2="6" y2="10"></line>
+                <line x1="4" y1="6" x2="6" y2="6"></line>
+                <line x1="4" y1="14" x2="6" y2="14"></line>
+            </svg>
+            <span class="nav-text">SHOP</span>
+        </a>
+        <a href="mypage.html" class="nav-item active">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span class="nav-text">MY</span>
+        </a>
+    </nav>
+
+    <!-- Fullscreen Search Overlay UI -->
+    <div id="search-overlay" class="search-overlay">
+        <div class="search-overlay-header">
+            <button id="btn-search-close" class="btn-search-back" aria-label="뒤로가기">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><line x1="20" y1="12" x2="4" y2="12"></line><polyline points="10 18 4 12 10 6"></polyline></svg>
+            </button>
+            <div class="search-input-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-overlay-input-icon"></i>
+                <input type="text" class="search-overlay-input" placeholder="원하는 선물을 검색해보세요" autofocus>
+            </div>
+        </div>
+        <div class="search-overlay-body">
+            <h4 class="recent-searches-title">최근 검색어</h4>
+            <div class="recent-keywords-list"></div>
+        </div>
+    </div>
+
+    <!-- Script -->
+    <script src="js/skeleton.js"></script>
+    <script src="js/giftbox.js"></script>
+    <script src="js/component.js" defer></script>
+</body>
+
+</html>

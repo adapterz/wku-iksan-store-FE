@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주문/결제 - Iksan Gift</title>
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <!-- Main Header -->
+    <header class="main-header" style="border-bottom: none;">
+        <div class="header-container" style="justify-content: space-between;">
+            <a href="#" id="btn-back" class="header-icon" title="뒤로가기">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><line x1="20" y1="12" x2="4" y2="12"></line><polyline points="10 18 4 12 10 6"></polyline></svg>
+            </a>
+            <div class="header-right-icons" style="gap: 16px;">
+                <a href="#" id="btn-search-open" class="header-icon" title="검색">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16" y2="16"></line></svg>
+                </a>
+                <a href="index.html" class="header-icon" title="홈">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 10l8-7 8 7v10H4z"></path>
+                        <line x1="10" y1="16" x2="14" y2="16"></line>
+                    </svg>
+                </a>
+                <a href="giftbox.html" class="header-icon" title="선물함">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 8h14l1 13H4L5 8z"></path>
+                        <path d="M9 11V6a3 3 0 0 1 6 0v5"></path>
+                    </svg>
+                </a>
+                <a href="#" class="header-icon" title="더보기">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <div class="order-container">
+            <!-- Celebration Card Section -->
+            <div class="celebration-card-container">
+                <div class="celebration-card">
+                    <div class="card-message">
+                        <div class="card-text-primary">나는 내가 챙긴다!</div>
+                        <div class="card-text-secondary">소중한 나에게 주는 선물</div>
+                    </div>
+                    <button class="btn-edit-message" type="button">
+                        T 메시지 편집
+                    </button>
+                </div>
+            </div>
+            <!-- Product Info Summary -->
+            <div class="order-product-card">
+                <img id="order-product-img" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="상품 이미지" class="order-product-img">
+                <div class="order-product-info">
+                    <span id="order-brand" class="order-brand-name"></span>
+                    <h3 id="order-name" class="order-product-title"></h3>
+                    <div class="order-product-qty-price" style="font-size: 13px; color: var(--text-sub); margin-top: 4px;">
+                        <span id="order-unit-price"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Receiver Section -->
+            <div class="order-section" id="receiver-section" style="display:none;">
+                <h4 class="order-section-title">받는 사람</h4>
+                <div class="search-user-wrapper" style="display: flex; gap: 8px;">
+                    <input type="text" id="receiver-nickname-input" placeholder="받는 사람의 닉네임을 검색하세요" style="flex: 1; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px;">
+                    <button id="btn-search-user" style="padding: 0 16px; background-color: #191919; color: #fff; border-radius: 8px; font-weight: 700; font-size: 14px;">검색</button>
+                </div>
+                <div id="receiver-search-result" style="margin-top: 10px; font-size: 14px; font-weight: 700;"></div>
+            </div>
+
+            <div class="order-section" id="self-receiver-section" style="display:none;">
+                <h4 class="order-section-title">받는 사람</h4>
+                <div style="padding: 12px; background-color: #F9F9F9; border-radius: 8px; font-size: 14px; font-weight: 700;">
+                    나에게 선물하기 (본인 배송)
+                </div>
+            </div>
+
+            <!-- Payment Info Section -->
+            <div class="order-section" style="padding-top: 20px; border-top: 8px solid #F5F5F5; margin-top: 20px; padding-bottom: 20px;">
+                <h4 class="order-section-title" style="margin-bottom: 20px;">결제 정보</h4>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 12px; color: #191919;">
+                    <span>총 상품금액 (1개)</span>
+                    <span id="order-total-price"></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 12px; color: #191919;">
+                    <span>할인금액</span>
+                    <span>0원</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 20px; color: #191919;">
+                    <span>쇼핑포인트 사용</span>
+                    <span>0원</span>
+                </div>
+                
+                <div style="border-top: 1px solid #E5E5E5; padding-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 16px; font-weight: 700; color: #191919;">최종 결제금액</span>
+                    <span id="order-final-price" style="font-size: 22px; font-weight: 700; color: #191919;"></span>
+                </div>
+            </div>
+
+            <!-- Terms and Conditions Section -->
+            <div style="border-top: 8px solid #F5F5F5; padding: 20px 0 0 0;">
+                <div style="font-size: 13px; color: #888; margin-bottom: 20px; padding: 0 20px;">
+                    <span style="text-decoration: underline; font-weight: 700; color: #666;">주문내용 및 결제조건을 확인했으며</span>, 결제진행에 동의합니다.
+                </div>
+                
+                <div style="border-top: 8px solid #F5F5F5; padding: 20px; font-size: 12px; color: #999; line-height: 1.5;">
+                    (주)카카오에서 판매하는 상품 중에는 개별 판매자가 판매하는 상품이 포함되어 있습니다. 개별 판매자가 판매하는 상품에 대해 (주)카카오는 통신중개판매업자로서 통신판매의 당사자가 아니며 상품의 주문, 배송 및 환불 등과 관련한 의무와 책임은 각 판매자에게 있습니다.
+                </div>
+            </div>
+
+            <div style="padding: 0 20px 20px;">
+                <button id="btn-submit-order" class="btn-submit-order" style="width: 100%; padding: 16px; background-color: #191919; color: #FFFFFF; font-weight: 700; font-size: 16px; border-radius: 8px; text-align: center; cursor: pointer; border: none;">
+                    <span id="btn-submit-price"></span> 결제하기
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Message Edit Overlay UI -->
+    <div id="message-edit-overlay" class="message-edit-overlay">
+        <div class="overlay-header">
+            <button id="btn-edit-cancel" class="btn-overlay-nav" type="button">취소</button>
+            <span class="overlay-title">메시지 카드 작성</span>
+            <button id="btn-edit-save" class="btn-overlay-nav" type="button">완료</button>
+        </div>
+        <div class="overlay-body">
+            <!-- Card Preview -->
+            <div class="preview-card-container">
+                <div class="celebration-card preview-card">
+                    <div class="card-message">
+                        <div class="card-text-primary" id="preview-text-primary">나는 내가 챙긴다!</div>
+                        <div class="card-text-secondary" id="preview-text-secondary">소중한 나에게 주는 선물</div>
+                    </div>
+                </div>
+            </div>
+            <!-- Message Input Area -->
+            <div class="message-input-container">
+                <textarea id="edit-message-input" placeholder="메시지를 입력해 주세요." maxlength="100"></textarea>
+                <div class="message-input-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                    <button id="btn-clear-message" class="btn-clear-message" type="button" style="font-size: 13px; color: var(--text-sub); border: none; background: none; cursor: pointer; padding: 0;">삭제</button>
+                    <div class="char-counter" style="font-size: 13px; color: var(--text-muted);">
+                        <span id="current-char-count">0</span>/100
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fullscreen Search Overlay UI -->
+    <div id="search-overlay" class="search-overlay">
+        <div class="search-overlay-header">
+            <button id="btn-search-close" class="btn-search-back" aria-label="뒤로가기">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><line x1="20" y1="12" x2="4" y2="12"></line><polyline points="10 18 4 12 10 6"></polyline></svg>
+            </button>
+            <div class="search-input-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-overlay-input-icon"></i>
+                <input type="text" class="search-overlay-input" placeholder="원하는 선물을 검색해보세요" autofocus>
+            </div>
+        </div>
+        <div class="search-overlay-body">
+            <h4 class="recent-searches-title">최근 검색어</h4>
+            <div class="recent-keywords-list"></div>
+        </div>
+    </div>
+
+    <!-- Back Confirmation Overlay -->
+    <div id="order-back-overlay" class="order-back-overlay">
+        <div class="order-back-card" id="order-back-card">
+            <p>지금 나가시면 작성 중인 주문 내용이 사라져요. 나가시겠어요?</p>
+            <div class="order-back-buttons">
+                <button type="button" id="btn-order-back-cancel" class="order-back-btn order-back-btn-cancel">취소</button>
+                <button type="button" id="btn-order-back-confirm" class="order-back-btn order-back-btn-confirm">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script for Interactions -->
+    <script src="js/order.js" defer></script>
+
+</body>
+
+</html>

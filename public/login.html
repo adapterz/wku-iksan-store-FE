@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 - Iksan Gift</title>
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <!-- Main Header -->
+    <header class="main-header" style="border-bottom: none; position: absolute; top: 0; width: 100%; z-index: 10; background: transparent;">
+        <div class="header-container" style="justify-content: flex-start;">
+            <a href="#" id="btn-home" class="header-icon" title="홈">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 10l8-7 8 7v10H4z"></path>
+                    <line x1="10" y1="16" x2="14" y2="16"></line>
+                </svg>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <div class="auth-container">
+            <h2 class="auth-title">로그인</h2>
+            <form id="login-form" class="auth-form" novalidate>
+                <div class="form-group">
+                    <label for="email">이메일</label>
+                    <input type="email" id="email" name="email" placeholder="이메일을 입력하세요" autocomplete="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">비밀번호</label>
+                    <input type="password" id="password" name="password" placeholder="비밀번호를 입력하세요" autocomplete="current-password" required>
+                </div>
+                <p id="login-error" class="auth-error" hidden></p>
+                <button type="submit" class="btn-auth-submit">로그인</button>
+            </form>
+            <div class="auth-footer">
+                <span>아직 계정이 없으신가요?</span>
+                <a href="signup.html">회원가입</a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Fullscreen Search Overlay UI -->
+    <div id="search-overlay" class="search-overlay">
+        <div class="search-overlay-header">
+            <button id="btn-search-close" class="btn-search-back" aria-label="뒤로가기">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><line x1="20" y1="12" x2="4" y2="12"></line><polyline points="10 18 4 12 10 6"></polyline></svg>
+            </button>
+            <div class="search-input-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-overlay-input-icon"></i>
+                <input type="text" class="search-overlay-input" placeholder="원하는 선물을 검색해보세요" autofocus>
+            </div>
+        </div>
+        <div class="search-overlay-body">
+            <h4 class="recent-searches-title">최근 검색어</h4>
+            <div class="recent-keywords-list">
+                <a href="#" class="keyword-badge">익산역</a>
+                <a href="#" class="keyword-badge">아메리카노</a>
+                <a href="#" class="keyword-badge">익산</a>
+                <a href="#" class="keyword-badge">익산역마켓</a>
+                <a href="#" class="keyword-badge"></a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script for Interactions -->
+    <script src="js/login.js" defer></script>
+
+</body>
+
+</html>
