@@ -1,3 +1,28 @@
+// 전체화면 검색 모달 공통 HTML 반환 함수
+function getSearchOverlayHTML() {
+    return `
+<div id="search-overlay" class="search-overlay">
+    <div class="search-overlay-header">
+        <button id="btn-search-close" class="btn-search-back" aria-label="뒤로가기">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><line x1="20" y1="12" x2="4" y2="12"></line><polyline points="10 18 4 12 10 6"></polyline></svg>
+        </button>
+        <div class="search-input-wrapper">
+            <i class="fa-solid fa-magnifying-glass search-overlay-input-icon"></i>
+            <input type="text" class="search-overlay-input" placeholder="원하는 선물을 검색해보세요" autofocus>
+        </div>
+    </div>
+    <div class="search-overlay-body">
+        <h4 class="recent-searches-title">최근 검색어</h4>
+        <div class="recent-keywords-list"></div>
+    </div>
+</div>`;
+}
+
+// 검색 모달 동적 삽입 (가장 먼저 실행되어야 DOMContentLoaded에서 다른 스크립트들이 찾을 수 있음)
+if (document.body && !document.getElementById('search-overlay')) {
+    document.body.insertAdjacentHTML('beforeend', getSearchOverlayHTML());
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // 서브 페이지 공통 헤더 HTML 반환 함수
     function getSubHeaderHTML() {
@@ -152,6 +177,33 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavGroup('.nav-bar .nav-item');
     updateActiveStates();
 
+    // 검색 오버레이 공통 로직 (전역 위임 또는 DOMContentLoaded 이후 바인딩)
+    const searchOverlay = document.getElementById('search-overlay');
+    if (searchOverlay) {
+        // btn-search-open은 메인(index.html)에서는 정적, 서브페이지에서는 동적 삽입됨
+        // 동적 삽입 이후에 바인딩하기 위해 문서 전체에 위임(이벤트 버블링) 사용
+        document.addEventListener('click', (e) => {
+            const openBtn = e.target.closest('#btn-search-open');
+            if (openBtn) {
+                e.preventDefault();
+                searchOverlay.classList.add('open');
+                const searchInput = searchOverlay.querySelector('.search-overlay-input');
+                if (searchInput) {
+                    setTimeout(() => searchInput.focus(), 50);
+                }
+            }
+        });
+
+        // btn-search-close는 정적 삽입(component.js 최상단)되어 있으므로 바로 바인딩 가능
+        const searchCloseBtn = document.getElementById('btn-search-close');
+        if (searchCloseBtn) {
+            searchCloseBtn.addEventListener('click', () => {
+                searchOverlay.classList.remove('open');
+                updateActiveStates(); // 검색 오버레이 닫기 시 active 상태 복구
+            });
+        }
+    }
+
     // SHOP 버튼 검색 오버레이 연결
     const shopBtns = Array.from(document.querySelectorAll('.bottom-nav .nav-item')).filter(btn => {
         const textSpan = btn.querySelector('.nav-text');
@@ -162,26 +214,15 @@ document.addEventListener('DOMContentLoaded', () => {
         shopBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            const topSearchBtn = document.getElementById('btn-search-open');
-            if (topSearchBtn) {
-                topSearchBtn.click(); // 기존 로직 재사용
-            } else {
-                const searchOverlay = document.getElementById('search-overlay');
-                if (searchOverlay) {
-                    searchOverlay.classList.add('show');
-                    searchOverlay.classList.add('open');
+            if (searchOverlay) {
+                searchOverlay.classList.add('open');
+                const searchInput = searchOverlay.querySelector('.search-overlay-input');
+                if (searchInput) {
+                    setTimeout(() => searchInput.focus(), 50);
                 }
             }
         });
     });
-
-    // 검색 오버레이 닫기(뒤로가기) 시 active 상태 복구
-    const searchCloseBtn = document.getElementById('btn-search-close');
-    if (searchCloseBtn) {
-        searchCloseBtn.addEventListener('click', () => {
-            updateActiveStates();
-        });
-    }
 
     window.addEventListener('popstate', () => {
         updateActiveStates();
