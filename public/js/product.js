@@ -79,11 +79,7 @@ function showProductLoadingDelayed() {
 async function loadProductDetail(id) {
   const settle = createSkeletonGuard(showProductLoadingDelayed, 1500);
   try {
-    const response = await fetch(`/api/products/${id}`, { credentials: 'include' });
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const result = await response.json();
+    const result = await requestJson(`/api/products/${id}`);
     settle();
     if (result && result.data) {
       renderProduct(result.data);
@@ -120,15 +116,15 @@ function showErrorAndRedirect() {
 
 async function goToOrder(productId, type) {
   try {
-    const response = await fetch('/api/auth/me', { credentials: 'include' });
-    if (response.ok) {
-      let url = `order.html?productId=${productId}&type=${type}`;
-      window.location.href = url;
-    } else {
+    await requestJson('/api/auth/me');
+    let url = `order.html?productId=${productId}&type=${type}`;
+    window.location.href = url;
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
       const redirectTarget = encodeURIComponent(window.location.href);
       window.location.href = `login.html?redirect=${redirectTarget}`;
+      return;
     }
-  } catch (error) {
     console.error('로그인 상태 확인 실패:', error);
     window.location.href = 'login.html';
   }

@@ -1,18 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        const response = await fetch('/api/auth/me', { credentials: 'include' });
-        
-        if (!response.ok) {
-            if (response.status === 401) {
-                // Not logged in, redirect to login page
-                window.location.href = 'login.html';
-            } else {
-                console.error('Failed to fetch user info');
-            }
-            return;
-        }
-
-        const resData = await response.json();
+        const resData = await requestJson('/api/auth/me');
         
         if (resData && resData.data) {
             const user = resData.data;
@@ -25,6 +13,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('No user data in response');
         }
     } catch (error) {
+        if (error.status === 401) {
+            window.location.href = 'login.html';
+            return;
+        }
         console.error('Error fetching user data:', error);
     }
 
@@ -79,7 +71,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         logoutBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             try {
-                await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+                await requestJson('/api/auth/logout', { method: 'POST' });
             } catch (error) {
                 console.error('로그아웃 요청 실패:', error);
             }
@@ -114,38 +106,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 1500);
 
         try {
-            const giftsResponse = await fetch('/api/gifts?status=unused', { credentials: 'include' });
+            const giftsResult = await requestJson('/api/gifts?status=unused');
             settle();
-            if (giftsResponse.ok) {
-                const giftsResult = await giftsResponse.json();
-                const gifts = giftsResult.data || [];
+            const gifts = giftsResult.data || [];
 
-                unusedGiftsCountEl.textContent = gifts.length;
+            unusedGiftsCountEl.textContent = gifts.length;
 
-                if (gifts.length === 0) {
-                    unusedGiftsListEl.innerHTML = unusedGiftsFallbackHtml('미사용 선물이 없습니다.');
-                } else {
-                    unusedGiftsListEl.innerHTML = '';
-                    gifts.forEach(gift => {
-                        const senderText = gift.isSelfGift ? "나" : (gift.senderNickname || "친구");
-
-                        const card = document.createElement('a');
-                        card.className = 'unused-gift-card';
-                        card.href = `giftuse.html?giftId=${gift.giftId}`;
-
-                        card.innerHTML = `
-                            <div class="unused-gift-img-wrapper">
-                                <img src="${gift.thumbnailUrl || ''}" alt="상품 썸네일" class="unused-gift-img">
-                            </div>
-                            <div class="unused-gift-sender">${senderText}</div>
-                        `;
-
-                        unusedGiftsListEl.appendChild(card);
-                    });
-                }
+            if (gifts.length === 0) {
+                unusedGiftsListEl.innerHTML = unusedGiftsFallbackHtml('미사용 선물이 없습니다.');
             } else {
-                console.error('Failed to load unused gifts');
-                unusedGiftsListEl.innerHTML = unusedGiftsFallbackHtml('미사용 선물을 불러오지 못했습니다.');
+                unusedGiftsListEl.innerHTML = '';
+                gifts.forEach(gift => {
+                    const senderText = gift.isSelfGift ? "나" : (gift.senderNickname || "친구");
+
+                    const card = document.createElement('a');
+                    card.className = 'unused-gift-card';
+                    card.href = `giftuse.html?giftId=${gift.giftId}`;
+
+                    card.innerHTML = `
+                        <div class="unused-gift-img-wrapper">
+                            <img src="${gift.thumbnailUrl || ''}" alt="상품 썸네일" class="unused-gift-img">
+                        </div>
+                        <div class="unused-gift-sender">${senderText}</div>
+                    `;
+
+                    unusedGiftsListEl.appendChild(card);
+                });
             }
         } catch (error) {
             settle();

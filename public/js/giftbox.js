@@ -67,23 +67,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 1500);
 
     try {
-      const response = await fetch(`/api/gifts?status=${status}`, { credentials: 'include' });
-
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          settle();
-          alert("로그인이 필요합니다.");
-          location.href = "login.html";
-          return;
-        }
-        throw new Error("Failed to load gifts");
-      }
-
-      const result = await response.json();
+      const result = await requestJson(`/api/gifts?status=${status}`);
       settle();
       renderGiftList(result.data || []);
     } catch (error) {
       settle();
+      if (error.status === 401 || error.status === 403) {
+        alert("로그인이 필요합니다.");
+        location.href = "login.html";
+        return;
+      }
       console.error("선물함 조회 실패:", error);
       listContainer.innerHTML = `<div class="empty-state">선물 목록을 불러오지 못했습니다.</div>`;
     }
