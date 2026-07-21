@@ -1,4 +1,61 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // 서브 페이지 공통 헤더 HTML 반환 함수
+    function getSubHeaderHTML() {
+        return `
+        <div class="header-container" style="justify-content: space-between;">
+            <a href="#" id="btn-back" class="header-icon" title="뒤로가기">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><line x1="20" y1="12" x2="4" y2="12"></line><polyline points="10 18 4 12 10 6"></polyline></svg>
+            </a>
+            <div class="header-right-icons" style="gap: 16px;">
+                <a href="#" id="btn-search-open" class="header-icon" title="검색">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16" y2="16"></line></svg>
+                </a>
+                <a href="index.html" class="header-icon" title="홈">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 10l8-7 8 7v10H4z"></path>
+                        <line x1="10" y1="16" x2="14" y2="16"></line>
+                    </svg>
+                </a>
+                <a href="giftbox.html" class="header-icon" title="선물함">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 8h14l1 13H4L5 8z"></path>
+                        <path d="M9 11V6a3 3 0 0 1 6 0v5"></path>
+                    </svg>
+                </a>
+                <a href="#" class="header-icon" title="더보기">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
+                </a>
+            </div>
+        </div>`;
+    }
+
+    // 메인(index.html) 및 마이페이지(mypage.html) 제외 서브 페이지 헤더 동적 삽입
+    let currentPath = window.location.pathname;
+    let currentFile = currentPath.substring(currentPath.lastIndexOf('/') + 1);
+    if (currentFile === '' || currentFile === '/') {
+        currentFile = 'index.html';
+    }
+
+    if (currentFile !== 'index.html' && currentFile !== 'mypage.html') {
+        const headerElement = document.querySelector('header.main-header');
+        if (headerElement) {
+            headerElement.innerHTML = getSubHeaderHTML();
+            
+            // 뒤로가기 버튼 이벤트 바인딩
+            const btnBack = document.getElementById('btn-back');
+            if (btnBack) {
+                btnBack.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (window.history.length > 1) {
+                        window.history.back();
+                    } else {
+                        window.location.href = 'index.html';
+                    }
+                });
+            }
+        }
+    }
+
     function updateActiveStates() {
         const navItems = document.querySelectorAll('.bottom-nav .nav-item, .nav-bar .nav-item');
         if (navItems.length === 0) return;
@@ -10,6 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentFile === '' || currentFile === '/') {
             currentFile = 'index.html';
         }
+
 
         navItems.forEach(item => {
             let href = item.getAttribute('href');
