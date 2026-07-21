@@ -2,10 +2,10 @@
   "name": "wku-iksan-store-fe",
   "version": "1.0.0",
   "description": "",
-  "main": "frontend-app.js",
+  "main": "app.js",
   "scripts": {
-    "start": "node frontend-app.js",
-    "dev": "nodemon frontend-app.js"
+    "start": "node app.js",
+    "dev": "nodemon app.js"
   },
   "dependencies": {
     "express": "^4.19.2"
