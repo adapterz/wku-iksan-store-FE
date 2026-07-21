@@ -54,13 +54,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 1. 로그인 여부 확인
   try {
-    const authResponse = await fetch('/api/auth/me', { credentials: 'include' });
-    if (!authResponse.ok) {
-      alert("로그인이 필요한 서비스입니다.");
-      location.href = "login.html";
-      return;
-    }
-    const authResult = await authResponse.json();
+    const authResult = await requestJson('/api/auth/me');
     if (authResult && authResult.data) {
       currentUser = authResult.data;
     } else {
@@ -88,11 +82,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 3. 주문서 조회 API (상품 상세 정보 조회 API 활용)를 사용하여 상품 정보 조회
   try {
-    const productResponse = await fetch(`/api/products/${productId}`, { credentials: 'include' });
-    if (!productResponse.ok) {
-      throw new Error(`HTTP error! status: ${productResponse.status}`);
-    }
-    const productResult = await productResponse.json();
+    const productResult = await requestJson(`/api/products/${productId}`);
     if (productResult && productResult.data) {
       selectedProduct = productResult.data;
       
@@ -156,15 +146,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       try {
-        const userSearchResponse = await fetch(`/api/users/search?nickname=${encodeURIComponent(nickname)}`, { credentials: 'include' });
-        if (!userSearchResponse.ok) {
-          searchResultDiv.style.color = "red";
-          searchResultDiv.textContent = "사용자를 찾을 수 없습니다.";
-          receiverId = null;
-          return;
-        }
-
-        const userSearchResult = await userSearchResponse.json();
+        const userSearchResult = await requestJson(`/api/users/search?nickname=${encodeURIComponent(nickname)}`);
         if (userSearchResult && userSearchResult.data) {
           const foundUser = userSearchResult.data;
 
@@ -187,7 +169,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       } catch (error) {
         console.error("사용자 검색 실패:", error);
         searchResultDiv.style.color = "red";
-        searchResultDiv.textContent = "검색 중 오류가 발생했습니다.";
+        searchResultDiv.textContent = error.status === 404
+          ? "사용자를 찾을 수 없습니다."
+          : "검색 중 오류가 발생했습니다.";
         receiverId = null;
       }
     });
@@ -214,18 +198,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       submitOrderBtn.disabled = true;
       submitOrderBtn.textContent = "결제 진행 중...";
 
-      const orderResponse = await fetch('/api/orders', {
+      const orderResult = await requestJson('/api/orders', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody),
-        credentials: 'include'
+        body: requestBody
       });
 
-      const orderResult = await orderResponse.json();
-
-      if (orderResponse.ok && orderResult.code === "ORDER_CREATE_SUCCESS") {
+      if (orderResult.code === "ORDER_CREATE_SUCCESS") {
         location.href = `complete.html?orderId=${orderResult.data.orderId}`;
       } else {
         alert(orderResult.message || "주문에 실패했습니다. 다시 시도해 주세요.");
@@ -234,7 +212,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     } catch (error) {
       console.error("주문 생성 실패:", error);
-      alert("네트워크 오류가 발생했습니다. 다시 시도해 주세요.");
+      alert(error.code === 'NETWORK_ERROR'
+        ? "네트워크 오류가 발생했습니다. 다시 시도해 주세요."
+        : "주문에 실패했습니다. 다시 시도해 주세요.");
       submitOrderBtn.disabled = false;
       submitOrderBtn.textContent = "결제하기";
     }

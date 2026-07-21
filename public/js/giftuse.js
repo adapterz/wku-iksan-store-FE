@@ -15,32 +15,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
         // 상세 조회 API 호출
-        const response = await fetch(`/api/gifts/${giftId}`, { credentials: 'include' });
-
-        if (!response.ok) {
-            // Fallback 로직: 상세 조회 실패 시 전체 목록에서 찾기
-            const allGiftsResponse = await fetch('/api/gifts?status=unused', { credentials: 'include' });
-            settle();
-            if (allGiftsResponse.ok) {
-                const result = await allGiftsResponse.json();
-                const gift = result.data.find(g => String(g.giftId) === String(giftId));
-                if (gift) {
-                    renderGift(gift);
-                } else {
-                    showError('선물 정보를 찾을 수 없거나 이미 사용된 선물입니다.');
-                }
-            } else {
-                showError('선물 정보를 불러오는데 실패했습니다.');
-            }
-        } else {
-            const result = await response.json();
-            settle();
-            renderGift(result.data);
-        }
-    } catch (err) {
+        const result = await requestJson(`/api/gifts/${giftId}`);
         settle();
-        console.error(err);
-        showError('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+        renderGift(result.data);
+    } catch (err) {
+        // 상세 조회 실패 시 기존 목록 조회 fallback을 유지합니다.
+        try {
+            const result = await requestJson('/api/gifts?status=unused');
+            settle();
+            const gift = (result.data || []).find(g => String(g.giftId) === String(giftId));
+            if (gift) {
+                renderGift(gift);
+            } else {
+                showError('선물 정보를 찾을 수 없거나 이미 사용된 선물입니다.');
+            }
+        } catch (fallbackError) {
+            settle();
+            console.error(fallbackError);
+            showError('선물 정보를 불러오는데 실패했습니다.');
+        }
     }
 
     btnUse.addEventListener('click', async () => {
@@ -50,17 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             btnUse.disabled = true;
             btnUse.textContent = "처리중...";
 
-            const useRes = await fetch(`/api/gifts/${giftId}/use`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include'
-            });
-
-            if (!useRes.ok) {
-                throw new Error("API 요청 실패");
-            }
+            await requestJson(`/api/gifts/${giftId}/use`, { method: 'PATCH' });
 
             alert("사용 처리가 완료되었습니다.");
             location.href = 'giftbox.html?tab=used';

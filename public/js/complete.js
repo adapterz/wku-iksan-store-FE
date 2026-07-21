@@ -41,19 +41,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
-    const response = await fetch(`/api/orders/${orderId}`, { credentials: 'include' });
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        alert("로그인이 필요하거나 접근 권한이 없습니다.");
-        location.href = "login.html";
-      } else {
-        alert("주문 정보를 불러올 수 없습니다.");
-        location.href = "index.html";
-      }
-      return;
-    }
-
-    const result = await response.json();
+    const result = await requestJson(`/api/orders/${orderId}`);
     if (result && result.data) {
       const order = result.data;
       renderCompletePage(order);
@@ -63,8 +51,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   } catch (error) {
     console.error("주문 정보 조회 실패:", error);
-    alert("네트워크 오류가 발생했습니다.");
-    location.href = "index.html";
+    if (error.status === 401 || error.status === 403) {
+      alert("로그인이 필요하거나 접근 권한이 없습니다.");
+      location.href = "login.html";
+    } else {
+      alert("주문 정보를 불러올 수 없습니다.");
+      location.href = "index.html";
+    }
   }
 });
 

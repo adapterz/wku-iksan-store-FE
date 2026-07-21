@@ -40,16 +40,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (submitBtn) submitBtn.disabled = true;
 
       try {
-        const response = await fetch('/api/auth/signup', {
+        const result = await requestJson('/api/auth/signup', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ email, password, nickname })
+          body: { email, password, nickname }
         });
 
-        const result = await response.json();
-
-        if (response.ok && result.code === 'SIGNUP_SUCCESS') {
+        if (result.code === 'SIGNUP_SUCCESS') {
           alert('회원가입이 완료되었습니다. 로그인해주세요.');
           window.location.href = 'login.html';
           return;
@@ -58,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showError(ERROR_MESSAGES[result.code] || '회원가입에 실패했습니다.');
       } catch (error) {
         console.error('회원가입 요청 실패:', error);
-        showError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
+        showError(ERROR_MESSAGES[error.code] || ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
       } finally {
         if (submitBtn) submitBtn.disabled = false;
       }

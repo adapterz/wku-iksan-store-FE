@@ -37,16 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (submitBtn) submitBtn.disabled = true;
 
       try {
-        const response = await fetch('/api/auth/login', {
+        const result = await requestJson('/api/auth/login', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ email, password })
+          body: { email, password }
         });
 
-        const result = await response.json();
-
-        if (response.ok && result.code === 'LOGIN_SUCCESS') {
+        if (result.code === 'LOGIN_SUCCESS') {
           const redirectTarget = new URLSearchParams(window.location.search).get('redirect');
           window.location.href = redirectTarget ? decodeURIComponent(redirectTarget) : 'index.html';
           return;
@@ -55,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showError(ERROR_MESSAGES[result.code] || '로그인에 실패했습니다.');
       } catch (error) {
         console.error('로그인 요청 실패:', error);
-        showError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
+        showError(ERROR_MESSAGES[error.code] || ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
       } finally {
         if (submitBtn) submitBtn.disabled = false;
       }
