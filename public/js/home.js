@@ -388,73 +388,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-  // Header 로그인 상태 아이콘: 로그인 여부 확인 후 아이콘/드롭다운 표시
-  const loginStatusBtn = document.getElementById('btn-login-status');
-  const loginStatusDot = document.getElementById('login-status-dot');
-  const loginStatusDropdown = document.getElementById('login-status-dropdown');
-  const loginStatusNickname = document.getElementById('login-status-nickname');
-  const logoutBtn = document.getElementById('btn-logout');
-
-  let isLoggedIn = false;
-  let currentNickname = '';
-
-  async function checkLoginStatus() {
-    try {
-      const result = await requestJson('/api/auth/me');
-      const recTitle = document.getElementById('recommendation-title');
-
-      isLoggedIn = true;
-      currentNickname = (result.data && result.data.nickname) || '';
-      const currentUserId = (result.data && result.data.userId) || '';
-
-      if (loginStatusBtn) loginStatusBtn.classList.add('logged-in');
-      if (loginStatusDot) loginStatusDot.hidden = false;
-
-      if (recTitle && currentNickname) {
-        recTitle.textContent = `${currentNickname}님을 위한 추천 상품`;
-      }
-    } catch (error) {
-      if (error.status !== 401) {
-        console.error('로그인 상태 확인 실패:', error);
-      }
-      const recTitle = document.getElementById('recommendation-title');
-      isLoggedIn = false;
-      if (loginStatusBtn) loginStatusBtn.classList.remove('logged-in');
-      if (loginStatusDot) loginStatusDot.hidden = true;
-      if (recTitle) recTitle.textContent = '회원님을 위한 추천 상품';
-    }
-  }
-
-  checkLoginStatus();
-
-  if (loginStatusBtn) {
-    loginStatusBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (isLoggedIn) {
-        if (loginStatusNickname) loginStatusNickname.textContent = `${currentNickname}님`;
-        if (loginStatusDropdown) loginStatusDropdown.hidden = !loginStatusDropdown.hidden;
+  // 로그인 상태 기반 UI 업데이트 (component.js의 이벤트 리스닝)
+  document.addEventListener('auth:updated', (e) => {
+    const { isLoggedIn, nickname } = e.detail;
+    const recTitle = document.getElementById('recommendation-title');
+    
+    if (recTitle) {
+      if (isLoggedIn && nickname) {
+        recTitle.textContent = `${nickname}님을 위한 추천 상품`;
       } else {
-        window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+        recTitle.textContent = '회원님을 위한 추천 상품';
       }
-    });
-  }
-
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-      try {
-        await requestJson('/api/auth/logout', { method: 'POST' });
-      } catch (error) {
-        console.error('로그아웃 요청 실패:', error);
-      }
-      window.location.href = 'login.html';
-    });
-  }
-
-  // 드롭다운 바깥 클릭 시 닫기
-  document.addEventListener('click', (e) => {
-    if (!loginStatusDropdown || loginStatusDropdown.hidden) return;
-    if (loginStatusBtn && loginStatusBtn.contains(e.target)) return;
-    if (loginStatusDropdown.contains(e.target)) return;
-    loginStatusDropdown.hidden = true;
+    }
   });
 });

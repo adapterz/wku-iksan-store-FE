@@ -91,12 +91,12 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fa-solid fa-magnifying-glass"></i>
             <span class="nav-text">SHOP</span>
         </a>
-        <a href="mypage.html" class="nav-item">
-            <div class="icon-wrapper">
-                <i id="login-status-icon" class="fa-regular fa-user"></i>
-                <span id="login-status-dot" class="login-status-dot" hidden></span>
+        <a href="login.html" id="btn-bottom-my" class="nav-item">
+            <div class="login-status-icon-wrapper">
+                <i id="bottom-login-status-icon" class="fa-regular fa-user"></i>
+                <span id="bottom-login-status-dot" class="login-status-dot" hidden></span>
             </div>
-            <span class="nav-text">MY</span>
+            <span id="bottom-login-status-text" class="nav-text">login</span>
         </a>`;
     }
 
@@ -105,6 +105,52 @@ document.addEventListener('DOMContentLoaded', () => {
     bottomNavElements.forEach(nav => {
         nav.innerHTML = getBottomNavHTML();
     });
+
+    // 전역 인증 상태 체크 및 하단 네비게이션 업데이트
+    async function checkGlobalAuthStatus() {
+        let isLoggedIn = false;
+        let nickname = '';
+        try {
+            // requestJson이 전역(api.js)에 선언되어 있다고 가정
+            if (typeof requestJson === 'function') {
+                const result = await requestJson('/api/auth/me');
+                isLoggedIn = true;
+                nickname = result.data?.nickname || '';
+            }
+        } catch (error) {
+            isLoggedIn = false;
+        }
+
+        const myBtn = document.getElementById('btn-bottom-my');
+        const myIcon = document.getElementById('bottom-login-status-icon');
+        const myDot = document.getElementById('bottom-login-status-dot');
+        const myText = document.getElementById('bottom-login-status-text');
+
+        if (myBtn) {
+            if (isLoggedIn) {
+                myBtn.href = 'mypage.html';
+                if (myIcon) {
+                    myIcon.classList.remove('fa-regular');
+                    myIcon.classList.add('fa-solid', 'logged-in');
+                }
+                if (myDot) myDot.hidden = false;
+                if (myText) myText.textContent = 'my';
+            } else {
+                myBtn.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+                if (myIcon) {
+                    myIcon.classList.remove('fa-solid', 'logged-in');
+                    myIcon.classList.add('fa-regular');
+                }
+                if (myDot) myDot.hidden = true;
+                if (myText) myText.textContent = 'login';
+            }
+        }
+
+        // 인증 정보를 필요한 곳(home.js 등)에서 사용할 수 있도록 커스텀 이벤트 디스패치
+        document.dispatchEvent(new CustomEvent('auth:updated', { detail: { isLoggedIn, nickname } }));
+    }
+
+    checkGlobalAuthStatus();
 
     function updateActiveStates() {
         const navItems = document.querySelectorAll('.bottom-nav .nav-item, .nav-bar .nav-item');
