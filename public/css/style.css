@@ -2257,24 +2257,6 @@ body {
     font-weight: 500;
 }
 
-/* Custom Active State for Style Icon */
-.bottom-nav .nav-item.active .style-rect {
-    fill: currentColor;
-}
-.bottom-nav .nav-item.active .style-heart {
-    fill: #FFFFFF !important;
-}
-.bottom-nav .nav-item.active .style-line {
-    stroke: #FFFFFF !important;
-}
-
-/* Custom Active State for Home Icon */
-.bottom-nav .nav-item.active .home-path {
-    fill: currentColor;
-}
-.bottom-nav .nav-item.active .home-line {
-    stroke: #FFFFFF !important;
-}
 
 /* Order Back Confirmation Overlay */
 .order-back-overlay {
