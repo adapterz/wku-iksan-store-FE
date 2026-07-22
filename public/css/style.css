@@ -2248,8 +2248,8 @@ body {
     border-radius: 2px 2px 0 0;
 }
 
-.bottom-nav .nav-item.active svg {
-    fill: currentColor !important;
+.bottom-nav .nav-item.active i {
+    color: currentColor !important;
 }
 
 .bottom-nav .nav-text {

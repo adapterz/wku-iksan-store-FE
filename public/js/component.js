@@ -4,7 +4,7 @@ function getSearchOverlayHTML() {
 <div id="search-overlay" class="search-overlay">
     <div class="search-overlay-header">
         <button id="btn-search-close" class="btn-search-back" aria-label="뒤로가기">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><line x1="20" y1="12" x2="4" y2="12"></line><polyline points="10 18 4 12 10 6"></polyline></svg>
+            <i class="fa-solid fa-arrow-left"></i>
         </button>
         <div class="search-input-wrapper">
             <i class="fa-solid fa-magnifying-glass search-overlay-input-icon"></i>
@@ -29,26 +29,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return `
         <div class="header-container" style="justify-content: space-between;">
             <a href="#" id="btn-back" class="header-icon" title="뒤로가기">
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><line x1="20" y1="12" x2="4" y2="12"></line><polyline points="10 18 4 12 10 6"></polyline></svg>
+                <i class="fa-solid fa-arrow-left"></i>
             </a>
             <div class="header-right-icons" style="gap: 16px;">
                 <a href="#" id="btn-search-open" class="header-icon" title="검색">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16" y2="16"></line></svg>
+                    <i class="fa-solid fa-magnifying-glass"></i>
                 </a>
                 <a href="index.html" class="header-icon" title="홈">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M4 10l8-7 8 7v10H4z"></path>
-                        <line x1="10" y1="16" x2="14" y2="16"></line>
-                    </svg>
+                    <i class="fa-solid fa-house"></i>
                 </a>
                 <a href="giftbox.html" class="header-icon" title="선물함">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M5 8h14l1 13H4L5 8z"></path>
-                        <path d="M9 11V6a3 3 0 0 1 6 0v5"></path>
-                    </svg>
+                    <i class="fa-solid fa-gift"></i>
                 </a>
                 <a href="#" class="header-icon" title="더보기">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
+                    <i class="fa-thin fa-arrow-left"></i>
                 </a>
             </div>
         </div>`;
@@ -86,33 +80,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function getBottomNavHTML() {
         return `
         <a href="index.html" class="nav-item">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path class="home-path" d="M4 10l8-7 8 7v11H4z"></path>
-                <line class="home-line" x1="9" y1="17" x2="15" y2="17"></line>
-            </svg>
+            <i class="fa-solid fa-house"></i>
             <span class="nav-text">HOME</span>
         </a>
         <a href="#" class="nav-item">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect class="style-rect" x="4" y="4" width="16" height="16"></rect>
-                <path class="style-heart" d="M7 8.5a1.5 1.5 0 0 1 3 0 1.5 1.5 0 0 1 3 0c0 2-3 4-3 4s-3-2-3-4z" fill="currentColor" stroke="none"></path>
-                <line class="style-line" x1="7" y1="14.5" x2="17" y2="14.5"></line>
-                <line class="style-line" x1="7" y1="17.5" x2="14" y2="17.5"></line>
-            </svg>
-            <span class="nav-text">STYLE</span>
+            <i class="fa-solid fa-receipt"></i>
+            <span class="nav-text">RECEIPT</span>
         </a>
         <a href="#" class="nav-item">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="14" cy="10" r="6"></circle>
-                <line x1="18.5" y1="14.5" x2="22" y2="18"></line>
-                <line x1="2" y1="10" x2="6" y2="10"></line>
-                <line x1="4" y1="6" x2="6" y2="6"></line>
-                <line x1="4" y1="14" x2="6" y2="14"></line>
-            </svg>
+            <i class="fa-solid fa-magnifying-glass"></i>
             <span class="nav-text">SHOP</span>
         </a>
         <a href="mypage.html" class="nav-item">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <div class="icon-wrapper">
+                <i id="login-status-icon" class="fa-regular fa-user"></i>
+                <span id="login-status-dot" class="login-status-dot" hidden></span>
+            </div>
             <span class="nav-text">MY</span>
         </a>`;
     }
