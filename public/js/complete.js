@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("header:ready", async () => {
   // 뒤로가기 버튼 로직
   const backBtn = document.getElementById('btn-back');
   if (backBtn) {
@@ -59,6 +59,28 @@ document.addEventListener("DOMContentLoaded", async () => {
       location.href = "index.html";
     }
   }
+
+  // 하단 네비게이션(nav-item) 이벤트 등록 (동적 생성 후 실행되어야 함)
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (item.getAttribute('href') === '#') {
+        e.preventDefault();
+      }
+      navItems.forEach(el => el.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+
+  const navBar = document.querySelector('.nav-bar');
+  if (navBar) {
+    navBar.addEventListener('wheel', (e) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        navBar.scrollLeft += e.deltaY;
+      }
+    }, { passive: false });
+  }
 });
 
 function renderCompletePage(order) {
@@ -105,26 +127,4 @@ function renderCompletePage(order) {
   }
 }
 
-// Top Nav Tab Bar Click Logic (FOR ME, 홈, 랭킹, 썸머세일, 와인/맥주...)
-  const navItems = document.querySelectorAll('.nav-item');
-  navItems.forEach(item => {
-    item.addEventListener('click', (e) => {
-      // Prevent default navigation if href is '#' or equivalent to prevent jumpy page reloads
-      if (item.getAttribute('href') === '#') {
-        e.preventDefault();
-      }
-      navItems.forEach(el => el.classList.remove('active'));
-      item.classList.add('active');
-    });
-  });
 
-  // Mouse wheel horizontal scrolling translation for .nav-bar
-  const navBar = document.querySelector('.nav-bar');
-  if (navBar) {
-    navBar.addEventListener('wheel', (e) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        navBar.scrollLeft += e.deltaY;
-      }
-    }, { passive: false });
-  }

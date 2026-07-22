@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const headerElement = document.querySelector('header.main-header');
         if (headerElement) {
             headerElement.innerHTML = getSubHeaderHTML();
+            document.dispatchEvent(new Event('header:ready'));
             
             // 뒤로가기 버튼 이벤트 바인딩
             const btnBack = document.getElementById('btn-back');
