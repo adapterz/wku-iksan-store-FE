@@ -1,23 +1,6 @@
 document.addEventListener("header:ready", () => {
 
-  // 검색 오버레이 열기/닫기 로직
-  const searchOpenBtn = document.getElementById('btn-search-open');
-  const searchCloseBtn = document.getElementById('btn-search-close');
-  const searchOverlay = document.getElementById('search-overlay');
-  
-  if (searchOpenBtn && searchOverlay) {
-    searchOpenBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.add('show');
-    });
-  }
-  
-  if (searchCloseBtn && searchOverlay) {
-    searchCloseBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.remove('show');
-    });
-  }
+
 
   const tabUnused = document.getElementById("tab-unused");
   const tabUsed = document.getElementById("tab-used");
