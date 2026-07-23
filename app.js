@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 8080;
 app.use(
   createProxyMiddleware({
     pathFilter: '/api',
-    target: 'http://localhost:3000',
+    target: process.env.BE_URL || 'http://localhost:3000',
     changeOrigin: true,
   })
 );
