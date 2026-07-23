@@ -1,0 +1,8 @@
+services:
+  fe:
+    image: biohyeok/wku-iksan-store-fe:latest
+    environment:
+      - BE_URL=http://10.101.2.179:4000
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
