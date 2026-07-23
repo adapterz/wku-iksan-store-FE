@@ -75,6 +75,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 하단 네비게이션 바 공통 HTML 반환 함수
     function getBottomNavHTML() {
+        const isPresumedLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+        const userIconClass = isPresumedLoggedIn ? "fa-solid fa-user logged-in" : "fa-regular fa-user";
+        const dotHidden = isPresumedLoggedIn ? "" : "hidden";
+        const textStr = isPresumedLoggedIn ? "my" : "login";
+        const myHref = isPresumedLoggedIn ? "mypage.html" : "login.html";
+
         return `
         <a href="index.html" class="nav-item">
             <i class="fa-solid fa-house"></i>
@@ -88,12 +94,12 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fa-solid fa-magnifying-glass"></i>
             <span class="nav-text">SHOP</span>
         </a>
-        <a href="login.html" id="btn-bottom-my" class="nav-item">
+        <a href="${myHref}" id="btn-bottom-my" class="nav-item">
             <div class="login-status-icon-wrapper">
-                <i id="bottom-login-status-icon" class="fa-regular fa-user"></i>
-                <span id="bottom-login-status-dot" class="login-status-dot" hidden></span>
+                <i id="bottom-login-status-icon" class="${userIconClass}"></i>
+                <span id="bottom-login-status-dot" class="login-status-dot" ${dotHidden}></span>
             </div>
-            <span id="bottom-login-status-text" class="nav-text">login</span>
+            <span id="bottom-login-status-text" class="nav-text">${textStr}</span>
         </a>`;
     }
 
@@ -125,18 +131,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (myBtn) {
             if (isLoggedIn) {
+                localStorage.setItem('isLoggedIn', 'true');
                 myBtn.href = 'mypage.html';
                 if (myIcon) {
-                    myIcon.classList.remove('fa-regular');
-                    myIcon.classList.add('fa-solid', 'logged-in');
+                    myIcon.className = 'fa-solid fa-user logged-in';
                 }
                 if (myDot) myDot.hidden = false;
                 if (myText) myText.textContent = 'my';
             } else {
+                localStorage.removeItem('isLoggedIn');
                 myBtn.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
                 if (myIcon) {
-                    myIcon.classList.remove('fa-solid', 'logged-in');
-                    myIcon.classList.add('fa-regular');
+                    myIcon.className = 'fa-regular fa-user';
                 }
                 if (myDot) myDot.hidden = true;
                 if (myText) myText.textContent = 'login';

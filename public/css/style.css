@@ -126,7 +126,7 @@ button {
 }
 
 #bottom-login-status-icon.logged-in {
-  color: #0fad63 !important;
+  color: #0f8a51 !important;
 }
 
 .login-status-dot {
@@ -136,7 +136,7 @@ button {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #0fad63;
+  background-color: #0f8a51;
   border: 2px solid #FFFFFF;
 }
 
