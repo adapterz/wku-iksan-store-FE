@@ -1,35 +1,6 @@
 document.addEventListener("header:ready", () => {
-  // 뒤로가기 버튼 로직
-  const backBtn = document.getElementById('btn-back');
-  if (backBtn) {
-    backBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (window.history.length > 1 && document.referrer) {
-        window.history.back();
-      } else {
-        window.location.href = 'index.html';
-      }
-    });
-  }
 
-  // 검색 오버레이 열기/닫기 로직
-  const searchOpenBtn = document.getElementById('btn-search-open');
-  const searchCloseBtn = document.getElementById('btn-search-close');
-  const searchOverlay = document.getElementById('search-overlay');
-  
-  if (searchOpenBtn && searchOverlay) {
-    searchOpenBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.add('show');
-    });
-  }
-  
-  if (searchCloseBtn && searchOverlay) {
-    searchCloseBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.remove('show');
-    });
-  }
+
 
   const tabUnused = document.getElementById("tab-unused");
   const tabUsed = document.getElementById("tab-used");
@@ -146,17 +117,7 @@ document.addEventListener("header:ready", () => {
   // Init
   loadGifts(currentStatus);
 
-  // 하단 네비게이션(nav-item) 이벤트 등록 (동적 생성 후 실행되어야 함)
-  const navItems = document.querySelectorAll('.nav-item');
-  navItems.forEach(item => {
-    item.addEventListener('click', (e) => {
-      if (item.getAttribute('href') === '#') {
-        e.preventDefault();
-      }
-      navItems.forEach(el => el.classList.remove('active'));
-      item.classList.add('active');
-    });
-  });
+
 
   const navBar = document.querySelector('.nav-bar');
   if (navBar) {

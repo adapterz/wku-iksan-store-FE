@@ -1,35 +1,6 @@
 document.addEventListener("header:ready", async () => {
-  // 뒤로가기 버튼 로직
-  const backBtn = document.getElementById('btn-back');
-  if (backBtn) {
-    backBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (window.history.length > 1 && document.referrer) {
-        window.history.back();
-      } else {
-        window.location.href = 'index.html';
-      }
-    });
-  }
 
-  // 검색 오버레이 열기/닫기 로직
-  const searchOpenBtn = document.getElementById('btn-search-open');
-  const searchCloseBtn = document.getElementById('btn-search-close');
-  const searchOverlay = document.getElementById('search-overlay');
-  
-  if (searchOpenBtn && searchOverlay) {
-    searchOpenBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.add('show');
-    });
-  }
-  
-  if (searchCloseBtn && searchOverlay) {
-    searchCloseBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.remove('show');
-    });
-  }
+
 
   const urlParams = new URLSearchParams(window.location.search);
   const orderId = urlParams.get('orderId');
