@@ -158,4 +158,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }, { passive: false });
     }
+
+    // Policy Overlays Logic
+    const policyConfig = [
+        { btn: 'btn-policy-terms', overlay: 'policy-terms-overlay', close: 'btn-close-terms' },
+        { btn: 'btn-policy-penalty', overlay: 'policy-penalty-overlay', close: 'btn-close-penalty' },
+        { btn: 'btn-policy-privacy', overlay: 'policy-privacy-overlay', close: 'btn-close-privacy' }
+    ];
+
+    policyConfig.forEach(({ btn, overlay, close }) => {
+        const btnEl = document.getElementById(btn);
+        const overlayEl = document.getElementById(overlay);
+        const closeEl = document.getElementById(close);
+
+        if (btnEl && overlayEl && closeEl) {
+            btnEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                overlayEl.classList.add('open');
+            });
+            closeEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                overlayEl.classList.remove('open');
+            });
+        }
+    });
 });
