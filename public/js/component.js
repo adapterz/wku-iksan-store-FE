@@ -38,11 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <a href="index.html" class="header-icon" title="홈">
                     <i class="fa-solid fa-house"></i>
                 </a>
-                <a href="giftbox.html" class="header-icon" title="선물함">
-                    <i class="fa-solid fa-gift"></i>
-                </a>
-                <a href="#" class="header-icon" title="더보기">
-                    <i class="fa-thin fa-arrow-left"></i>
+                <a href="#" class="header-icon" title="주문내역">
+                    <i class="fa-solid fa-receipt"></i>
                 </a>
             </div>
         </div>`;
