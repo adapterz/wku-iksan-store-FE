@@ -1,35 +1,6 @@
-document.addEventListener("DOMContentLoaded", async () => {
-  // 뒤로가기 버튼 로직
-  const backBtn = document.getElementById('btn-back');
-  if (backBtn) {
-    backBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (window.history.length > 1 && document.referrer) {
-        window.history.back();
-      } else {
-        window.location.href = 'index.html';
-      }
-    });
-  }
+document.addEventListener("header:ready", async () => {
 
-  // 검색 오버레이 열기/닫기 로직
-  const searchOpenBtn = document.getElementById('btn-search-open');
-  const searchCloseBtn = document.getElementById('btn-search-close');
-  const searchOverlay = document.getElementById('search-overlay');
-  
-  if (searchOpenBtn && searchOverlay) {
-    searchOpenBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.add('show');
-    });
-  }
-  
-  if (searchCloseBtn && searchOverlay) {
-    searchCloseBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.remove('show');
-    });
-  }
+
 
   const urlParams = new URLSearchParams(window.location.search);
   const orderId = urlParams.get('orderId');
@@ -58,6 +29,28 @@ document.addEventListener("DOMContentLoaded", async () => {
       alert("주문 정보를 불러올 수 없습니다.");
       location.href = "index.html";
     }
+  }
+
+  // 하단 네비게이션(nav-item) 이벤트 등록 (동적 생성 후 실행되어야 함)
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (item.getAttribute('href') === '#') {
+        e.preventDefault();
+      }
+      navItems.forEach(el => el.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+
+  const navBar = document.querySelector('.nav-bar');
+  if (navBar) {
+    navBar.addEventListener('wheel', (e) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        navBar.scrollLeft += e.deltaY;
+      }
+    }, { passive: false });
   }
 });
 
@@ -105,26 +98,4 @@ function renderCompletePage(order) {
   }
 }
 
-// Top Nav Tab Bar Click Logic (FOR ME, 홈, 랭킹, 썸머세일, 와인/맥주...)
-  const navItems = document.querySelectorAll('.nav-item');
-  navItems.forEach(item => {
-    item.addEventListener('click', (e) => {
-      // Prevent default navigation if href is '#' or equivalent to prevent jumpy page reloads
-      if (item.getAttribute('href') === '#') {
-        e.preventDefault();
-      }
-      navItems.forEach(el => el.classList.remove('active'));
-      item.classList.add('active');
-    });
-  });
 
-  // Mouse wheel horizontal scrolling translation for .nav-bar
-  const navBar = document.querySelector('.nav-bar');
-  if (navBar) {
-    navBar.addEventListener('wheel', (e) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        navBar.scrollLeft += e.deltaY;
-      }
-    }, { passive: false });
-  }
