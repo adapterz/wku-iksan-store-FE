@@ -1,16 +1,4 @@
 document.addEventListener("header:ready", async () => {
-  // 뒤로가기 버튼 로직
-  const backBtn = document.getElementById('btn-back');
-  if (backBtn) {
-    backBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (window.history.length > 1 && document.referrer) {
-        window.history.back();
-      } else {
-        window.location.href = 'index.html';
-      }
-    });
-  }
 
   // 검색 오버레이 열기/닫기 로직
   const searchOpenBtn = document.getElementById('btn-search-open');
