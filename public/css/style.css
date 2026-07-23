@@ -795,9 +795,30 @@ body {
     color: #999;
     text-decoration: none;
 }
+
+.bottom-nav .nav-item i {
+    font-size: 20px;
+}
 .bottom-nav .nav-item.active {
     color: #222;
+    position: relative;
 }
+
+.bottom-nav .nav-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: -10px; /* Align with bottom-nav padding if needed, assuming some padding */
+    left: 20%;
+    right: 20%;
+    height: 3px;
+    background-color: #222;
+    border-radius: 2px 2px 0 0;
+}
+
+.bottom-nav .nav-item.active i {
+    color: currentColor !important;
+}
+
 .bottom-nav .nav-text {
     font-size: 11px;
     font-weight: 500;
@@ -2200,62 +2221,6 @@ body {
     border: none;
 }
 
-/* Bottom Nav Bar */
-body {
-    padding-bottom: 70px;
-}
-
-.bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 100%;
-    max-width: 430px;
-    background-color: #fff;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 20px;
-    padding-bottom: env(safe-area-inset-bottom, 10px);
-    border-top: 1px solid #EAEAEA;
-    z-index: 1000;
-}
-
-.bottom-nav .nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    flex: 1;
-    color: #999;
-    text-decoration: none;
-}
-
-.bottom-nav .nav-item.active {
-    color: #222;
-    position: relative;
-}
-
-.bottom-nav .nav-item.active::after {
-    content: '';
-    position: absolute;
-    bottom: -10px; /* Align with bottom-nav padding if needed, assuming some padding */
-    left: 20%;
-    right: 20%;
-    height: 3px;
-    background-color: #222;
-    border-radius: 2px 2px 0 0;
-}
-
-.bottom-nav .nav-item.active i {
-    color: currentColor !important;
-}
-
-.bottom-nav .nav-text {
-    font-size: 11px;
-    font-weight: 500;
-}
 
 
 /* Order Back Confirmation Overlay */
