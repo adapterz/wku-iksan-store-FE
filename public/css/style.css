@@ -122,21 +122,22 @@ button {
 
 .login-status-icon-wrapper {
   position: relative;
+  display: inline-flex;
 }
 
-.login-status-icon-wrapper.logged-in {
-  color: #0F6E56;
+#bottom-login-status-icon.logged-in {
+  color: #0fad63 !important;
 }
 
 .login-status-dot {
   position: absolute;
-  top: -1px;
-  right: -1px;
+  top: -4px;
+  right: -6px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #0F6E56;
-  border: 1.5px solid #FFFFFF;
+  background-color: #0fad63;
+  border: 2px solid #FFFFFF;
 }
 
 .login-status-dropdown {
