@@ -9,8 +9,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             if (nicknameEl) nicknameEl.textContent = user.nickname || 'Unknown';
             if (useridEl) useridEl.textContent = user.userId;
+            
+            // 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
+            document.body.style.visibility = 'visible';
+            document.body.style.opacity = '1';
         } else {
             console.error('No user data in response');
+            document.body.style.visibility = 'visible';
+            document.body.style.opacity = '1';
         }
     } catch (error) {
         if (error.status === 401) {
@@ -18,6 +24,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         console.error('Error fetching user data:', error);
+        document.body.style.visibility = 'visible';
+        document.body.style.opacity = '1';
     }
 
     // Settings Overlay Logic
