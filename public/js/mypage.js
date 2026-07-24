@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Settings Overlay Logic
-    const settingsBtn = document.querySelector('.icon-btn[aria-label="설정"]');
+    const settingsBtn = document.getElementById('btn-settings-open');
     const settingsOverlay = document.getElementById('settings-overlay');
     const settingsCloseBtn = document.getElementById('btn-settings-close');
 
@@ -74,10 +74,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     // Logout Logic
-    const logoutBtn = document.querySelector('.settings-logout');
+    const logoutBtn = document.getElementById('btn-settings-logout');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async (e) => {
             e.preventDefault();
+            
+            // 캐시 데이터 초기화 (보안 및 상태 일관성)
+            cachedUserData = null;
+            
             try {
                 await requestJson('/api/auth/logout', { method: 'POST' });
             } catch (error) {
