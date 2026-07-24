@@ -259,6 +259,47 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Profile Manage Overlay Logic
+    const btnProfileManage = document.getElementById('btn-profile-manage');
+    const profileManageOverlay = document.getElementById('profile-manage-overlay');
+    const btnCloseProfileManage = document.getElementById('btn-close-profile-manage');
+
+    if (btnProfileManage && profileManageOverlay && btnCloseProfileManage) {
+        btnProfileManage.addEventListener('click', async (e) => {
+            e.preventDefault();
+
+            try {
+                // Fetch user data
+                let result;
+                try {
+                    result = await window.requestJson('/api/auth/me');
+                } catch (error) {
+                    if (error.status === 401 || error.code === 'UNAUTHORIZED') {
+                        // 미인증 상태일 때 예외처리 없이 콘솔 로그 후 리턴 (요구사항: 예외 상황에서 에러가 발생하지 않도록)
+                        console.warn('프로필 관리: 비로그인 상태입니다.');
+                        return;
+                    }
+                    throw error;
+                }
+
+                // Data binding
+                const manageNicknameEl = document.getElementById('manage-profile-nickname');
+                if (manageNicknameEl) manageNicknameEl.textContent = result.data.nickname || '이름 없음';
+                
+                // Open overlay
+                profileManageOverlay.classList.add('open');
+
+            } catch (error) {
+                console.error('Failed to fetch user info for profile manage:', error);
+            }
+        });
+
+        btnCloseProfileManage.addEventListener('click', (e) => {
+            e.preventDefault();
+            profileManageOverlay.classList.remove('open');
+        });
+    }
+
     // Profile Share Button Logic
     const btnProfileShare = document.getElementById('btn-profile-share');
     let toastTimer = null;
