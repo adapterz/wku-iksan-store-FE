@@ -2932,3 +2932,47 @@ body.page-complete {
     overflow: hidden;
     background-color: #F0F0F0;
 }
+
+/* ==========================================================================
+   Policy Overlays Container Styles (Terms, Penalty, Privacy)
+   ========================================================================== */
+.policy-container {
+    padding: 20px;
+    font-size: 14px;
+    color: #191919;
+    line-height: 1.5;
+    overflow-y: auto;
+}
+
+.policy-container h2 {
+    font-size: 18px;
+    margin-bottom: 10px;
+}
+
+.policy-container p {
+    margin-top: 15px;
+}
+
+/* margin-top: 10px exception for first paragraphs */
+.policy-container p:first-of-type,
+.policy-container h2 + p {
+    margin-top: 10px;
+}
+
+.policy-container table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 5px;
+    font-size: 12px;
+    text-align: left;
+}
+
+.policy-container th, 
+.policy-container td {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+.policy-container th {
+    background-color: #f2f2f2;
+}
