@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
+  const PRODUCT_CACHE_KEY = 'iksanstore:products:v1';
+  const PRODUCT_CACHE_TTL_MS = 5 * 60 * 1000;
+
   // Helper to dynamically build a product card element
   function createProductCard(product, options = {}) {
     const card = document.createElement('article');
@@ -184,8 +187,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Load products from /api/products
+  // 5분 이내의 상품 캐시가 있으면 재요청 없이 사용하고, 없으면 API에서 새로 조회한다.
   async function loadProducts() {
+    const sessionProducts = window.sessionCache
+      ? window.sessionCache.get(PRODUCT_CACHE_KEY, PRODUCT_CACHE_TTL_MS)
+      : null;
+
+    if (Array.isArray(sessionProducts)) {
+      cachedProducts = sessionProducts;
+
+      if (sessionProducts.length === 0) {
+        showEmptyState();
+      } else {
+        renderProductsData(sessionProducts);
+      }
+      return;
+    }
+
     renderSkeletonState();
     const settle = createSkeletonGuard(showErrorState, 5000);
 
@@ -195,6 +213,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await requestJson('/api/products');
       if (result && result.data && Array.isArray(result.data)) {
         apiProducts = result.data;
+        if (window.sessionCache) {
+          window.sessionCache.set(PRODUCT_CACHE_KEY, apiProducts);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch products from API:', error);
