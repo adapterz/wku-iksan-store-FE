@@ -70,6 +70,8 @@ button {
   background-color: #FFFFFF;
   border-bottom: 1px solid var(--border-color);
   padding: 14px 16px;
+  height: 60px;
+  box-sizing: border-box;
 }
 
 .header-container {
@@ -1916,16 +1918,25 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 15px 20px;
+    padding: 14px 16px;
     background-color: #fff;
     border-bottom: 1px solid #EAEAEA;
+    height: 60px;
+    box-sizing: border-box;
 }
 .mypage-header .icon-btn {
     background: none;
     border: none;
-    font-size: 24px;
+    font-size: 20px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    color: #333;
+    color: #191919;
+    padding: 0;
+    text-decoration: none;
 }
 .header-tabs {
     display: flex;
