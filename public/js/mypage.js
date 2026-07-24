@@ -182,21 +182,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Policy Overlays Logic
     const policyConfig = [
-        { btn: 'btn-policy-terms', overlay: 'policy-terms-overlay', close: 'btn-close-terms' },
-        { btn: 'btn-policy-penalty', overlay: 'policy-penalty-overlay', close: 'btn-close-penalty' },
-        { btn: 'btn-policy-privacy', overlay: 'policy-privacy-overlay', close: 'btn-close-privacy' }
+        { btns: ['btn-policy-terms', 'btn-settings-policy-terms'], overlay: 'policy-terms-overlay', close: 'btn-close-terms' },
+        { btns: ['btn-policy-penalty', 'btn-settings-policy-penalty'], overlay: 'policy-penalty-overlay', close: 'btn-close-penalty' },
+        { btns: ['btn-policy-privacy', 'btn-settings-policy-privacy'], overlay: 'policy-privacy-overlay', close: 'btn-close-privacy' }
     ];
 
-    policyConfig.forEach(({ btn, overlay, close }) => {
-        const btnEl = document.getElementById(btn);
+    policyConfig.forEach(({ btns, overlay, close }) => {
         const overlayEl = document.getElementById(overlay);
         const closeEl = document.getElementById(close);
 
-        if (btnEl && overlayEl && closeEl) {
-            btnEl.addEventListener('click', (e) => {
-                e.preventDefault();
-                overlayEl.classList.add('open');
+        if (overlayEl && closeEl) {
+            // 여러 개의 여는 버튼에 각각 이벤트 리스너 등록
+            btns.forEach(btnId => {
+                const btnEl = document.getElementById(btnId);
+                if (btnEl) {
+                    btnEl.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        overlayEl.classList.add('open');
+                    });
+                }
             });
+
+            // 닫는 버튼 이벤트 리스너 등록
             closeEl.addEventListener('click', (e) => {
                 e.preventDefault();
                 overlayEl.classList.remove('open');
