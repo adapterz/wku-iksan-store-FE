@@ -2837,3 +2837,25 @@ body.page-complete {
             padding-bottom: 40px;
         }
 
+/* Toast Notification */
+.toast-notification {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(25, 25, 25, 0.85);
+    color: #FFFFFF;
+    padding: 12px 24px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    white-space: nowrap;
+}
+.toast-notification.show {
+    opacity: 1;
+    visibility: visible;
+}
