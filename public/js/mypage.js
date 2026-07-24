@@ -107,24 +107,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // 1. DOM 요소 선택
+    const historyCountAll = document.getElementById('history-count-all');
+    const historyCountSelf = document.getElementById('history-count-self');
+    const historyCountReceived = document.getElementById('history-count-received');
+    const historyCountUsed = document.getElementById('history-count-used');
+
     if (unusedGiftsCountEl && unusedGiftsListEl) {
         renderUnusedGiftsSkeleton();
         const settle = createSkeletonGuard(() => {
-            unusedGiftsListEl.innerHTML = unusedGiftsFallbackHtml('미사용 선물을 불러오지 못했습니다.');
+            unusedGiftsListEl.innerHTML = unusedGiftsFallbackHtml('선물 데이터를 불러오지 못했습니다.');
         }, 1500);
 
         try {
-            const giftsResult = await requestJson('/api/gifts?status=unused');
+            // 2. 전체 선물 목록 API 호출
+            const allGiftsResult = await requestJson('/api/gifts');
             settle();
-            const gifts = giftsResult.data || [];
+            const allGifts = allGiftsResult.data || [];
 
-            unusedGiftsCountEl.textContent = gifts.length;
+            // 3. 탭별 카운트 계산 및 갱신
+            if (historyCountAll) historyCountAll.textContent = allGifts.length;
+            if (historyCountSelf) historyCountSelf.textContent = allGifts.filter(g => g.isSelfGift).length;
+            if (historyCountReceived) historyCountReceived.textContent = allGifts.filter(g => !g.isSelfGift).length;
+            if (historyCountUsed) historyCountUsed.textContent = allGifts.filter(g => g.status === 'used').length;
 
-            if (gifts.length === 0) {
+            // 4. 미사용 선물 필터링 및 리스트 렌더링
+            const unusedGifts = allGifts.filter(g => g.status === 'unused');
+            unusedGiftsCountEl.textContent = unusedGifts.length;
+
+            if (unusedGifts.length === 0) {
                 unusedGiftsListEl.innerHTML = unusedGiftsFallbackHtml('미사용 선물이 없습니다.');
             } else {
                 unusedGiftsListEl.innerHTML = '';
-                gifts.forEach(gift => {
+                unusedGifts.forEach(gift => {
                     const senderText = gift.isSelfGift ? "나" : (gift.senderNickname || "친구");
 
                     const card = document.createElement('a');
@@ -143,8 +158,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } catch (error) {
             settle();
-            console.error('Error fetching unused gifts:', error);
-            unusedGiftsListEl.innerHTML = unusedGiftsFallbackHtml('미사용 선물을 불러오지 못했습니다.');
+            console.error('Error fetching gifts:', error);
+            unusedGiftsListEl.innerHTML = unusedGiftsFallbackHtml('선물 데이터를 불러오지 못했습니다.');
+            
+            // 에러 발생 시 카운트를 0으로 기본값 처리
+            if (historyCountAll) historyCountAll.textContent = '0';
+            if (historyCountSelf) historyCountSelf.textContent = '0';
+            if (historyCountReceived) historyCountReceived.textContent = '0';
+            if (historyCountUsed) historyCountUsed.textContent = '0';
         }
     }
 
