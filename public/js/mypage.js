@@ -211,94 +211,74 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Login Info Overlay Logic
-    const btnLoginInfo = document.getElementById('btn-settings-login-info');
-    const loginInfoOverlay = document.getElementById('login-info-overlay');
-    const btnCloseLoginInfo = document.getElementById('btn-close-login-info');
+    // User Data Caching and Overlay Logic (Login Info & Profile Manage)
+    let cachedUserData = null;
 
-    if (btnLoginInfo && loginInfoOverlay && btnCloseLoginInfo) {
-        btnLoginInfo.addEventListener('click', async (e) => {
-            e.preventDefault();
-
+    async function ensureUserData() {
+        if (!cachedUserData) {
             try {
-                // Fetch user data (use global requestJson to include session cookies)
-                let result;
+                const result = await window.requestJson('/api/auth/me');
+                cachedUserData = result.data;
+            } catch (error) {
+                if (error.status === 401 || error.code === 'UNAUTHORIZED') {
+                    console.warn('마이페이지 오버레이: 비로그인 상태입니다.');
+                    return null;
+                }
+                throw error;
+            }
+        }
+        return cachedUserData;
+    }
+
+    function setupUserOverlay(btnId, overlayId, closeBtnId, onOpenCallback, redirectOnFail = false) {
+        const btn = document.getElementById(btnId);
+        const overlay = document.getElementById(overlayId);
+        const closeBtn = document.getElementById(closeBtnId);
+        
+        if (btn && overlay && closeBtn) {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                
+                let userData = null;
                 try {
-                    result = await window.requestJson('/api/auth/me');
-                } catch (error) {
-                    if (error.status === 401 || error.code === 'UNAUTHORIZED') {
+                    userData = await ensureUserData();
+                } catch (err) {
+                    console.error('Failed to fetch user data:', err);
+                }
+                
+                if (!userData) {
+                    if (redirectOnFail) {
                         alert('로그인이 필요한 서비스입니다.');
                         location.href = 'login.html';
-                        return;
                     }
-                    throw error;
+                    return; // 비로그인 시 오버레이 열지 않거나 조용히 리턴
                 }
-
-                // Data binding
-                const emailEl = document.getElementById('login-info-email');
-                const nicknameEl = document.getElementById('login-info-nickname');
                 
-                if (emailEl) emailEl.textContent = result.data.email || '';
-                if (nicknameEl) nicknameEl.textContent = result.data.nickname || '';
-                
-                // Note: 백엔드 API에서 패스워드나 길이를 반환하지 않으므로 임의로 8자리 마스킹(********) 처리함
-                // HTML 상에 하드코딩된 ********를 그대로 표출함
+                if (onOpenCallback) onOpenCallback(userData);
+                overlay.classList.add('open');
+            });
 
-                // Open overlay
-                loginInfoOverlay.classList.add('open');
-
-            } catch (error) {
-                console.error('Failed to fetch user info:', error);
-                alert('회원 정보를 불러오는 중 오류가 발생했습니다.');
-            }
-        });
-
-        btnCloseLoginInfo.addEventListener('click', (e) => {
-            e.preventDefault();
-            loginInfoOverlay.classList.remove('open');
-        });
+            closeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                overlay.classList.remove('open');
+            });
+        }
     }
 
-    // Profile Manage Overlay Logic
-    const btnProfileManage = document.getElementById('btn-profile-manage');
-    const profileManageOverlay = document.getElementById('profile-manage-overlay');
-    const btnCloseProfileManage = document.getElementById('btn-close-profile-manage');
+    // Bind Login Info Overlay (redirect on fail)
+    setupUserOverlay('btn-settings-login-info', 'login-info-overlay', 'btn-close-login-info', (userData) => {
+        const emailEl = document.getElementById('login-info-email');
+        const nicknameEl = document.getElementById('login-info-nickname');
+        if (emailEl) emailEl.textContent = userData.email || '';
+        if (nicknameEl) nicknameEl.textContent = userData.nickname || '';
+        // 패스워드는 HTML 상에 하드코딩된 ******** 그대로 사용
+    }, true);
 
-    if (btnProfileManage && profileManageOverlay && btnCloseProfileManage) {
-        btnProfileManage.addEventListener('click', async (e) => {
-            e.preventDefault();
-
-            try {
-                // Fetch user data
-                let result;
-                try {
-                    result = await window.requestJson('/api/auth/me');
-                } catch (error) {
-                    if (error.status === 401 || error.code === 'UNAUTHORIZED') {
-                        // 미인증 상태일 때 예외처리 없이 콘솔 로그 후 리턴 (요구사항: 예외 상황에서 에러가 발생하지 않도록)
-                        console.warn('프로필 관리: 비로그인 상태입니다.');
-                        return;
-                    }
-                    throw error;
-                }
-
-                // Data binding
-                const manageNicknameEl = document.getElementById('manage-profile-nickname');
-                if (manageNicknameEl) manageNicknameEl.textContent = result.data.nickname || '이름 없음';
-                
-                // Open overlay
-                profileManageOverlay.classList.add('open');
-
-            } catch (error) {
-                console.error('Failed to fetch user info for profile manage:', error);
-            }
-        });
-
-        btnCloseProfileManage.addEventListener('click', (e) => {
-            e.preventDefault();
-            profileManageOverlay.classList.remove('open');
-        });
-    }
+    // Bind Profile Manage Overlay (silent return on fail)
+    setupUserOverlay('btn-profile-manage', 'profile-manage-overlay', 'btn-close-profile-manage', (userData) => {
+        const manageNicknameEl = document.getElementById('manage-profile-nickname');
+        if (manageNicknameEl) manageNicknameEl.textContent = userData.nickname || '이름 없음';
+    }, false);
 
     // Profile Share Button Logic
     const btnProfileShare = document.getElementById('btn-profile-share');

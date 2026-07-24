@@ -141,24 +141,24 @@
             </button>
             <div style="font-size: 16px; font-weight: 700; flex: 1; padding-left: 10px;">프로필 관리</div>
         </div>
-        <div class="search-overlay-body" style="padding: 20px; color: #191919;">
+        <div class="search-overlay-body overlay-content-area">
             
             <!-- Profile Image Area -->
-            <div style="display: flex; justify-content: center; margin-top: 20px; margin-bottom: 40px;">
-                <div style="position: relative; width: 100px; height: 100px; border-radius: 50%; overflow: hidden; background-color: #F0F0F0;">
+            <div class="overlay-profile-img-container">
+                <div class="overlay-profile-img-wrapper">
                     <img id="manage-profile-img" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQceBIRP2B6FYeMIsQBNlnzHnjd6HxqMzoQWiYvOMb0hQ&s=10" alt="프로필 이미지" style="width: 100%; height: 100%; object-fit: cover;">
                 </div>
             </div>
 
             <!-- Profile Info Area -->
-            <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 20px;">프로필 정보</h3>
+            <h3 class="overlay-section-title">프로필 정보</h3>
             
-            <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px;">프로필 이름</label>
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-                <div style="background-color: #F8F8F8; padding: 12px 16px; font-size: 14px; color: #191919; flex: 1; margin-right: 10px; min-height: 44px; display: flex; align-items: center;" id="manage-profile-nickname">
+            <label class="overlay-input-label">프로필 이름</label>
+            <div class="overlay-input-group">
+                <div class="overlay-input-box overlay-input-box-margin" id="manage-profile-nickname">
                     <!-- nickname here -->
                 </div>
-                <button style="border: 1px solid #191919; background-color: #FFFFFF; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; color: #191919; cursor: pointer; height: 32px; flex-shrink: 0;">변경</button>
+                <button class="overlay-btn-change">변경</button>
             </div>
             
         </div>
@@ -172,36 +172,36 @@
             </button>
             <div style="font-size: 16px; font-weight: 700; flex: 1; padding-left: 10px;">로그인 정보</div>
         </div>
-        <div class="search-overlay-body" style="padding: 20px; font-size: 14px; color: #191919;">
-            <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 20px;">내 계정</h3>
+        <div class="search-overlay-body overlay-content-area">
+            <h3 class="overlay-section-title">내 계정</h3>
             
             <!-- 이메일 아이디 -->
             <div style="margin-bottom: 20px;">
-                <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px;">이메일 아이디</label>
-                <div style="background-color: #F8F8F8; padding: 12px 16px; font-size: 14px; color: #999999; min-height: 44px; display: flex; align-items: center;" id="login-info-email">
+                <label class="overlay-input-label">이메일 아이디</label>
+                <div class="overlay-input-box" id="login-info-email">
                     <!-- email here -->
                 </div>
             </div>
 
             <!-- 비밀번호 -->
             <div style="margin-bottom: 20px;">
-                <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px;">비밀번호</label>
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="background-color: #F8F8F8; padding: 12px 16px; font-size: 14px; color: #999999; flex: 1; margin-right: 10px; min-height: 44px; display: flex; align-items: center;" id="login-info-password">
+                <label class="overlay-input-label">비밀번호</label>
+                <div class="overlay-input-group">
+                    <div class="overlay-input-box overlay-input-box-margin" id="login-info-password">
                         ********
                     </div>
-                    <button style="border: 1px solid #191919; background-color: #FFFFFF; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; color: #191919; cursor: pointer; height: 32px; flex-shrink: 0;">변경</button>
+                    <button class="overlay-btn-change">변경</button>
                 </div>
             </div>
 
             <!-- 닉네임 -->
             <div style="margin-bottom: 40px;">
-                <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px;">닉네임</label>
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="background-color: #F8F8F8; padding: 12px 16px; font-size: 14px; color: #999999; flex: 1; margin-right: 10px; min-height: 44px; display: flex; align-items: center;" id="login-info-nickname">
+                <label class="overlay-input-label">닉네임</label>
+                <div class="overlay-input-group">
+                    <div class="overlay-input-box overlay-input-box-margin" id="login-info-nickname">
                         <!-- nickname here -->
                     </div>
-                    <button style="border: 1px solid #191919; background-color: #FFFFFF; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; color: #191919; cursor: pointer; height: 32px; flex-shrink: 0;">변경</button>
+                    <button class="overlay-btn-change">변경</button>
                 </div>
             </div>
 

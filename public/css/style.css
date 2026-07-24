@@ -2859,3 +2859,65 @@ body.page-complete {
     opacity: 1;
     visibility: visible;
 }
+
+/* Overlay Shared UI (Profile & Login Info) */
+.overlay-content-area {
+    padding: 20px;
+    font-size: 14px;
+    color: #191919;
+}
+.overlay-section-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 20px;
+}
+.overlay-input-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+.overlay-input-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.overlay-input-box {
+    background-color: #F8F8F8;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: #999999;
+    flex: 1;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+}
+.overlay-input-box-margin {
+    margin-right: 10px;
+}
+.overlay-btn-change {
+    border: 1px solid #191919;
+    background-color: #FFFFFF;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #191919;
+    cursor: pointer;
+    height: 32px;
+    flex-shrink: 0;
+}
+.overlay-profile-img-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+    margin-bottom: 40px;
+}
+.overlay-profile-img-wrapper {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    background-color: #F0F0F0;
+}
