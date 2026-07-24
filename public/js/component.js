@@ -147,6 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (myDot) myDot.hidden = true;
                 if (myText) myText.textContent = 'login';
             }
+            updateActiveStates();
         }
 
         // 인증 정보를 필요한 곳(home.js 등)에서 사용할 수 있도록 커스텀 이벤트 디스패치
