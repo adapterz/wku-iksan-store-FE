@@ -2002,21 +2002,7 @@ body {
 .profile-userid:not(:empty)::after {
     content: ")";
 }
-.profile-stats {
-    font-size: 14px;
-    color: #666;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.profile-stats strong {
-    font-weight: 700;
-    color: #333;
-}
-.stat-divider {
-    color: #EAEAEA;
-    font-size: 12px;
-}
+
 .profile-actions {
     display: flex;
     gap: 10px;
@@ -2359,11 +2345,9 @@ body {
     margin-top: 20px;
 }
 
-
-/* --- Extracted Inline Styles --- */
 /* Styles from mypage.html */
 .page-mypage /* 마이페이지 ui 글꼴 bold체 없애기 */
-        .tab-btn.active, .page-mypage .profile-nickname, .page-mypage .profile-stats strong, .page-mypage .action-btn, .page-mypage .grid-text, .page-mypage text, .page-mypage .section-title, .page-mypage .history-count, .page-mypage .cs-title, .page-mypage .cs-btn, .page-mypage .nav-text, .page-mypage .history-label {
+        .tab-btn.active, .page-mypage .profile-nickname, .page-mypage strong, .page-mypage .action-btn, .page-mypage .grid-text, .page-mypage text, .page-mypage .section-title, .page-mypage .history-count, .page-mypage .cs-title, .page-mypage .cs-btn, .page-mypage .nav-text, .page-mypage .history-label {
             font-weight: 400 !important;
         }
 
