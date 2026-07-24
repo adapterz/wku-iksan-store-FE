@@ -210,4 +210,52 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
     });
+
+    // Login Info Overlay Logic
+    const btnLoginInfo = document.getElementById('btn-settings-login-info');
+    const loginInfoOverlay = document.getElementById('login-info-overlay');
+    const btnCloseLoginInfo = document.getElementById('btn-close-login-info');
+
+    if (btnLoginInfo && loginInfoOverlay && btnCloseLoginInfo) {
+        btnLoginInfo.addEventListener('click', async (e) => {
+            e.preventDefault();
+
+            try {
+                // Fetch user data (use global requestJson to include session cookies)
+                let result;
+                try {
+                    result = await window.requestJson('/api/auth/me');
+                } catch (error) {
+                    if (error.status === 401 || error.code === 'UNAUTHORIZED') {
+                        alert('로그인이 필요한 서비스입니다.');
+                        location.href = 'login.html';
+                        return;
+                    }
+                    throw error;
+                }
+
+                // Data binding
+                const emailEl = document.getElementById('login-info-email');
+                const nicknameEl = document.getElementById('login-info-nickname');
+                
+                if (emailEl) emailEl.textContent = result.data.email || '';
+                if (nicknameEl) nicknameEl.textContent = result.data.nickname || '';
+                
+                // Note: 백엔드 API에서 패스워드나 길이를 반환하지 않으므로 임의로 8자리 마스킹(********) 처리함
+                // HTML 상에 하드코딩된 ********를 그대로 표출함
+
+                // Open overlay
+                loginInfoOverlay.classList.add('open');
+
+            } catch (error) {
+                console.error('Failed to fetch user info:', error);
+                alert('회원 정보를 불러오는 중 오류가 발생했습니다.');
+            }
+        });
+
+        btnCloseLoginInfo.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginInfoOverlay.classList.remove('open');
+        });
+    }
 });
