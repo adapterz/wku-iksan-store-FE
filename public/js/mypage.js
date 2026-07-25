@@ -87,6 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             } catch (error) {
                 console.error('로그아웃 요청 실패:', error);
             }
+            localStorage.removeItem('isLoggedIn');
             window.location.href = 'login.html';
         });
     }
