@@ -122,61 +122,25 @@ button {
 
 .login-status-icon-wrapper {
   position: relative;
+  display: inline-flex;
 }
 
-.login-status-icon-wrapper.logged-in {
-  color: #0F6E56;
+#bottom-login-status-icon.logged-in {
+  color: #0f8a51 !important;
 }
 
 .login-status-dot {
   position: absolute;
-  top: -1px;
-  right: -1px;
+  top: -4px;
+  right: -6px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #0F6E56;
-  border: 1.5px solid #FFFFFF;
+  background-color: #0f8a51;
+  border: 2px solid #FFFFFF;
 }
 
-.login-status-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 54px;
-  margin-top: 8px;
-  width: 160px;
-  background-color: #FFFFFF;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  padding: 12px;
-  z-index: 200;
-}
 
-.login-status-nickname {
-  font-size: 14px;
-  font-weight: 700;
-  color: #191919;
-  margin-bottom: 2px;
-}
-
-.login-status-welcome {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 12px;
-}
-
-.login-status-divider {
-  border-top: 1px solid var(--border-color);
-  padding-top: 10px;
-}
-
-.login-status-logout {
-  font-size: 13px;
-  color: var(--accent-red);
-  width: 100%;
-  text-align: left;
-}
 
 .header-title {
   font-size: 18px;
@@ -795,9 +759,27 @@ body {
     color: #999;
     text-decoration: none;
 }
+
+.bottom-nav .nav-item i {
+    font-size: 20px;
+}
 .bottom-nav .nav-item.active {
     color: #222;
+    position: relative;
 }
+
+.bottom-nav .nav-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: -10px; /* Align with bottom-nav padding if needed, assuming some padding */
+    left: 20%;
+    right: 20%;
+    height: 3px;
+    background-color: #222;
+    border-radius: 2px 2px 0 0;
+}
+
+
 .bottom-nav .nav-text {
     font-size: 11px;
     font-weight: 500;
@@ -2200,81 +2182,7 @@ body {
     border: none;
 }
 
-/* Bottom Nav Bar */
-body {
-    padding-bottom: 70px;
-}
 
-.bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 100%;
-    max-width: 430px;
-    background-color: #fff;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 20px;
-    padding-bottom: env(safe-area-inset-bottom, 10px);
-    border-top: 1px solid #EAEAEA;
-    z-index: 1000;
-}
-
-.bottom-nav .nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    flex: 1;
-    color: #999;
-    text-decoration: none;
-}
-
-.bottom-nav .nav-item.active {
-    color: #222;
-    position: relative;
-}
-
-.bottom-nav .nav-item.active::after {
-    content: '';
-    position: absolute;
-    bottom: -10px; /* Align with bottom-nav padding if needed, assuming some padding */
-    left: 20%;
-    right: 20%;
-    height: 3px;
-    background-color: #222;
-    border-radius: 2px 2px 0 0;
-}
-
-.bottom-nav .nav-item.active svg {
-    fill: currentColor !important;
-}
-
-.bottom-nav .nav-text {
-    font-size: 11px;
-    font-weight: 500;
-}
-
-/* Custom Active State for Style Icon */
-.bottom-nav .nav-item.active .style-rect {
-    fill: currentColor;
-}
-.bottom-nav .nav-item.active .style-heart {
-    fill: #FFFFFF !important;
-}
-.bottom-nav .nav-item.active .style-line {
-    stroke: #FFFFFF !important;
-}
-
-/* Custom Active State for Home Icon */
-.bottom-nav .nav-item.active .home-path {
-    fill: currentColor;
-}
-.bottom-nav .nav-item.active .home-line {
-    stroke: #FFFFFF !important;
-}
 
 /* Order Back Confirmation Overlay */
 .order-back-overlay {
