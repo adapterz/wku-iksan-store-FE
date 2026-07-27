@@ -37,23 +37,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // UX/A11y 강화를 위해 포커스를 이동시킬 element를 인자로 추가
   function showError(message, focusElement = null) {
-    if (!errorEl) return;
-    errorEl.textContent = message;
-    errorEl.hidden = false;
-    errorEl.setAttribute('aria-live', 'assertive'); // 스크린 리더가 에러를 즉각 읽도록 설정
     if (focusElement) {
+      const parentGroup = focusElement.closest('.form-group');
+      if (parentGroup) {
+        const inlineErrorEl = parentGroup.querySelector('.auth-error');
+        if (inlineErrorEl) {
+          inlineErrorEl.textContent = message;
+          inlineErrorEl.hidden = false;
+          inlineErrorEl.setAttribute('aria-live', 'assertive');
+        }
+      }
       focusElement.setAttribute('aria-invalid', 'true');
       focusElement.focus();
+    } else {
+      // 글로벌 에러 (네트워크 에러 등 특정 input이 없는 경우)
+      if (!errorEl) return;
+      errorEl.textContent = message;
+      errorEl.hidden = false;
+      errorEl.setAttribute('aria-live', 'assertive');
     }
   }
 
   function clearError() {
-    if (!errorEl) return;
-    errorEl.hidden = true;
-    errorEl.textContent = '';
+    // 글로벌 에러 초기화
+    if (errorEl) {
+      errorEl.hidden = true;
+      errorEl.textContent = '';
+    }
     
-    // 캐싱된 formInputs 배열을 순회하여 불필요한 DOM 트리 재탐색 방지
-    formInputs.forEach(input => input.removeAttribute('aria-invalid'));
+    // 폼 내 모든 입력창의 에러 상태 및 인라인 에러 텍스트 초기화
+    formInputs.forEach(input => {
+      input.removeAttribute('aria-invalid');
+      const parentGroup = input.closest('.form-group');
+      if (parentGroup) {
+        const inlineErrorEl = parentGroup.querySelector('.auth-error');
+        if (inlineErrorEl) {
+          inlineErrorEl.hidden = true;
+          inlineErrorEl.textContent = '';
+        }
+      }
+    });
   }
 
   // 유효성 검사 로직을 별도 함수로 분리 (관심사 분리, DRY 원칙)
