@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', async () => {
+    let cachedUserData = null;
     try {
         const resData = await requestJson('/api/auth/me');
         
@@ -217,7 +218,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // User Data Caching and Overlay Logic (Login Info & Profile Manage)
-    let cachedUserData = null;
 
     async function ensureUserData() {
         if (!cachedUserData) {
