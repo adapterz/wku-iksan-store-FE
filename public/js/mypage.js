@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         if (resData && resData.data) {
             const user = resData.data;
+            cachedUserData = user;
             const nicknameEl = document.getElementById('display-nickname');
             const useridEl = document.getElementById('display-userid');
             
