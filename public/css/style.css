@@ -2910,3 +2910,34 @@ body.page-complete {
 .policy-container th {
     background-color: #f2f2f2;
 }
+
+/* Auth Form Optimizations */
+.auth-header {
+    border-bottom: none !important;
+    position: absolute !important;
+    top: 0;
+    width: 100%;
+    z-index: 10;
+    background: transparent !important;
+}
+
+.auth-inline-error {
+    color: var(--accent-red, #ff3333);
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.password-input-with-badge {
+    width: 100%;
+    box-sizing: border-box;
+    padding-right: 65px;
+}
+
+.password-strength-badge {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 13px;
+    font-weight: 700;
+}

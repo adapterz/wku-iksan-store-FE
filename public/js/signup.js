@@ -172,21 +172,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const passwordInput = document.getElementById('password');
   const strengthIndicator = document.getElementById('password-strength');
 
+  // 비밀번호 칸의 에러 상태를 해제하는 헬퍼 함수 (메모리 최적화를 위해 외부로 분리)
+  const clearPasswordError = (inputEl, errorEl) => {
+    if (errorEl) {
+      errorEl.hidden = true;
+      errorEl.textContent = '';
+    }
+    inputEl.removeAttribute('aria-invalid');
+  };
+
   if (passwordInput && strengthIndicator) {
     passwordInput.addEventListener('input', (e) => {
       const val = e.target.value;
       
       const parentGroup = passwordInput.closest('.form-group');
       const inlineErrorEl = parentGroup ? parentGroup.querySelector('.auth-error') : null;
-
-      // 비밀번호 칸의 에러 상태를 해제하는 헬퍼 함수
-      const clearPasswordError = () => {
-        if (inlineErrorEl) {
-          inlineErrorEl.hidden = true;
-          inlineErrorEl.textContent = '';
-        }
-        passwordInput.removeAttribute('aria-invalid');
-      };
 
       if (!val) {
         strengthIndicator.style.display = 'none';
@@ -219,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // 위 필수 규칙을 모두 통과했다면 오류 메시지 제거
-      clearPasswordError();
+      clearPasswordError(passwordInput, inlineErrorEl);
 
       // 문자 종류 분석 (영문, 숫자, 특수문자)
       const hasLetter = /[a-zA-Z]/.test(val);
@@ -285,12 +285,5 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-  // Home Button Logic
-  const btnHome = document.getElementById('btn-home');
-  if (btnHome) {
-    btnHome.addEventListener('click', (e) => {
-      e.preventDefault();
-      window.location.href = 'index.html';
-    });
-  }
+  // 홈/뒤로가기 버튼 등 공통 헤더 로직은 component.js에서 전역 처리됨
 });
