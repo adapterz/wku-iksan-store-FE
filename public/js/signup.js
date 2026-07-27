@@ -223,6 +223,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       if (submitBtn) submitBtn.disabled = true;
+
+      // 백엔드 에러 코드별 인라인 에러 표시 대상 매핑
+      const errorTarget = {
+        'EMAIL_ALREADY_EXISTS': form.email,
+        'COMMON_PASSWORD': form.password,
+        'NICKNAME_ALREADY_EXISTS': form.nickname
+      };
+
       try {
         const result = await requestJson('/api/auth/signup', {
           method: 'POST',
@@ -233,13 +241,13 @@ document.addEventListener('DOMContentLoaded', () => {
           window.location.href = 'login.html';
           return;
         }
-        showError(ERROR_MESSAGES[result.code] || '회원가입에 실패했습니다.');
+        showError(ERROR_MESSAGES[result.code] || '회원가입에 실패했습니다.', errorTarget[result.code]);
       } catch (error) {
         console.error('회원가입 요청 실패:', error);
 
         // Optional Chaining(?.) 적용 및 순수 네트워크 오류 대비
         const errorCode = error?.code;
-        showError(ERROR_MESSAGES[errorCode] || ERROR_MESSAGES.NETWORK_ERROR);
+        showError(ERROR_MESSAGES[errorCode] || ERROR_MESSAGES.NETWORK_ERROR, errorTarget[errorCode]);
       } finally {
         if (submitBtn) submitBtn.disabled = false;
       }
