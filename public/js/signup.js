@@ -175,19 +175,51 @@ document.addEventListener('DOMContentLoaded', () => {
   if (passwordInput && strengthIndicator) {
     passwordInput.addEventListener('input', (e) => {
       const val = e.target.value;
+      
+      const parentGroup = passwordInput.closest('.form-group');
+      const inlineErrorEl = parentGroup ? parentGroup.querySelector('.auth-error') : null;
+
+      // 비밀번호 칸의 에러 상태를 해제하는 헬퍼 함수
+      const clearPasswordError = () => {
+        if (inlineErrorEl) {
+          inlineErrorEl.hidden = true;
+          inlineErrorEl.textContent = '';
+        }
+        passwordInput.removeAttribute('aria-invalid');
+      };
+
       if (!val) {
         strengthIndicator.style.display = 'none';
+        showError(ERROR_MESSAGES.REQUIRED_PASSWORD, passwordInput);
         return;
       }
       
       strengthIndicator.style.display = 'inline-block';
       
-      // 필수 규칙 미충족 (길이 8~15, 공백 불가)
-      if (val.length < 8 || val.length > 15 || /\s/.test(val)) {
+      // 필수 규칙 미충족 시 실시간 인라인 에러 출력
+      if (/\s/.test(val)) {
         strengthIndicator.textContent = '사용 불가';
         strengthIndicator.style.color = '#ff3333';
+        showError(ERROR_MESSAGES.INVALID_PASSWORD_FORMAT, passwordInput);
         return;
       }
+
+      if (val.length < 8) {
+        strengthIndicator.textContent = '사용 불가';
+        strengthIndicator.style.color = '#ff3333';
+        showError(ERROR_MESSAGES.PASSWORD_TOO_SHORT, passwordInput);
+        return;
+      }
+
+      if (val.length > 15) {
+        strengthIndicator.textContent = '사용 불가';
+        strengthIndicator.style.color = '#ff3333';
+        showError(ERROR_MESSAGES.PASSWORD_TOO_LONG, passwordInput);
+        return;
+      }
+
+      // 위 필수 규칙을 모두 통과했다면 오류 메시지 제거
+      clearPasswordError();
 
       // 문자 종류 분석 (영문, 숫자, 특수문자)
       const hasLetter = /[a-zA-Z]/.test(val);
