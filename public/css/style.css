@@ -2107,32 +2107,6 @@ body {
     color: #f15746; /* Matching the red color usually used for highlight in KREAM-like apps */
 }
 
-/* Policy Grid Section */
-.policy-grid-section {
-    background-color: #fff;
-}
-
-.policy-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    border-top: 1px solid #EAEAEA;
-}
-
-.policy-item {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px 10px;
-    font-size: 13px;
-    color: #333;
-    border-bottom: 1px solid #EAEAEA;
-    border-right: 1px solid #EAEAEA;
-    text-align: center;
-}
-
-.policy-item:nth-child(3n) {
-    border-right: none;
-}
 
 /* Customer Service Section */
 .cs-section {
