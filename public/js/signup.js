@@ -226,9 +226,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // 백엔드 에러 코드별 인라인 에러 표시 대상 매핑
       const errorTarget = {
-        'EMAIL_ALREADY_EXISTS': form.email,
-        'COMMON_PASSWORD': form.password,
-        'NICKNAME_ALREADY_EXISTS': form.nickname
+        'EMAIL_ALREADY_EXISTS': document.getElementById('email'),
+        'COMMON_PASSWORD': document.getElementById('password'),
+        'NICKNAME_ALREADY_EXISTS': document.getElementById('nickname')
       };
 
       try {
