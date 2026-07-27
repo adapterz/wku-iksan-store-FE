@@ -168,6 +168,47 @@ document.addEventListener('DOMContentLoaded', () => {
     return { isValid: true, data: { email, password, nickname } };
   }
 
+  // 비밀번호 실시간 강도 검사
+  const passwordInput = document.getElementById('password');
+  const strengthIndicator = document.getElementById('password-strength');
+
+  if (passwordInput && strengthIndicator) {
+    passwordInput.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (!val) {
+        strengthIndicator.style.display = 'none';
+        return;
+      }
+      
+      strengthIndicator.style.display = 'inline-block';
+      
+      // 필수 규칙 미충족 (길이 8~15, 공백 불가)
+      if (val.length < 8 || val.length > 15 || /\s/.test(val)) {
+        strengthIndicator.textContent = '사용 불가';
+        strengthIndicator.style.color = '#ff3333';
+        return;
+      }
+
+      // 문자 종류 분석 (영문, 숫자, 특수문자)
+      const hasLetter = /[a-zA-Z]/.test(val);
+      const hasNumber = /\d/.test(val);
+      const hasSpecial = /[^a-zA-Z0-9\s]/.test(val);
+      
+      const typesCount = [hasLetter, hasNumber, hasSpecial].filter(Boolean).length;
+      
+      if (typesCount <= 1) {
+        strengthIndicator.textContent = '약함';
+        strengthIndicator.style.color = '#ff9900';
+      } else if (typesCount === 2) {
+        strengthIndicator.textContent = '보통';
+        strengthIndicator.style.color = '#33cc33';
+      } else {
+        strengthIndicator.textContent = '강함';
+        strengthIndicator.style.color = '#0066cc';
+      }
+    });
+  }
+
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
