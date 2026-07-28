@@ -99,17 +99,17 @@ document.addEventListener('DOMContentLoaded', () => {
         element: emailInput
       };
     }
-    if (email.length > 255) {
-      return { 
-        isValid: false,
-        message: ERROR_MESSAGES.EMAIL_TOO_LONG, 
-        element: emailInput 
-      };
-    }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return { 
         isValid: false, 
         message: ERROR_MESSAGES.INVALID_EMAIL_FORMAT, 
+        element: emailInput 
+      };
+    }
+    if (email.length > 255) {
+      return { 
+        isValid: false,
+        message: ERROR_MESSAGES.EMAIL_TOO_LONG, 
         element: emailInput 
       };
     }
@@ -153,14 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     }
 
-    // 불완전한 자음/모음(ㄱ-ㅎㅏ-ㅣ) 단독 입력 방지를 위해 정규식 롤백 적용 (공백은 BE에서 최종 검증)
-    if (!/^[가-힣a-zA-Z0-9\s]+$/.test(nickname)) {
-      return {
-        isValid: false,
-        message: ERROR_MESSAGES.INVALID_NICKNAME_FORMAT,
-        element: nicknameInput
-      };
-    }
     if (nickname.length < 2) return {
       isValid: false,
       message: ERROR_MESSAGES.NICKNAME_TOO_SHORT,
@@ -171,6 +163,14 @@ document.addEventListener('DOMContentLoaded', () => {
       message: ERROR_MESSAGES.NICKNAME_TOO_LONG,
       element: nicknameInput
     };
+    // 불완전한 자음/모음(ㄱ-ㅎㅏ-ㅣ) 단독 입력 방지를 위해 정규식 롤백 적용 (공백은 BE에서 최종 검증)
+    if (!/^[가-힣a-zA-Z0-9\s]+$/.test(nickname)) {
+      return {
+        isValid: false,
+        message: ERROR_MESSAGES.INVALID_NICKNAME_FORMAT,
+        element: nicknameInput
+      };
+    }
     return { isValid: true, data: { email, password, nickname } };
   }
 
