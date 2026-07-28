@@ -194,32 +194,34 @@ document.addEventListener('DOMContentLoaded', () => {
       const parentGroup = passwordInput.closest('.form-group');
       const inlineErrorEl = parentGroup ? parentGroup.querySelector('.auth-error') : null;
 
+      // 기존 상태 클래스 초기화
+      strengthIndicator.classList.remove('badge-visible', 'badge-invalid', 'badge-weak', 'badge-medium', 'badge-strong');
+
       if (!val) {
-        strengthIndicator.style.display = 'none';
         showError(ERROR_MESSAGES.REQUIRED_PASSWORD, passwordInput);
         return;
       }
       
-      strengthIndicator.style.display = 'inline-block';
+      strengthIndicator.classList.add('badge-visible');
       
       // 필수 규칙 미충족 시 실시간 인라인 에러 출력
       if (/\s/.test(val)) {
         strengthIndicator.textContent = '사용 불가';
-        strengthIndicator.style.color = '#ff3333';
+        strengthIndicator.classList.add('badge-invalid');
         showError(ERROR_MESSAGES.INVALID_PASSWORD_FORMAT, passwordInput);
         return;
       }
 
       if (val.length < 8) {
         strengthIndicator.textContent = '사용 불가';
-        strengthIndicator.style.color = '#ff3333';
+        strengthIndicator.classList.add('badge-invalid');
         showError(ERROR_MESSAGES.PASSWORD_TOO_SHORT, passwordInput);
         return;
       }
 
       if (val.length > 15) {
         strengthIndicator.textContent = '사용 불가';
-        strengthIndicator.style.color = '#ff3333';
+        strengthIndicator.classList.add('badge-invalid');
         showError(ERROR_MESSAGES.PASSWORD_TOO_LONG, passwordInput);
         return;
       }
@@ -236,13 +238,13 @@ document.addEventListener('DOMContentLoaded', () => {
       
       if (typesCount <= 1) {
         strengthIndicator.textContent = '약함';
-        strengthIndicator.style.color = '#ff9900';
+        strengthIndicator.classList.add('badge-weak');
       } else if (typesCount === 2) {
         strengthIndicator.textContent = '보통';
-        strengthIndicator.style.color = '#33cc33';
+        strengthIndicator.classList.add('badge-medium');
       } else {
         strengthIndicator.textContent = '강함';
-        strengthIndicator.style.color = '#0066cc';
+        strengthIndicator.classList.add('badge-strong');
       }
     });
   }
