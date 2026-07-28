@@ -287,9 +287,10 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (error) {
         console.error('회원가입 요청 실패:', error);
 
-        // Optional Chaining(?.) 적용 및 순수 네트워크 오류 대비
         const errorCode = error?.code;
-        showError(ERROR_MESSAGES[errorCode] || ERROR_MESSAGES.NETWORK_ERROR, getErrorTarget(errorCode));
+        // 등록된 에러 코드가 없으면 실제 서버 에러 원인(message) 또는 전역 에러로 Fallback
+        const errorMessage = ERROR_MESSAGES[errorCode] || error?.message || ERROR_MESSAGES.INTERNAL_SERVER_ERROR;
+        showError(errorMessage, getErrorTarget(errorCode));
       } finally {
         if (submitBtn) submitBtn.disabled = false;
       }
