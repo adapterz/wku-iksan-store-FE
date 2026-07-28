@@ -264,11 +264,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (submitBtn) submitBtn.disabled = true;
 
-      // 백엔드 에러 코드별 인라인 에러 표시 대상 매핑
-      const errorTarget = {
-        'EMAIL_ALREADY_EXISTS': document.getElementById('email'),
-        'COMMON_PASSWORD': document.getElementById('password'),
-        'NICKNAME_ALREADY_EXISTS': document.getElementById('nickname')
+      // 에러 코드 접두어(Prefix) 기반 대상 요소 추출 헬퍼 함수
+      const getErrorTarget = (code) => {
+        if (!code) return null;
+        if (code.startsWith('EMAIL_')) return document.getElementById('email');
+        if (code.startsWith('PASSWORD_')) return document.getElementById('password');
+        if (code.startsWith('NICKNAME_')) return document.getElementById('nickname');
+        return null; // 규칙에 맞지 않는 에러는 전역 에러로 Fallback
       };
 
       try {
@@ -281,13 +283,13 @@ document.addEventListener('DOMContentLoaded', () => {
           window.location.href = 'login.html';
           return;
         }
-        showError(ERROR_MESSAGES[result.code] || '회원가입에 실패했습니다.', errorTarget[result.code]);
+        showError(ERROR_MESSAGES[result.code] || '회원가입에 실패했습니다.', getErrorTarget(result.code));
       } catch (error) {
         console.error('회원가입 요청 실패:', error);
 
         // Optional Chaining(?.) 적용 및 순수 네트워크 오류 대비
         const errorCode = error?.code;
-        showError(ERROR_MESSAGES[errorCode] || ERROR_MESSAGES.NETWORK_ERROR, errorTarget[errorCode]);
+        showError(ERROR_MESSAGES[errorCode] || ERROR_MESSAGES.NETWORK_ERROR, getErrorTarget(errorCode));
       } finally {
         if (submitBtn) submitBtn.disabled = false;
       }
