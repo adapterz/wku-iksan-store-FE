@@ -42,19 +42,25 @@ document.addEventListener('DOMContentLoaded', () => {
       if (parentGroup) {
         const inlineErrorEl = parentGroup.querySelector('.auth-error');
         if (inlineErrorEl) {
-          inlineErrorEl.textContent = message;
+          if (inlineErrorEl.textContent !== message) {
+            inlineErrorEl.textContent = message;
+          }
           inlineErrorEl.hidden = false;
-          inlineErrorEl.setAttribute('aria-live', 'assertive');
+          inlineErrorEl.setAttribute('aria-live', 'polite');
         }
       }
       focusElement.setAttribute('aria-invalid', 'true');
-      focusElement.focus();
+      if (document.activeElement !== focusElement) {
+        focusElement.focus();
+      }
     } else {
       // 글로벌 에러 (네트워크 에러 등 특정 input이 없는 경우)
       if (!errorEl) return;
-      errorEl.textContent = message;
+      if (errorEl.textContent !== message) {
+        errorEl.textContent = message;
+      }
       errorEl.hidden = false;
-      errorEl.setAttribute('aria-live', 'assertive');
+      errorEl.setAttribute('aria-live', 'polite');
     }
   }
 
