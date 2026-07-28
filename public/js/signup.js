@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function validateForm(emailInput, passwordInput, nicknameInput) {
     const email = emailInput.value.trim().toLowerCase();
     const password = passwordInput.value;
-    const nickname = nicknameInput.value.trim();
+    const nickname = nicknameInput.value;
 
     // 이메일 유효성 검사
     if (!email) {
@@ -153,8 +153,8 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     }
 
-    // 불완전한 자음/모음(ㄱ-ㅎㅏ-ㅣ) 단독 입력 방지를 위해 정규식 롤백 적용
-    if (!/^[가-힣a-zA-Z0-9]+$/.test(nickname)) {
+    // 불완전한 자음/모음(ㄱ-ㅎㅏ-ㅣ) 단독 입력 방지를 위해 정규식 롤백 적용 (공백은 BE에서 최종 검증)
+    if (!/^[가-힣a-zA-Z0-9\s]+$/.test(nickname)) {
       return {
         isValid: false,
         message: ERROR_MESSAGES.INVALID_NICKNAME_FORMAT,
