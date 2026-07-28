@@ -20,6 +20,8 @@ const PORT = process.env.PORT || 3000;
 const PORT = process.env.PORT || 8080;
 ```
 
+---
+
 **2) Proxy 설정 추가**
 - `http-proxy-middleware`를 사용해 백엔드 포트(3000)로 요청을 포워딩하도록 설정
 - `pathFilter: '/api'` 옵션을 적용하여 `/api` 경로만 백엔드로 라우팅되도록 구성
@@ -38,6 +40,8 @@ app.use(
 );
 ```
 
+---
+
 ### 배운 점
 - 프론트엔드와 백엔드를 별도 서버로 분리 실행할 때는 포트 설계를 사전에 명확히 해야 `EADDRINUSE` 같은 충돌을 예방할 수 있음
 - `http-proxy-middleware`의 `pathFilter` 옵션으로 특정 경로만 선택적으로 라우팅하면, 정적 리소스 요청과 API 요청을 명확히 분리할 수 있음
@@ -55,6 +59,8 @@ app.use(
 - `complete.html` 및 `giftbox.html`에 동적 DOM 주입 시점 차이로 발생한 이벤트 바인딩 오류를 커스텀 이벤트(header:ready) 구독 구조로 전환하여 해결
 - 전역 공통 하단 네비게이션 바(MY 탭)로 로그인 상태 표시 UI 통할 이관
 
+---
+
 ### 마주한 문제
 1. **검색 버튼 이벤트 미바인딩**
    - 검색 버튼(`btn-search-open`)이 `component.js`에 의해 동적으로 생성·삽입되다 보니, `product.js` 등 개별 페이지 스크립트 실행 시점에는 아직 DOM에 존재하지 않아 이벤트가 바인딩되지 않는 문제 발생
@@ -63,17 +69,19 @@ app.use(
 3. **동적 DOM 주입 시점 차이 및 이벤트 바인딩 위치 오류로 인한 클릭 동작 미작동**
    - `complete.html` 및 `giftbox.html` 진입 시 `component.js`가 상단 헤더와 하단 네비게이션 바 HTML을 동적으로 주입하기 전에 페이지 스크립트가 실행되거나, `.nav-item` 클릭 이벤트 바인딩 로직이 이벤트 리스너 바깥에 위치하여 아직 생성되지 않은 요소를 참조함으로써 이벤트가 누락되는 현상이 발생
 
+---
+
 ### 상세 작업 및 문제 해결 과정
 
 **1) 공통 서브헤더 삽입 (`component.js`)**
 - `getSubHeaderHTML()` 함수 추가: 뒤로가기 버튼, 검색, 홈, 선물함 아이콘 그룹이 포함된 공통 헤더 HTML 반환
 - `DOMContentLoaded` 시점에 메인 페이지(`index.html`)·마이페이지(`mypage.html`)를 제외한 서브페이지에서 `header.main-header` 영역 내부에 동적 삽입
 - 동적으로 삽입된 뒤로가기 버튼(`id="btn-back"`)에 이전 페이지 이동 이벤트 리스너 재바인딩
-
+---
 **2) 공통 하단 네비게이션 렌더링 (`component.js`)**
 - `getBottomNavHTML()` 함수 추가: 하단 네비게이션 바 HTML 구조 반환
 - `DOMContentLoaded` 시점에 `nav.bottom-nav:not(.product-bottom-nav)` 요소를 찾아 내부 HTML을 해당 함수 결과값으로 덮어쓰기 (예외 페이지 제외 로직 적용)
-
+---
 **3) 검색 모달 공통화 및 이벤트 위임 처리 (`component.js`)**
 - `getSearchOverlayHTML()` 함수 추가: 검색 모달(닫기 버튼, 검색창, 최근 검색어 영역) HTML 반환
 
@@ -127,7 +135,7 @@ if (searchOverlay) {
     }
 }
 ```
-
+---
 **4) 구매 버튼 이벤트 핸들러 수정 (`product.js`)**
 - 존재하지 않는 바텀 시트 오픈 로직 및 불필요한 드래그(스와이프) 이벤트 코드 제거
 - 클릭 시 즉시 `goToOrder(productId, 'self')`가 호출되도록 변경
@@ -141,7 +149,7 @@ if (buyBtn) {
 ```
 
 - `goToOrder` 함수 내부의 로그인 상태 검증(`api/auth/me`) 및 검증 통과 시 상품 ID·구매 타입(`type=self`)을 URL Query Parameter로 담아 `order.html?productId=X&type=self`로 이동하는 라우팅 로직은 그대로 보존
-
+---
 **5) 공통 컴포넌트 렌더링 타이밍 경쟁 해결 (`component.js`, `complete.js`, `giftbox.js`)**
 - 원인: 헤더·네비게이션 HTML이 `component.js`에서 비동기적으로 주입되는 반면, `complete.js`/`giftbox.js`는 `DOMContentLoaded` 시점에 곧바로 네비게이션 요소(`.nav-item`)를 참조하려고 시도해 타이밍 경쟁 발생
 - 조치: 타이밍 경쟁 자체를 없애는 방식으로 해결
@@ -160,21 +168,21 @@ document.dispatchEvent(new Event('header:ready'));
 ```js
 document.addEventListener("header:ready", async () => { ... }
 ```
-
+---
 **6) 상단 로그인 UI 제거 및 하단 네비게이션 전역 인증 연동**
 - `index.html` 내 상단 상태 버튼(`#btn-login-status`)과 팝업 드롭다운(`#login-status-dropdown`)을 완전히 제거한 뒤, `component.js` 내에 전역 인증 점검 함수(`checkGlobalAuthStatus`)를 신설하여 모든 서브 페이지 진입 시 `/api/auth/me`를 통해 로그인 여부에 따라 하단 MY 탭의 아이콘, 초록 배지, 텍스트 및 이동 링크(`login.html` / `mypage.html`)가 동적으로 전환되도록 구현 및 메인 페이지와의 결합도를 낮추기 위해 커스텀 이벤트(`auth:updated`)를 디스패치하고 `home.js`가 이를 구독하여 닉네임 추천 문구를 갱신하도록 처리
-
+---
 **참고 및 검토 사항**
 - `product.js`, `order.js` 등 다른 서브페이지 스크립트는 `<script defer>`가 명시되어 있어 `component.js` 실행 이후 순차 실행이 보장되므로 동일한 타이밍 이슈가 발생하지 않음을 교차 검증 완료
 - 다른 서브 페이지(`product.html`, `order.html` 등)에서도 동일한 공통 컴포넌트 동적 주입 시 이벤트 바인딩 누락 문제가 발생하는지 전수 점검이 필요하며, `component.js` 내부에서 `header:ready` 이벤트 발행 시점이 예외 없이 항상 안정적으로 보장되는지 지속적인 검증이 필요
 - 인증 처리 공통 모듈인 `component.js`가 모든 서브 페이지에서 예외 없이 로드되어 초기화되는지 검증이 필요
-
+---
 ### 배운 점
 - **공통 UI 모듈화**: 여러 페이지에서 중복 사용되는 UI(헤더, 네비게이션, 모달 등)를 공통 컴포넌트 함수로 분리하여 코드 재사용성과 유지보수성을 높임.
 - **`DOMContentLoaded`의 한계 인지**: `DOMContentLoaded`는 초기 HTML 파싱 완료 시점일 뿐 동적으로 주입되는 컴포넌트의 ready 시점을 보장하지 않으므로, 선순위가 필요한 DOM은 파싱 즉시 주입하는 방식이 유효함.
 - **이벤트 위임을 통한 타이밍 문제 해결**: 동적 요소의 생성 시점과 스크립트 실행 순서 차이로 발생하는 바인딩 오류는 **이벤트 위임(Event Delegation)** 패턴을 적용해 근본적으로 해결 가능함을 배움.
-
----
 - 스크립트 간 실행 순서에 의존하는 대신, **커스텀 이벤트를 통한 명시적 완료 신호(Dispatch/Subscribe)** 를 사용하면 로딩 속도나 네트워크 환경에 관계없이 안정적으로 동작하는 구조를 만들 수 있음
 - `<script defer>` 속성이 있는 스크립트는 문서 파싱 완료 후, 선언된 순서대로 실행되므로, 스크립트 로드 순서를 보장해야 하는 상황에서 유용하게 활용할 수 있음
 - 존재하지 않는 UI 요소를 참조하는 코드는 조용히 실패(no-op)할 수 있으므로, 실제 동작 여부를 항상 브라우저에서 직접 확인하는 습관이 중요함
+---
+## 2026-07-23
