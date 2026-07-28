@@ -8,7 +8,7 @@
 - 프론트엔드 서버와 백엔드 서버가 동일한 포트(3000)를 사용하여 `EADDRINUSE` 에러 발생
 - 로컬 환경에서 프론트엔드가 백엔드 API로 직접 요청 시 CORS 문제 발생 가능성 존재
 
-### 해결 과정
+### 상세 작업 및 문제 해결 과정
 **1) 포트 충돌 해결**
 - `app.js`에서 프론트엔드 기본 구동 포트를 3000 → 8080으로 변경
 
@@ -52,18 +52,18 @@ app.use(
 - `component.js`에 공통 하단 네비게이션 바(`getBottomNavHTML`) 생성 및 렌더링 로직 구현
 - `component.js`에 전체화면 검색 모달(`getSearchOverlayHTML`) 공통 함수 작성 및 조기 삽입 처리
 - `product.js`의 '나에게 선물하기' 버튼 이벤트 핸들러 수정
-
+- `complete.html` 및 `giftbox.html`에 동적 DOM 주입 시점 차이로 발생한 이벤트 바인딩 오류를 커스텀 이벤트(header:ready) 구독 구조로 전환하여 해결
+- 전역 공통 하단 네비게이션 바(MY 탭)로 로그인 상태 표시 UI 통할 이관
 
 ### 마주한 문제
 1. **검색 버튼 이벤트 미바인딩**
    - 검색 버튼(`btn-search-open`)이 `component.js`에 의해 동적으로 생성·삽입되다 보니, `product.js` 등 개별 페이지 스크립트 실행 시점에는 아직 DOM에 존재하지 않아 이벤트가 바인딩되지 않는 문제 발생
 2. **'나에게 선물하기' 버튼 미동작**
    - `.btn-bottom-buy` 클릭 시 존재하지 않는 구매 바텀 시트(`bottomSheetOverlay`)를 열려고 시도하여 아무 동작도 일어나지 않는 오류 발생
-3. **공통 컴포넌트(헤더/네비게이션) 렌더링 타이밍 경쟁(Race Condition)**
-   - `complete.js`, `giftbox.js` 등에서 `DOMContentLoaded` 시점에 하단 네비게이션(`.nav-item`) 이벤트를 바인딩했으나, `component.js`가 헤더·네비게이션 HTML을 주입하는 시점과 경쟁이 발생하여 요소를 아직 찾지 못하는 경우 발생
+3. **동적 DOM 주입 시점 차이 및 이벤트 바인딩 위치 오류로 인한 클릭 동작 미작동**
+   - `complete.html` 및 `giftbox.html` 진입 시 `component.js`가 상단 헤더와 하단 네비게이션 바 HTML을 동적으로 주입하기 전에 페이지 스크립트가 실행되거나, `.nav-item` 클릭 이벤트 바인딩 로직이 이벤트 리스너 바깥에 위치하여 아직 생성되지 않은 요소를 참조함으로써 이벤트가 누락되는 현상이 발생
 
-
-### 해결 과정
+### 상세 작업 및 문제 해결 과정
 
 **1) 공통 서브헤더 삽입 (`component.js`)**
 - `getSubHeaderHTML()` 함수 추가: 뒤로가기 버튼, 검색, 홈, 선물함 아이콘 그룹이 포함된 공통 헤더 HTML 반환
@@ -144,16 +144,16 @@ if (buyBtn) {
 
 **5) 공통 컴포넌트 렌더링 타이밍 경쟁 해결 (`component.js`, `complete.js`, `giftbox.js`)**
 - 원인: 헤더·네비게이션 HTML이 `component.js`에서 비동기적으로 주입되는 반면, `complete.js`/`giftbox.js`는 `DOMContentLoaded` 시점에 곧바로 네비게이션 요소(`.nav-item`)를 참조하려고 시도해 타이밍 경쟁 발생
-- 조치: 타이밍 경쟁 자체를 없애는 방식(방법 2)으로 해결
+- 조치: 타이밍 경쟁 자체를 없애는 방식으로 해결
 
-**커스텀 이벤트 Dispatch (`component.js`)**
+**5-1) 커스텀 이벤트 Dispatch (`component.js`)**
 - 헤더와 네비게이션 HTML 주입이 완전히 끝난 직후 `header:ready` 커스텀 이벤트를 명시적으로 발생시켜 완료를 알림
 
 ```js
 document.dispatchEvent(new Event('header:ready'));
 ```
 
-**커스텀 이벤트 Subscribe (`complete.js`, `giftbox.js`)**
+**5-2) 커스텀 이벤트 Subscribe (`complete.js`, `giftbox.js`)**
 - 기존 `DOMContentLoaded` 리스너 대신 `header:ready` 커스텀 이벤트를 구독하도록 변경
 - 파일 하단에 전역으로 분리되어 파싱 시점에 즉시 실행되던 하단 네비게이션 바(`.nav-item`) 이벤트 바인딩 로직을 `header:ready` 콜백 내부로 모두 이동시켜, 동적으로 주입된 네비게이션 요소도 안전하게 참조 가능하도록 보장
 
@@ -161,15 +161,20 @@ document.dispatchEvent(new Event('header:ready'));
 document.addEventListener("header:ready", async () => { ... }
 ```
 
+**6) 상단 로그인 UI 제거 및 하단 네비게이션 전역 인증 연동**
+- `index.html` 내 상단 상태 버튼(`#btn-login-status`)과 팝업 드롭다운(`#login-status-dropdown`)을 완전히 제거한 뒤, `component.js` 내에 전역 인증 점검 함수(`checkGlobalAuthStatus`)를 신설하여 모든 서브 페이지 진입 시 `/api/auth/me`를 통해 로그인 여부에 따라 하단 MY 탭의 아이콘, 초록 배지, 텍스트 및 이동 링크(`login.html` / `mypage.html`)가 동적으로 전환되도록 구현 및 메인 페이지와의 결합도를 낮추기 위해 커스텀 이벤트(`auth:updated`)를 디스패치하고 `home.js`가 이를 구독하여 닉네임 추천 문구를 갱신하도록 처리
+
 **참고 및 검토 사항**
 - `product.js`, `order.js` 등 다른 서브페이지 스크립트는 `<script defer>`가 명시되어 있어 `component.js` 실행 이후 순차 실행이 보장되므로 동일한 타이밍 이슈가 발생하지 않음을 교차 검증 완료
-- 타이밍을 강제하는 방식을 도입하여, 향후 네트워크·로딩 속도가 지연되는 환경에서도 버튼 이벤트가 안전하게 바인딩됨
+- 다른 서브 페이지(`product.html`, `order.html` 등)에서도 동일한 공통 컴포넌트 동적 주입 시 이벤트 바인딩 누락 문제가 발생하는지 전수 점검이 필요하며, `component.js` 내부에서 `header:ready` 이벤트 발행 시점이 예외 없이 항상 안정적으로 보장되는지 지속적인 검증이 필요
+- 인증 처리 공통 모듈인 `component.js`가 모든 서브 페이지에서 예외 없이 로드되어 초기화되는지 검증이 필요
 
 ### 배운 점
-- 여러 페이지에서 공통으로 쓰이는 UI(헤더, 네비게이션, 모달)는 별도 컴포넌트 함수로 분리하고 `DOMContentLoaded` 시점에 동적 삽입하면 중복 코드를 줄이고 유지보수성을 높일 수 있음
-- 동적으로 삽입된 요소는 삽입 시점 이후에 이벤트를 바인딩해야 하며, 삽입 타이밍이 스크립트마다 다를 경우 **이벤트 위임(Event Delegation)** 을 사용하면 타이밍 문제를 근본적으로 해결할 수 있음
-- 공통 스크립트(`component.js`)가 페이지 종속 스크립트보다 먼저 실행되어야 하는 DOM(모달 등)은 `DOMContentLoaded`를 기다리지 않고 스크립트 파싱 시점에 즉시 삽입하는 방식이 유효함
-- `DOMContentLoaded`는 "문서 파싱 완료" 시점일 뿐, 동적으로 주입되는 컴포넌트의 "렌더링 완료" 시점을 보장하지 않는다는 점을 명확히 인지해야 함
+- **공통 UI 모듈화**: 여러 페이지에서 중복 사용되는 UI(헤더, 네비게이션, 모달 등)를 공통 컴포넌트 함수로 분리하여 코드 재사용성과 유지보수성을 높임.
+- **`DOMContentLoaded`의 한계 인지**: `DOMContentLoaded`는 초기 HTML 파싱 완료 시점일 뿐 동적으로 주입되는 컴포넌트의 ready 시점을 보장하지 않으므로, 선순위가 필요한 DOM은 파싱 즉시 주입하는 방식이 유효함.
+- **이벤트 위임을 통한 타이밍 문제 해결**: 동적 요소의 생성 시점과 스크립트 실행 순서 차이로 발생하는 바인딩 오류는 **이벤트 위임(Event Delegation)** 패턴을 적용해 근본적으로 해결 가능함을 배움.
+
+---
 - 스크립트 간 실행 순서에 의존하는 대신, **커스텀 이벤트를 통한 명시적 완료 신호(Dispatch/Subscribe)** 를 사용하면 로딩 속도나 네트워크 환경에 관계없이 안정적으로 동작하는 구조를 만들 수 있음
 - `<script defer>` 속성이 있는 스크립트는 문서 파싱 완료 후, 선언된 순서대로 실행되므로, 스크립트 로드 순서를 보장해야 하는 상황에서 유용하게 활용할 수 있음
 - 존재하지 않는 UI 요소를 참조하는 코드는 조용히 실패(no-op)할 수 있으므로, 실제 동작 여부를 항상 브라우저에서 직접 확인하는 습관이 중요함
