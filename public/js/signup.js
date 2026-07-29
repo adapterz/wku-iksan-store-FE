@@ -264,12 +264,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (submitBtn) submitBtn.disabled = true;
 
-      // 에러 코드 접두어(Prefix) 기반 대상 요소 추출 헬퍼 함수
+      // 에러 코드 포함 여부 기반 대상 요소 추출 헬퍼 함수
       const getErrorTarget = (code) => {
         if (!code) return null;
-        if (code.startsWith('EMAIL_')) return document.getElementById('email');
-        if (code.startsWith('PASSWORD_')) return document.getElementById('password');
-        if (code.startsWith('NICKNAME_')) return document.getElementById('nickname');
+        if (code.includes('EMAIL')) return document.getElementById('email');
+        if (code.includes('PASSWORD')) return document.getElementById('password');
+        if (code.includes('NICKNAME')) return document.getElementById('nickname');
         return null; // 규칙에 맞지 않는 에러는 전역 에러로 Fallback
       };
 
