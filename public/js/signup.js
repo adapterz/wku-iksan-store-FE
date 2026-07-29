@@ -153,6 +153,16 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     }
 
+    // 1단계: 공백 포함 여부 검사
+    if (/\s/.test(nickname)) {
+      return {
+        isValid: false,
+        message: ERROR_MESSAGES.INVALID_NICKNAME_FORMAT,
+        element: nicknameInput
+      };
+    }
+
+    // 2단계: 자릿수/길이 제한 검사
     if (nickname.length < 2) return {
       isValid: false,
       message: ERROR_MESSAGES.NICKNAME_TOO_SHORT,
@@ -163,8 +173,9 @@ document.addEventListener('DOMContentLoaded', () => {
       message: ERROR_MESSAGES.NICKNAME_TOO_LONG,
       element: nicknameInput
     };
-    // 불완전한 자음/모음(ㄱ-ㅎㅏ-ㅣ) 단독 입력 방지를 위해 정규식 롤백 적용 (공백은 BE에서 최종 검증)
-    if (!/^[가-힣a-zA-Z0-9\s]+$/.test(nickname)) {
+
+    // 3단계: 허용 문자(한글·영문·숫자) 정규식 검사
+    if (!/^[가-힣a-zA-Z0-9]+$/.test(nickname)) {
       return {
         isValid: false,
         message: ERROR_MESSAGES.INVALID_NICKNAME_FORMAT,
