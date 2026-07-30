@@ -20,11 +20,11 @@ document.addEventListener('DOMContentLoaded', () => {
     card.innerHTML = `
       <div class="card-img-wrapper skeleton">
         ${rankHtml}
-        <img class="product-img" src="${thumbnailUrl}" alt="${name}" onload="this.parentElement.classList.remove('skeleton'); this.classList.add('loaded');" onerror="this.parentElement.classList.remove('skeleton'); this.style.opacity=1;">
+        <img class="product-img" alt="" onload="this.parentElement.classList.remove('skeleton'); this.classList.add('loaded');" onerror="this.parentElement.classList.remove('skeleton'); this.style.opacity=1;">
       </div>
       <div class="card-body">
-        <span class="brand-name">${brand}</span>
-        <h4 class="product-title">${name}</h4>
+        <span class="brand-name"></span>
+        <h4 class="product-title"></h4>
         <div class="price-info" style="display: flex; justify-content: space-between; align-items: center;">
           <div>
             ${discountHtml}
@@ -39,6 +39,16 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
     `;
+
+    const imgEl = card.querySelector('.product-img');
+    if (imgEl) {
+      imgEl.src = thumbnailUrl;
+      imgEl.alt = name;
+    }
+    const brandEl = card.querySelector('.brand-name');
+    if (brandEl) brandEl.textContent = brand;
+    const titleEl = card.querySelector('.product-title');
+    if (titleEl) titleEl.textContent = name;
 
     // Initialize save button state from localStorage
     const saveBtn = card.querySelector('.btn-save-bookmark');

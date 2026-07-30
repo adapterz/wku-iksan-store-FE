@@ -128,10 +128,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     card.innerHTML = `
                         <div class="unused-gift-img-wrapper">
-                            <img src="${gift.thumbnailUrl || ''}" alt="상품 썸네일" class="unused-gift-img">
+                            <img alt="상품 썸네일" class="unused-gift-img">
                         </div>
-                        <div class="unused-gift-sender">${senderText}</div>
+                        <div class="unused-gift-sender"></div>
                     `;
+                    
+                    const imgEl = card.querySelector('.unused-gift-img');
+                    if (imgEl) imgEl.src = gift.thumbnailUrl || '';
+                    const senderEl = card.querySelector('.unused-gift-sender');
+                    if (senderEl) senderEl.textContent = senderText;
 
                     unusedGiftsListEl.appendChild(card);
                 });
