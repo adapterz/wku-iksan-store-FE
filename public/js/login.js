@@ -44,7 +44,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (result.code === 'LOGIN_SUCCESS') {
           const redirectTarget = new URLSearchParams(window.location.search).get('redirect');
-          window.location.href = redirectTarget ? decodeURIComponent(redirectTarget) : 'index.html';
+          let safeUrl = 'index.html';
+          
+          if (redirectTarget) {
+            const decodedUrl = decodeURIComponent(redirectTarget);
+            // Open Redirect 및 XSS 방어: 상대 경로('/')로 시작하나 프로토콜 상대 경로('//')가 아닌 경우, 
+            // 혹은 영문/숫자 형태의 '.html' 로 시작하는 파일 접근만 허용
+            if ((decodedUrl.startsWith('/') && !decodedUrl.startsWith('//')) || /^[a-zA-Z0-9_-]+\.html/.test(decodedUrl)) {
+              safeUrl = decodedUrl;
+            }
+          }
+          
+          window.location.href = safeUrl;
           return;
         }
 
