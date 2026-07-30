@@ -1,4 +1,161 @@
+// 전체화면 검색 모달 공통 HTML 반환 함수
+function getSearchOverlayHTML() {
+    return `
+<div id="search-overlay" class="search-overlay">
+    <div class="search-overlay-header">
+        <button id="btn-search-close" class="btn-search-back" aria-label="뒤로가기">
+            <i class="fa-solid fa-arrow-left"></i>
+        </button>
+        <div class="search-input-wrapper">
+            <i class="fa-solid fa-magnifying-glass search-overlay-input-icon"></i>
+            <input type="text" class="search-overlay-input" placeholder="원하는 선물을 검색해보세요" autofocus>
+        </div>
+    </div>
+    <div class="search-overlay-body">
+        <h4 class="recent-searches-title">최근 검색어</h4>
+        <div class="recent-keywords-list"></div>
+    </div>
+</div>`;
+}
+
+// 검색 모달 동적 삽입 (가장 먼저 실행되어야 DOMContentLoaded에서 다른 스크립트들이 찾을 수 있음)
+if (document.body && !document.getElementById('search-overlay')) {
+    document.body.insertAdjacentHTML('beforeend', getSearchOverlayHTML());
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    // 서브 페이지 공통 헤더 HTML 반환 함수
+    function getSubHeaderHTML() {
+        return `
+        <div class="header-container" style="justify-content: space-between;">
+            <a href="#" id="btn-back" class="header-icon" title="뒤로가기">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div class="header-right-icons" style="gap: 16px;">
+                <a href="#" id="btn-search-open" class="header-icon" title="검색">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </a>
+                <a href="index.html" class="header-icon" title="홈">
+                    <i class="fa-solid fa-house"></i>
+                </a>
+                <a href="#" class="header-icon" title="주문내역">
+                    <i class="fa-solid fa-receipt"></i>
+                </a>
+            </div>
+        </div>`;
+    }
+
+    // 메인(index.html) 및 마이페이지(mypage.html) 제외 서브 페이지 헤더 동적 삽입
+    let currentPath = window.location.pathname;
+    let currentFile = currentPath.substring(currentPath.lastIndexOf('/') + 1);
+    if (currentFile === '' || currentFile === '/') {
+        currentFile = 'index.html';
+    }
+
+    if (currentFile !== 'index.html' && currentFile !== 'mypage.html') {
+        const headerElement = document.querySelector('header.main-header');
+        if (headerElement) {
+            headerElement.innerHTML = getSubHeaderHTML();
+            document.dispatchEvent(new Event('header:ready'));
+            
+            // 뒤로가기 버튼 이벤트 바인딩
+            const btnBack = document.getElementById('btn-back');
+            if (btnBack) {
+                btnBack.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (window.history.length > 1) {
+                        window.history.back();
+                    } else {
+                        window.location.href = 'index.html';
+                    }
+                });
+            }
+        }
+    }
+
+    // 하단 네비게이션 바 공통 HTML 반환 함수
+    function getBottomNavHTML() {
+        const isPresumedLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+        const userIconClass = isPresumedLoggedIn ? "fa-solid fa-user logged-in" : "fa-regular fa-user";
+        const dotHidden = isPresumedLoggedIn ? "" : "hidden";
+        const textStr = isPresumedLoggedIn ? "my" : "login";
+        const myHref = isPresumedLoggedIn ? "mypage.html" : "login.html";
+
+        return `
+        <a href="index.html" class="nav-item">
+            <i class="fa-solid fa-house"></i>
+            <span class="nav-text">HOME</span>
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fa-solid fa-receipt"></i>
+            <span class="nav-text">RECEIPT</span>
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <span class="nav-text">SHOP</span>
+        </a>
+        <a href="${myHref}" id="btn-bottom-my" class="nav-item">
+            <div class="login-status-icon-wrapper">
+                <i id="bottom-login-status-icon" class="${userIconClass}"></i>
+                <span id="bottom-login-status-dot" class="login-status-dot" ${dotHidden}></span>
+            </div>
+            <span id="bottom-login-status-text" class="nav-text">${textStr}</span>
+        </a>`;
+    }
+
+    // 하단 네비게이션 바 동적 삽입 (예외 페이지 제외)
+    const bottomNavElements = document.querySelectorAll('nav.bottom-nav:not(.product-bottom-nav)');
+    bottomNavElements.forEach(nav => {
+        nav.innerHTML = getBottomNavHTML();
+    });
+
+    // 전역 인증 상태 체크 및 하단 네비게이션 업데이트
+    async function checkGlobalAuthStatus() {
+        let isLoggedIn = false;
+        let nickname = '';
+        try {
+            // requestJson이 전역(api.js)에 선언되어 있다고 가정
+            if (typeof requestJson === 'function') {
+                const result = await requestJson('/api/auth/me');
+                isLoggedIn = true;
+                nickname = result.data?.nickname || '';
+            }
+        } catch (error) {
+            isLoggedIn = false;
+        }
+
+        const myBtn = document.getElementById('btn-bottom-my');
+        const myIcon = document.getElementById('bottom-login-status-icon');
+        const myDot = document.getElementById('bottom-login-status-dot');
+        const myText = document.getElementById('bottom-login-status-text');
+
+        if (myBtn) {
+            if (isLoggedIn) {
+                localStorage.setItem('isLoggedIn', 'true');
+                myBtn.href = 'mypage.html';
+                if (myIcon) {
+                    myIcon.className = 'fa-solid fa-user logged-in';
+                }
+                if (myDot) myDot.hidden = false;
+                if (myText) myText.textContent = 'my';
+            } else {
+                localStorage.removeItem('isLoggedIn');
+                myBtn.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+                if (myIcon) {
+                    myIcon.className = 'fa-regular fa-user';
+                }
+                if (myDot) myDot.hidden = true;
+                if (myText) myText.textContent = 'login';
+            }
+            updateActiveStates();
+        }
+
+        // 인증 정보를 필요한 곳(home.js 등)에서 사용할 수 있도록 커스텀 이벤트 디스패치
+        document.dispatchEvent(new CustomEvent('auth:updated', { detail: { isLoggedIn, nickname } }));
+    }
+
+    checkGlobalAuthStatus();
+
     function updateActiveStates() {
         const navItems = document.querySelectorAll('.bottom-nav .nav-item, .nav-bar .nav-item');
         if (navItems.length === 0) return;
@@ -10,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentFile === '' || currentFile === '/') {
             currentFile = 'index.html';
         }
+
 
         navItems.forEach(item => {
             let href = item.getAttribute('href');
@@ -53,6 +211,33 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavGroup('.nav-bar .nav-item');
     updateActiveStates();
 
+    // 검색 오버레이 공통 로직 (전역 위임 또는 DOMContentLoaded 이후 바인딩)
+    const searchOverlay = document.getElementById('search-overlay');
+    if (searchOverlay) {
+        // btn-search-open은 메인(index.html)에서는 정적, 서브페이지에서는 동적 삽입됨
+        // 동적 삽입 이후에 바인딩하기 위해 문서 전체에 위임(이벤트 버블링) 사용
+        document.addEventListener('click', (e) => {
+            const openBtn = e.target.closest('#btn-search-open');
+            if (openBtn) {
+                e.preventDefault();
+                searchOverlay.classList.add('open');
+                const searchInput = searchOverlay.querySelector('.search-overlay-input');
+                if (searchInput) {
+                    setTimeout(() => searchInput.focus(), 50);
+                }
+            }
+        });
+
+        // btn-search-close는 정적 삽입(component.js 최상단)되어 있으므로 바로 바인딩 가능
+        const searchCloseBtn = document.getElementById('btn-search-close');
+        if (searchCloseBtn) {
+            searchCloseBtn.addEventListener('click', () => {
+                searchOverlay.classList.remove('open');
+                updateActiveStates(); // 검색 오버레이 닫기 시 active 상태 복구
+            });
+        }
+    }
+
     // SHOP 버튼 검색 오버레이 연결
     const shopBtns = Array.from(document.querySelectorAll('.bottom-nav .nav-item')).filter(btn => {
         const textSpan = btn.querySelector('.nav-text');
@@ -63,26 +248,15 @@ document.addEventListener('DOMContentLoaded', () => {
         shopBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            const topSearchBtn = document.getElementById('btn-search-open');
-            if (topSearchBtn) {
-                topSearchBtn.click(); // 기존 로직 재사용
-            } else {
-                const searchOverlay = document.getElementById('search-overlay');
-                if (searchOverlay) {
-                    searchOverlay.classList.add('show');
-                    searchOverlay.classList.add('open');
+            if (searchOverlay) {
+                searchOverlay.classList.add('open');
+                const searchInput = searchOverlay.querySelector('.search-overlay-input');
+                if (searchInput) {
+                    setTimeout(() => searchInput.focus(), 50);
                 }
             }
         });
     });
-
-    // 검색 오버레이 닫기(뒤로가기) 시 active 상태 복구
-    const searchCloseBtn = document.getElementById('btn-search-close');
-    if (searchCloseBtn) {
-        searchCloseBtn.addEventListener('click', () => {
-            updateActiveStates();
-        });
-    }
 
     window.addEventListener('popstate', () => {
         updateActiveStates();

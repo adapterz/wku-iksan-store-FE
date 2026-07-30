@@ -1,35 +1,6 @@
-document.addEventListener("DOMContentLoaded", () => {
-  // 뒤로가기 버튼 로직
-  const backBtn = document.getElementById('btn-back');
-  if (backBtn) {
-    backBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (window.history.length > 1 && document.referrer) {
-        window.history.back();
-      } else {
-        window.location.href = 'index.html';
-      }
-    });
-  }
+document.addEventListener("header:ready", () => {
 
-  // 검색 오버레이 열기/닫기 로직
-  const searchOpenBtn = document.getElementById('btn-search-open');
-  const searchCloseBtn = document.getElementById('btn-search-close');
-  const searchOverlay = document.getElementById('search-overlay');
-  
-  if (searchOpenBtn && searchOverlay) {
-    searchOpenBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.add('show');
-    });
-  }
-  
-  if (searchCloseBtn && searchOverlay) {
-    searchCloseBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.remove('show');
-    });
-  }
+
 
   const tabUnused = document.getElementById("tab-unused");
   const tabUsed = document.getElementById("tab-used");
@@ -67,23 +38,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 1500);
 
     try {
-      const response = await fetch(`/api/gifts?status=${status}`, { credentials: 'include' });
-
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          settle();
-          alert("로그인이 필요합니다.");
-          location.href = "login.html";
-          return;
-        }
-        throw new Error("Failed to load gifts");
-      }
-
-      const result = await response.json();
+      const result = await requestJson(`/api/gifts?status=${status}`);
       settle();
       renderGiftList(result.data || []);
     } catch (error) {
       settle();
+      if (error.status === 401 || error.status === 403) {
+        alert("로그인이 필요합니다.");
+        location.href = "login.html";
+        return;
+      }
       console.error("선물함 조회 실패:", error);
       listContainer.innerHTML = `<div class="empty-state">선물 목록을 불러오지 못했습니다.</div>`;
     }
@@ -152,22 +116,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Init
   loadGifts(currentStatus);
-});
 
-// Top Nav Tab Bar Click Logic (FOR ME, 홈, 랭킹, 썸머세일, 와인/맥주...)
-  const navItems = document.querySelectorAll('.nav-item');
-  navItems.forEach(item => {
-    item.addEventListener('click', (e) => {
-      // Prevent default navigation if href is '#' or equivalent to prevent jumpy page reloads
-      if (item.getAttribute('href') === '#') {
-        e.preventDefault();
-      }
-      navItems.forEach(el => el.classList.remove('active'));
-      item.classList.add('active');
-    });
-  });
 
-  // Mouse wheel horizontal scrolling translation for .nav-bar
+
   const navBar = document.querySelector('.nav-bar');
   if (navBar) {
     navBar.addEventListener('wheel', (e) => {
@@ -177,3 +128,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }, { passive: false });
   }
+});
+
+

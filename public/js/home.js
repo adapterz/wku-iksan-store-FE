@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
+  const PRODUCT_CACHE_KEY = 'iksanstore:products:v1';
+  const PRODUCT_CACHE_TTL_MS = 5 * 60 * 1000;
+
   // Helper to dynamically build a product card element
   function createProductCard(product, options = {}) {
     const card = document.createElement('article');
@@ -184,23 +187,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Load products from /api/products
+  // 5분 이내의 상품 캐시가 있으면 재요청 없이 사용하고, 없으면 API에서 새로 조회한다.
   async function loadProducts() {
+    const sessionProducts = window.sessionCache
+      ? window.sessionCache.get(PRODUCT_CACHE_KEY, PRODUCT_CACHE_TTL_MS)
+      : null;
+
+    if (Array.isArray(sessionProducts)) {
+      cachedProducts = sessionProducts;
+
+      if (sessionProducts.length === 0) {
+        showEmptyState();
+      } else {
+        renderProductsData(sessionProducts);
+      }
+      return;
+    }
+
     renderSkeletonState();
     const settle = createSkeletonGuard(showErrorState, 5000);
 
     let apiProducts = [];
     let fetchFailed = false;
     try {
-      const response = await fetch('/api/products');
-      if (response.ok) {
-        const result = await response.json();
-        if (result && result.data && Array.isArray(result.data)) {
-          apiProducts = result.data;
+      const result = await requestJson('/api/products');
+      if (result && result.data && Array.isArray(result.data)) {
+        apiProducts = result.data;
+        if (window.sessionCache) {
+          window.sessionCache.set(PRODUCT_CACHE_KEY, apiProducts);
         }
-      } else {
-        console.warn(`HTTP error! status: ${response.status}`);
-        fetchFailed = true;
       }
     } catch (error) {
       console.error('Failed to fetch products from API:', error);
@@ -394,76 +409,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-  // Header 로그인 상태 아이콘: 로그인 여부 확인 후 아이콘/드롭다운 표시
-  const loginStatusBtn = document.getElementById('btn-login-status');
-  const loginStatusDot = document.getElementById('login-status-dot');
-  const loginStatusDropdown = document.getElementById('login-status-dropdown');
-  const loginStatusNickname = document.getElementById('login-status-nickname');
-  const logoutBtn = document.getElementById('btn-logout');
-
-  let isLoggedIn = false;
-  let currentNickname = '';
-
-  async function checkLoginStatus() {
-    try {
-      const response = await fetch('/api/auth/me', { credentials: 'include' });
-      const recTitle = document.getElementById('recommendation-title');
-
-      if (response.ok) {
-        const result = await response.json();
-        isLoggedIn = true;
-        currentNickname = (result.data && result.data.nickname) || '';
-        const currentUserId = (result.data && result.data.userId) || '';
-
-        if (loginStatusBtn) loginStatusBtn.classList.add('logged-in');
-        if (loginStatusDot) loginStatusDot.hidden = false;
-
-        if (recTitle && currentNickname) {
-          recTitle.textContent = `${currentNickname}님을 위한 추천 상품`;
-        }
+  // 로그인 상태 기반 UI 업데이트 (component.js의 이벤트 리스닝)
+  document.addEventListener('auth:updated', (e) => {
+    const { isLoggedIn, nickname } = e.detail;
+    const recTitle = document.getElementById('recommendation-title');
+    
+    if (recTitle) {
+      if (isLoggedIn && nickname) {
+        recTitle.textContent = `${nickname}님을 위한 추천 상품`;
       } else {
-        isLoggedIn = false;
-        if (loginStatusBtn) loginStatusBtn.classList.remove('logged-in');
-        if (loginStatusDot) loginStatusDot.hidden = true;
-        if (recTitle) recTitle.textContent = '회원님을 위한 추천 상품';
+        recTitle.textContent = '회원님을 위한 추천 상품';
       }
-    } catch (error) {
-      console.error('로그인 상태 확인 실패:', error);
-      const recTitle = document.getElementById('recommendation-title');
-      if (recTitle) recTitle.textContent = '회원님을 위한 추천 상품';
     }
-  }
-
-  checkLoginStatus();
-
-  if (loginStatusBtn) {
-    loginStatusBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (isLoggedIn) {
-        if (loginStatusNickname) loginStatusNickname.textContent = `${currentNickname}님`;
-        if (loginStatusDropdown) loginStatusDropdown.hidden = !loginStatusDropdown.hidden;
-      } else {
-        window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
-      }
-    });
-  }
-
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-      try {
-        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-      } catch (error) {
-        console.error('로그아웃 요청 실패:', error);
-      }
-      window.location.href = 'login.html';
-    });
-  }
-
-  // 드롭다운 바깥 클릭 시 닫기
-  document.addEventListener('click', (e) => {
-    if (!loginStatusDropdown || loginStatusDropdown.hidden) return;
-    if (loginStatusBtn && loginStatusBtn.contains(e.target)) return;
-    if (loginStatusDropdown.contains(e.target)) return;
-    loginStatusDropdown.hidden = true;
   });
 });
