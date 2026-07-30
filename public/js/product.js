@@ -36,8 +36,12 @@ function renderProduct(product) {
   if (brandNavElement) brandNavElement.textContent = product.brand;
 
   // Store product price globally and trigger bottom sheet price update
-  window.productPrice = product.price;
-  if (window.updateBottomSheetPrice) {
+  const cardElementForData = document.querySelector('.product-detail-card');
+  if (cardElementForData) {
+    cardElementForData.dataset.price = product.price;
+  }
+  
+  if (typeof window.updateBottomSheetPrice === 'function') {
     window.updateBottomSheetPrice();
   }
 }
