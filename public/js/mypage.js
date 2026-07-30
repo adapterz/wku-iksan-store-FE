@@ -47,34 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Search Overlay Logic
-    const searchCloseBtn = document.getElementById('btn-search-close');
-    const searchOverlayElement = document.getElementById('search-overlay');
-    const searchInput = searchOverlayElement ? searchOverlayElement.querySelector('.search-overlay-input') : null;
-    
-    const shopBtn = Array.from(document.querySelectorAll('.bottom-nav .nav-item')).find(btn => {
-        const textSpan = btn.querySelector('.nav-text');
-        return textSpan && textSpan.textContent.trim() === 'SHOP';
-    });
 
-    if (shopBtn && searchOverlayElement) {
-        shopBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            searchOverlayElement.classList.add('show');
-            searchOverlayElement.classList.add('open');
-            if (searchInput) {
-                setTimeout(() => searchInput.focus(), 50);
-            }
-        });
-    }
-    
-    if (searchCloseBtn && searchOverlayElement) {
-        searchCloseBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            searchOverlayElement.classList.remove('show');
-            searchOverlayElement.classList.remove('open');
-        });
-    }
     // Logout Logic
     const logoutBtn = document.getElementById('btn-settings-logout');
     if (logoutBtn) {

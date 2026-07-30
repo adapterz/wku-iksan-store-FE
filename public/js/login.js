@@ -58,25 +58,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Search Overlay Open/Close Logic (공통 UI, home.js와 동일 패턴)
-  const searchOpenBtn = document.getElementById('btn-search-open');
-  const searchCloseBtn = document.getElementById('btn-search-close');
-  const searchOverlay = document.getElementById('search-overlay');
-  const searchInput = searchOverlay ? searchOverlay.querySelector('.search-overlay-input') : null;
-
-  if (searchOpenBtn && searchCloseBtn && searchOverlay) {
-    searchOpenBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.add('open');
-      if (searchInput) {
-        setTimeout(() => searchInput.focus(), 50);
-      }
-    });
-
-    searchCloseBtn.addEventListener('click', () => {
-      searchOverlay.classList.remove('open');
-    });
-  }
 
   // Home Button Logic
   const btnHome = document.getElementById('btn-home');

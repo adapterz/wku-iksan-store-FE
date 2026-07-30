@@ -119,15 +119,7 @@ document.addEventListener("header:ready", () => {
 
 
 
-  const navBar = document.querySelector('.nav-bar');
-  if (navBar) {
-    navBar.addEventListener('wheel', (e) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        navBar.scrollLeft += e.deltaY;
-      }
-    }, { passive: false });
-  }
+
 });
 
 
