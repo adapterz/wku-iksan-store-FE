@@ -43,9 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize save button state from localStorage
     const saveBtn = card.querySelector('.btn-save-bookmark');
     if (saveBtn) {
-      let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
       const icon = saveBtn.querySelector('i');
-      if (savedProducts.includes(product.id.toString())) {
+      if (window.isProductSaved(product.id)) {
         icon.classList.remove('fa-regular');
         icon.classList.add('fa-solid');
         icon.style.color = '#191919';
@@ -53,23 +52,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
       saveBtn.addEventListener('click', (e) => {
         e.stopPropagation(); // prevent card click
-        let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
-        const productIdStr = product.id.toString();
+        const isNowSaved = window.toggleSavedProduct(product.id);
         const icon = saveBtn.querySelector('i');
 
-        if (icon.classList.contains('fa-regular')) {
-          if (!savedProducts.includes(productIdStr)) {
-            savedProducts.push(productIdStr);
-            localStorage.setItem('saved_products', JSON.stringify(savedProducts));
-            window.dispatchEvent(new Event('saved-products-updated'));
-          }
+        if (isNowSaved) {
+          icon.classList.remove('fa-regular');
+          icon.classList.add('fa-solid');
+          icon.style.color = '#191919';
         } else {
-          const index = savedProducts.indexOf(productIdStr);
-          if (index > -1) {
-            savedProducts.splice(index, 1);
-            localStorage.setItem('saved_products', JSON.stringify(savedProducts));
-            window.dispatchEvent(new Event('saved-products-updated'));
-          }
+          icon.classList.remove('fa-solid');
+          icon.classList.add('fa-regular');
+          icon.style.color = '#999';
         }
       });
     }
@@ -239,12 +232,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Sync save buttons state across the page
   function syncSaveButtons() {
-    let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
     document.querySelectorAll('.btn-save-bookmark').forEach(btn => {
       const pid = btn.getAttribute('data-product-id');
       if (!pid) return;
       const icon = btn.querySelector('i');
-      if (savedProducts.includes(pid)) {
+      if (window.isProductSaved(pid)) {
         icon.classList.remove('fa-regular');
         icon.classList.add('fa-solid');
         icon.style.color = '#191919';

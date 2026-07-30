@@ -202,8 +202,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initialize state
     const icon = btn.querySelector('i');
     if (icon) {
-      let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
-      if (savedProducts.includes(productId.toString())) {
+      if (window.isProductSaved(productId)) {
         icon.classList.remove('fa-regular');
         icon.classList.add('fa-solid');
         icon.style.color = '#191919';
@@ -214,30 +213,18 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       const icon = btn.querySelector('i');
       if (icon) {
-        let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
-        const productIdStr = productId.toString();
+        const isNowSaved = window.toggleSavedProduct(productId);
 
-        if (icon.classList.contains('fa-regular')) {
+        if (isNowSaved) {
           // Save
           icon.classList.remove('fa-regular');
           icon.classList.add('fa-solid');
           icon.style.color = '#191919';
-          if (!savedProducts.includes(productIdStr)) {
-            savedProducts.push(productIdStr);
-            localStorage.setItem('saved_products', JSON.stringify(savedProducts));
-            window.dispatchEvent(new Event('saved-products-updated'));
-          }
         } else {
           // Unsave
           icon.classList.remove('fa-solid');
           icon.classList.add('fa-regular');
           icon.style.color = ''; // Revert to original CSS color
-          const index = savedProducts.indexOf(productIdStr);
-          if (index > -1) {
-            savedProducts.splice(index, 1);
-            localStorage.setItem('saved_products', JSON.stringify(savedProducts));
-            window.dispatchEvent(new Event('saved-products-updated'));
-          }
         }
       }
     });
@@ -245,8 +232,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Sync logic for product.js
   function syncProductSaveButtons() {
-    let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
-    const isSaved = savedProducts.includes(productId.toString());
+    const isSaved = window.isProductSaved(productId);
     saveBtns.forEach(btn => {
       const icon = btn.querySelector('i');
       if (icon) {
