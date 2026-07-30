@@ -93,26 +93,6 @@ async function loadProductDetail(id) {
   }
 }
 
-// 상품 데이터가 없거나 에러 발생 시 처리
-function showErrorAndRedirect() {
-  const container = document.querySelector('.product-detail-card');
-  if (container) {
-    container.innerHTML = `
-      <div style="text-align: center; padding: 60px 20px; font-family: sans-serif;">
-        <i class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: #ff5a5f; margin-bottom: 20px;"></i>
-        <h3 style="font-size: 18px; color: #191919; margin-bottom: 10px; font-weight: 600;">상품을 찾을 수 없습니다</h3>
-        <p style="font-size: 14px; color: #767676; margin-bottom: 24px; line-height: 1.5;">존재하지 않는 상품이거나 판매가 종료된 상품입니다.</p>
-        <button onclick="location.href='index.html'" style="background-color: #fee500; border: none; border-radius: 8px; padding: 12px 24px; font-size: 14px; font-weight: bold; cursor: pointer; color: #191919;">홈으로 이동</button>
-      </div>
-    `;
-  }
-  
-  // 하단 주문 액션 바 비활성화/숨김 처리
-  const bottomNav = document.querySelector('.product-bottom-nav');
-  if (bottomNav) {
-    bottomNav.style.display = 'none';
-  }
-}
 
 async function goToOrder(productId, type) {
   try {
