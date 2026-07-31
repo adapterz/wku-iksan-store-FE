@@ -97,8 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
           let safeUrl = 'index.html';
           
           if (redirectTarget) {
-            const decodedUrl = decodeURIComponent(redirectTarget);
             try {
+              const decodedUrl = decodeURIComponent(redirectTarget);
               // Open Redirect 및 XSS 방어: 브라우저 URL 파서를 통해 백슬래시 우회 등을 원천 차단하고
               // 실제 해석되는 origin이 현재 사이트(window.location.origin)와 동일한지 엄격히 검증
               const parsedUrl = new URL(decodedUrl, window.location.origin);
