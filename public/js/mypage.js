@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     } catch (error) {
         if (error.status === 401) {
+            localStorage.removeItem('isLoggedIn');
             window.location.href = 'login.html';
             return;
         }
