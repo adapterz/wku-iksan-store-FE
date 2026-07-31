@@ -261,6 +261,16 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('popstate', () => {
         updateActiveStates();
     });
+
+    const navBar = document.querySelector('.nav-bar');
+    if (navBar) {
+        navBar.addEventListener('wheel', (e) => {
+            if (e.deltaY !== 0) {
+                e.preventDefault();
+                navBar.scrollLeft += e.deltaY;
+            }
+        }, { passive: false });
+    }
 });
 
 // Ad Banner Slider Logic
@@ -342,3 +352,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// 공통 관심상품(북마크) 토글 유틸리티
+window.toggleSavedProduct = function(productId) {
+    let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
+    const productIdStr = productId.toString();
+    const isSaved = savedProducts.includes(productIdStr);
+    
+    if (isSaved) {
+        savedProducts = savedProducts.filter(id => id !== productIdStr);
+    } else {
+        savedProducts.push(productIdStr);
+    }
+    
+    localStorage.setItem('saved_products', JSON.stringify(savedProducts));
+    window.dispatchEvent(new Event('saved-products-updated'));
+    return !isSaved; // 변경된 상태 반환 (true: 저장됨, false: 해제됨)
+};
+
+// 공통 관심상품 여부 확인 유틸리티
+window.isProductSaved = function(productId) {
+    let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
+    return savedProducts.includes(productId.toString());
+};

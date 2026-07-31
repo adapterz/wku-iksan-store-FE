@@ -47,34 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Search Overlay Logic
-    const searchCloseBtn = document.getElementById('btn-search-close');
-    const searchOverlayElement = document.getElementById('search-overlay');
-    const searchInput = searchOverlayElement ? searchOverlayElement.querySelector('.search-overlay-input') : null;
-    
-    const shopBtn = Array.from(document.querySelectorAll('.bottom-nav .nav-item')).find(btn => {
-        const textSpan = btn.querySelector('.nav-text');
-        return textSpan && textSpan.textContent.trim() === 'SHOP';
-    });
 
-    if (shopBtn && searchOverlayElement) {
-        shopBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            searchOverlayElement.classList.add('show');
-            searchOverlayElement.classList.add('open');
-            if (searchInput) {
-                setTimeout(() => searchInput.focus(), 50);
-            }
-        });
-    }
-    
-    if (searchCloseBtn && searchOverlayElement) {
-        searchCloseBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            searchOverlayElement.classList.remove('show');
-            searchOverlayElement.classList.remove('open');
-        });
-    }
     // Logout Logic
     const logoutBtn = document.getElementById('btn-settings-logout');
     if (logoutBtn) {
@@ -155,10 +128,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     card.innerHTML = `
                         <div class="unused-gift-img-wrapper">
-                            <img src="${gift.thumbnailUrl || ''}" alt="상품 썸네일" class="unused-gift-img">
+                            <img alt="상품 썸네일" class="unused-gift-img">
                         </div>
-                        <div class="unused-gift-sender">${senderText}</div>
+                        <div class="unused-gift-sender"></div>
                     `;
+                    
+                    const imgEl = card.querySelector('.unused-gift-img');
+                    if (imgEl) imgEl.src = gift.thumbnailUrl || '';
+                    const senderEl = card.querySelector('.unused-gift-sender');
+                    if (senderEl) senderEl.textContent = senderText;
 
                     unusedGiftsListEl.appendChild(card);
                 });

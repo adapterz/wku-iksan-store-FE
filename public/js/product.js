@@ -36,8 +36,12 @@ function renderProduct(product) {
   if (brandNavElement) brandNavElement.textContent = product.brand;
 
   // Store product price globally and trigger bottom sheet price update
-  window.productPrice = product.price;
-  if (window.updateBottomSheetPrice) {
+  const cardElementForData = document.querySelector('.product-detail-card');
+  if (cardElementForData) {
+    cardElementForData.dataset.price = product.price;
+  }
+  
+  if (typeof window.updateBottomSheetPrice === 'function') {
     window.updateBottomSheetPrice();
   }
 }
@@ -93,26 +97,6 @@ async function loadProductDetail(id) {
   }
 }
 
-// 상품 데이터가 없거나 에러 발생 시 처리
-function showErrorAndRedirect() {
-  const container = document.querySelector('.product-detail-card');
-  if (container) {
-    container.innerHTML = `
-      <div style="text-align: center; padding: 60px 20px; font-family: sans-serif;">
-        <i class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: #ff5a5f; margin-bottom: 20px;"></i>
-        <h3 style="font-size: 18px; color: #191919; margin-bottom: 10px; font-weight: 600;">상품을 찾을 수 없습니다</h3>
-        <p style="font-size: 14px; color: #767676; margin-bottom: 24px; line-height: 1.5;">존재하지 않는 상품이거나 판매가 종료된 상품입니다.</p>
-        <button onclick="location.href='index.html'" style="background-color: #fee500; border: none; border-radius: 8px; padding: 12px 24px; font-size: 14px; font-weight: bold; cursor: pointer; color: #191919;">홈으로 이동</button>
-      </div>
-    `;
-  }
-  
-  // 하단 주문 액션 바 비활성화/숨김 처리
-  const bottomNav = document.querySelector('.product-bottom-nav');
-  if (bottomNav) {
-    bottomNav.style.display = 'none';
-  }
-}
 
 async function goToOrder(productId, type) {
   try {
@@ -153,25 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 검색 오버레이 열기/닫기 로직
-  const searchOpenBtn = document.getElementById('btn-search-open');
-  const searchCloseBtn = document.getElementById('btn-search-close');
-  const searchOverlay = document.getElementById('search-overlay');
-  const searchInput = searchOverlay ? searchOverlay.querySelector('.search-overlay-input') : null;
 
-  if (searchOpenBtn && searchCloseBtn && searchOverlay) {
-    searchOpenBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.add('open');
-      if (searchInput) {
-        setTimeout(() => searchInput.focus(), 50);
-      }
-    });
-
-    searchCloseBtn.addEventListener('click', () => {
-      searchOverlay.classList.remove('open');
-    });
-  }
 
   // 위시리스트 토글 로직
   const wishBtn = document.getElementById('btn-wish');
@@ -220,8 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initialize state
     const icon = btn.querySelector('i');
     if (icon) {
-      let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
-      if (savedProducts.includes(productId.toString())) {
+      if (window.isProductSaved(productId)) {
         icon.classList.remove('fa-regular');
         icon.classList.add('fa-solid');
         icon.style.color = '#191919';
@@ -232,30 +197,18 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       const icon = btn.querySelector('i');
       if (icon) {
-        let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
-        const productIdStr = productId.toString();
+        const isNowSaved = window.toggleSavedProduct(productId);
 
-        if (icon.classList.contains('fa-regular')) {
+        if (isNowSaved) {
           // Save
           icon.classList.remove('fa-regular');
           icon.classList.add('fa-solid');
           icon.style.color = '#191919';
-          if (!savedProducts.includes(productIdStr)) {
-            savedProducts.push(productIdStr);
-            localStorage.setItem('saved_products', JSON.stringify(savedProducts));
-            window.dispatchEvent(new Event('saved-products-updated'));
-          }
         } else {
           // Unsave
           icon.classList.remove('fa-solid');
           icon.classList.add('fa-regular');
           icon.style.color = ''; // Revert to original CSS color
-          const index = savedProducts.indexOf(productIdStr);
-          if (index > -1) {
-            savedProducts.splice(index, 1);
-            localStorage.setItem('saved_products', JSON.stringify(savedProducts));
-            window.dispatchEvent(new Event('saved-products-updated'));
-          }
         }
       }
     });
@@ -263,8 +216,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Sync logic for product.js
   function syncProductSaveButtons() {
-    let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
-    const isSaved = savedProducts.includes(productId.toString());
+    const isSaved = window.isProductSaved(productId);
     saveBtns.forEach(btn => {
       const icon = btn.querySelector('i');
       if (icon) {
@@ -289,26 +241,4 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// Top Nav Tab Bar Click Logic (FOR ME, 홈, 랭킹, 썸머세일, 와인/맥주...)
-  const navItems = document.querySelectorAll('.nav-item');
-  navItems.forEach(item => {
-    item.addEventListener('click', (e) => {
-      // Prevent default navigation if href is '#' or equivalent to prevent jumpy page reloads
-      if (item.getAttribute('href') === '#') {
-        e.preventDefault();
-      }
-      navItems.forEach(el => el.classList.remove('active'));
-      item.classList.add('active');
-    });
-  });
 
-  // Mouse wheel horizontal scrolling translation for .nav-bar
-  const navBar = document.querySelector('.nav-bar');
-  if (navBar) {
-    navBar.addEventListener('wheel', (e) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        navBar.scrollLeft += e.deltaY;
-      }
-    }, { passive: false });
-  }
