@@ -98,10 +98,15 @@ document.addEventListener('DOMContentLoaded', () => {
           
           if (redirectTarget) {
             const decodedUrl = decodeURIComponent(redirectTarget);
-            // Open Redirect 및 XSS 방어: 상대 경로('/')로 시작하나 프로토콜 상대 경로('//')가 아닌 경우, 
-            // 혹은 영문/숫자 형태의 '.html' 로 시작하는 파일 접근만 허용
-            if ((decodedUrl.startsWith('/') && !decodedUrl.startsWith('//')) || /^[a-zA-Z0-9_-]+\.html/.test(decodedUrl)) {
-              safeUrl = decodedUrl;
+            try {
+              // Open Redirect 및 XSS 방어: 브라우저 URL 파서를 통해 백슬래시 우회 등을 원천 차단하고
+              // 실제 해석되는 origin이 현재 사이트(window.location.origin)와 동일한지 엄격히 검증
+              const parsedUrl = new URL(decodedUrl, window.location.origin);
+              if (parsedUrl.origin === window.location.origin) {
+                safeUrl = decodedUrl;
+              }
+            } catch (e) {
+              // URL 파싱 실패(비정상적인 URL 등) 시 무시하고 기본값(index.html)으로 폴백
             }
           }
           
