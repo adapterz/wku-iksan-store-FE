@@ -1,35 +1,46 @@
 document.addEventListener('DOMContentLoaded', async () => {
     let cachedUserData = null;
-    try {
-        const resData = await requestJson('/api/auth/me');
-        
-        if (resData && resData.data) {
-            const user = resData.data;
-            cachedUserData = user;
-            const nicknameEl = document.getElementById('display-nickname');
-            const useridEl = document.getElementById('display-userid');
+
+    async function checkAuthAndLoadUserData() {
+        try {
+            const resData = await requestJson('/api/auth/me');
             
-            if (nicknameEl) nicknameEl.textContent = user.nickname || 'Unknown';
-            if (useridEl) useridEl.textContent = user.userId;
-            
-            // 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
-            document.body.style.visibility = 'visible';
-            document.body.style.opacity = '1';
-        } else {
-            console.error('No user data in response');
+            if (resData && resData.data) {
+                const user = resData.data;
+                cachedUserData = user;
+                const nicknameEl = document.getElementById('display-nickname');
+                const useridEl = document.getElementById('display-userid');
+                
+                if (nicknameEl) nicknameEl.textContent = user.nickname || 'Unknown';
+                if (useridEl) useridEl.textContent = user.userId;
+                
+                // 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
+                document.body.style.visibility = 'visible';
+                document.body.style.opacity = '1';
+            } else {
+                console.error('No user data in response');
+                document.body.style.visibility = 'visible';
+                document.body.style.opacity = '1';
+            }
+        } catch (error) {
+            if (error.status === 401) {
+                localStorage.removeItem('isLoggedIn');
+                window.location.replace('login.html');
+                return;
+            }
+            console.error('Error fetching user data:', error);
             document.body.style.visibility = 'visible';
             document.body.style.opacity = '1';
         }
-    } catch (error) {
-        if (error.status === 401) {
-            localStorage.removeItem('isLoggedIn');
-            window.location.href = 'login.html';
-            return;
-        }
-        console.error('Error fetching user data:', error);
-        document.body.style.visibility = 'visible';
-        document.body.style.opacity = '1';
     }
+
+    await checkAuthAndLoadUserData();
+
+    window.addEventListener('pageshow', async (event) => {
+        if (event.persisted) {
+            await checkAuthAndLoadUserData();
+        }
+    });
 
     // Settings Overlay Logic
     const settingsBtn = document.getElementById('btn-settings-open');
