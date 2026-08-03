@@ -20,11 +20,11 @@ document.addEventListener('DOMContentLoaded', () => {
     card.innerHTML = `
       <div class="card-img-wrapper skeleton">
         ${rankHtml}
-        <img class="product-img" src="${thumbnailUrl}" alt="${name}" onload="this.parentElement.classList.remove('skeleton'); this.classList.add('loaded');" onerror="this.parentElement.classList.remove('skeleton'); this.style.opacity=1;">
+        <img class="product-img" alt="" onload="this.parentElement.classList.remove('skeleton'); this.classList.add('loaded');" onerror="this.parentElement.classList.remove('skeleton'); this.style.opacity=1;">
       </div>
       <div class="card-body">
-        <span class="brand-name">${brand}</span>
-        <h4 class="product-title">${name}</h4>
+        <span class="brand-name"></span>
+        <h4 class="product-title"></h4>
         <div class="price-info" style="display: flex; justify-content: space-between; align-items: center;">
           <div>
             ${discountHtml}
@@ -40,12 +40,21 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
 
+    const imgEl = card.querySelector('.product-img');
+    if (imgEl) {
+      imgEl.src = thumbnailUrl;
+      imgEl.alt = name;
+    }
+    const brandEl = card.querySelector('.brand-name');
+    if (brandEl) brandEl.textContent = brand;
+    const titleEl = card.querySelector('.product-title');
+    if (titleEl) titleEl.textContent = name;
+
     // Initialize save button state from localStorage
     const saveBtn = card.querySelector('.btn-save-bookmark');
     if (saveBtn) {
-      let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
       const icon = saveBtn.querySelector('i');
-      if (savedProducts.includes(product.id.toString())) {
+      if (window.isProductSaved(product.id)) {
         icon.classList.remove('fa-regular');
         icon.classList.add('fa-solid');
         icon.style.color = '#191919';
@@ -53,23 +62,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
       saveBtn.addEventListener('click', (e) => {
         e.stopPropagation(); // prevent card click
-        let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
-        const productIdStr = product.id.toString();
+        const isNowSaved = window.toggleSavedProduct(product.id);
         const icon = saveBtn.querySelector('i');
 
-        if (icon.classList.contains('fa-regular')) {
-          if (!savedProducts.includes(productIdStr)) {
-            savedProducts.push(productIdStr);
-            localStorage.setItem('saved_products', JSON.stringify(savedProducts));
-            window.dispatchEvent(new Event('saved-products-updated'));
-          }
+        if (isNowSaved) {
+          icon.classList.remove('fa-regular');
+          icon.classList.add('fa-solid');
+          icon.style.color = '#191919';
         } else {
-          const index = savedProducts.indexOf(productIdStr);
-          if (index > -1) {
-            savedProducts.splice(index, 1);
-            localStorage.setItem('saved_products', JSON.stringify(savedProducts));
-            window.dispatchEvent(new Event('saved-products-updated'));
-          }
+          icon.classList.remove('fa-solid');
+          icon.classList.add('fa-regular');
+          icon.style.color = '#999';
         }
       });
     }
@@ -239,12 +242,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Sync save buttons state across the page
   function syncSaveButtons() {
-    let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
     document.querySelectorAll('.btn-save-bookmark').forEach(btn => {
       const pid = btn.getAttribute('data-product-id');
       if (!pid) return;
       const icon = btn.querySelector('i');
-      if (savedProducts.includes(pid)) {
+      if (window.isProductSaved(pid)) {
         icon.classList.remove('fa-regular');
         icon.classList.add('fa-solid');
         icon.style.color = '#191919';
@@ -264,51 +266,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  // Search Overlay Open/Close Logic
-  const searchOpenBtn = document.getElementById('btn-search-open');
-  const searchCloseBtn = document.getElementById('btn-search-close');
-  const searchOverlay = document.getElementById('search-overlay');
-  const searchInput = searchOverlay ? searchOverlay.querySelector('.search-overlay-input') : null;
-
-  if (searchOpenBtn && searchCloseBtn && searchOverlay) {
-    searchOpenBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.add('open');
-      if (searchInput) {
-        setTimeout(() => searchInput.focus(), 50);
-      }
-    });
-
-    searchCloseBtn.addEventListener('click', () => {
-      searchOverlay.classList.remove('open');
-    });
-  }
 
 
 
-  // Top Nav Tab Bar Click Logic (FOR ME, 홈, 랭킹, 썸머세일, 와인/맥주...)
-  const navItems = document.querySelectorAll('.nav-item');
-  navItems.forEach(item => {
-    item.addEventListener('click', (e) => {
-      // Prevent default navigation if href is '#' or equivalent to prevent jumpy page reloads
-      if (item.getAttribute('href') === '#') {
-        e.preventDefault();
-      }
-      navItems.forEach(el => el.classList.remove('active'));
-      item.classList.add('active');
-    });
-  });
 
-  // Mouse wheel horizontal scrolling translation for .nav-bar
-  const navBar = document.querySelector('.nav-bar');
-  if (navBar) {
-    navBar.addEventListener('wheel', (e) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        navBar.scrollLeft += e.deltaY;
-      }
-    }, { passive: false });
-  }
+
 
   // Mouse wheel horizontal scrolling for product lists
   const horizontalLists = document.querySelectorAll('.horizontal-product-list');

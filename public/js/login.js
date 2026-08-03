@@ -3,33 +3,83 @@ document.addEventListener('DOMContentLoaded', () => {
   const errorEl = document.getElementById('login-error');
   const submitBtn = form ? form.querySelector('.btn-auth-submit') : null;
 
-  const ERROR_MESSAGES = {
+  const ERROR_MESSAGES = Object.freeze({
     REQUIRED_EMAIL: '이메일을 입력해주세요.',
     REQUIRED_PASSWORD: '비밀번호를 입력해주세요.',
     INVALID_EMAIL_OR_PASSWORD: '이메일 또는 비밀번호가 올바르지 않습니다.',
     INTERNAL_SERVER_ERROR: '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
-  };
+  });
 
-  function showError(message) {
-    if (!errorEl) return;
-    errorEl.textContent = message;
-    errorEl.hidden = false;
+  const formInputs = form ? Array.from(form.querySelectorAll('input')) : [];
+
+  function showError(message, focusElement = null) {
+    if (focusElement) {
+      const parentGroup = focusElement.closest('.form-group');
+      if (parentGroup) {
+        const inlineErrorEl = parentGroup.querySelector('.auth-error');
+        if (inlineErrorEl) {
+          if (inlineErrorEl.textContent !== message) {
+            inlineErrorEl.textContent = message;
+          }
+          inlineErrorEl.hidden = false;
+          inlineErrorEl.setAttribute('aria-live', 'polite');
+        }
+      }
+      focusElement.setAttribute('aria-invalid', 'true');
+      if (document.activeElement !== focusElement) {
+        focusElement.focus();
+      }
+    } else {
+      if (!errorEl) return;
+      if (errorEl.textContent !== message) {
+        errorEl.textContent = message;
+      }
+      errorEl.hidden = false;
+      errorEl.setAttribute('aria-live', 'polite');
+    }
   }
 
   function clearError() {
-    if (!errorEl) return;
-    errorEl.hidden = true;
-    errorEl.textContent = '';
+    if (errorEl) {
+      errorEl.hidden = true;
+      errorEl.textContent = '';
+    }
+    formInputs.forEach(input => {
+      input.removeAttribute('aria-invalid');
+      const parentGroup = input.closest('.form-group');
+      if (parentGroup) {
+        const inlineErrorEl = parentGroup.querySelector('.auth-error');
+        if (inlineErrorEl) {
+          inlineErrorEl.hidden = true;
+          inlineErrorEl.textContent = '';
+        }
+      }
+    });
+  }
+
+  function validateForm(emailInput, passwordInput) {
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+
+    if (!email) {
+      return { isValid: false, message: ERROR_MESSAGES.REQUIRED_EMAIL, element: emailInput };
+    }
+    if (!password) {
+      return { isValid: false, message: ERROR_MESSAGES.REQUIRED_PASSWORD, element: passwordInput };
+    }
+    return { isValid: true };
   }
 
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (!form.checkValidity()) {
-        form.reportValidity();
+      clearError();
+
+      const validation = validateForm(form.email, form.password);
+      if (!validation.isValid) {
+        showError(validation.message, validation.element);
         return;
       }
-      clearError();
 
       const email = form.email.value.trim();
       const password = form.password.value;
@@ -43,8 +93,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (result.code === 'LOGIN_SUCCESS') {
+          localStorage.setItem('isLoggedIn', 'true');
           const redirectTarget = new URLSearchParams(window.location.search).get('redirect');
-          window.location.href = redirectTarget ? decodeURIComponent(redirectTarget) : 'index.html';
+          let safeUrl = 'index.html';
+          
+          if (redirectTarget) {
+            try {
+              const decodedUrl = decodeURIComponent(redirectTarget);
+              // Open Redirect 및 XSS 방어: 브라우저 URL 파서를 통해 백슬래시 우회 등을 원천 차단하고
+              // 실제 해석되는 origin이 현재 사이트(window.location.origin)와 동일한지 엄격히 검증
+              const parsedUrl = new URL(decodedUrl, window.location.origin);
+              if (parsedUrl.origin === window.location.origin) {
+                safeUrl = decodedUrl;
+              }
+            } catch (e) {
+              // URL 파싱 실패(비정상적인 URL 등) 시 무시하고 기본값(index.html)으로 폴백
+            }
+          }
+          
+          window.location.href = safeUrl;
           return;
         }
 
@@ -58,25 +125,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Search Overlay Open/Close Logic (공통 UI, home.js와 동일 패턴)
-  const searchOpenBtn = document.getElementById('btn-search-open');
-  const searchCloseBtn = document.getElementById('btn-search-close');
-  const searchOverlay = document.getElementById('search-overlay');
-  const searchInput = searchOverlay ? searchOverlay.querySelector('.search-overlay-input') : null;
-
-  if (searchOpenBtn && searchCloseBtn && searchOverlay) {
-    searchOpenBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.add('open');
-      if (searchInput) {
-        setTimeout(() => searchInput.focus(), 50);
-      }
-    });
-
-    searchCloseBtn.addEventListener('click', () => {
-      searchOverlay.classList.remove('open');
-    });
-  }
 
   // Home Button Logic
   const btnHome = document.getElementById('btn-home');

@@ -94,18 +94,27 @@ document.addEventListener("header:ready", () => {
 
       card.innerHTML = `
         <div class="gift-img-wrapper">
-          <img src="${gift.thumbnailUrl || ''}" alt="상품 썸네일" class="gift-img">
+          <img alt="상품 썸네일" class="gift-img">
           ${isUsed ? '<div class="used-overlay">사용완료</div>' : ''}
         </div>
         <div class="gift-info">
-          <div class="gift-brand">${gift.brand || ''}</div>
-          <div class="gift-name">${gift.productName || ''}</div>
+          <div class="gift-brand"></div>
+          <div class="gift-name"></div>
           <div class="gift-sender-info">
-            <span>보낸사람: ${senderText}</span>
+            <span class="sender-text"></span>
             <span class="gift-date">${dateText}</span>
           </div>
         </div>
       `;
+      
+      const imgEl = card.querySelector('.gift-img');
+      if (imgEl) imgEl.src = gift.thumbnailUrl || '';
+      const brandEl = card.querySelector('.gift-brand');
+      if (brandEl) brandEl.textContent = gift.brand || '';
+      const nameEl = card.querySelector('.gift-name');
+      if (nameEl) nameEl.textContent = gift.productName || '';
+      const senderEl = card.querySelector('.sender-text');
+      if (senderEl) senderEl.textContent = `보낸사람: ${senderText}`;
       listContainer.appendChild(card);
     });
   };
@@ -119,15 +128,7 @@ document.addEventListener("header:ready", () => {
 
 
 
-  const navBar = document.querySelector('.nav-bar');
-  if (navBar) {
-    navBar.addEventListener('wheel', (e) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        navBar.scrollLeft += e.deltaY;
-      }
-    }, { passive: false });
-  }
+
 });
 
 

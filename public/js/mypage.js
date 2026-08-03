@@ -1,34 +1,46 @@
 document.addEventListener('DOMContentLoaded', async () => {
     let cachedUserData = null;
-    try {
-        const resData = await requestJson('/api/auth/me');
-        
-        if (resData && resData.data) {
-            const user = resData.data;
-            cachedUserData = user;
-            const nicknameEl = document.getElementById('display-nickname');
-            const useridEl = document.getElementById('display-userid');
+
+    async function checkAuthAndLoadUserData() {
+        try {
+            const resData = await requestJson('/api/auth/me');
             
-            if (nicknameEl) nicknameEl.textContent = user.nickname || 'Unknown';
-            if (useridEl) useridEl.textContent = user.userId;
-            
-            // 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
-            document.body.style.visibility = 'visible';
-            document.body.style.opacity = '1';
-        } else {
-            console.error('No user data in response');
+            if (resData && resData.data) {
+                const user = resData.data;
+                cachedUserData = user;
+                const nicknameEl = document.getElementById('display-nickname');
+                const useridEl = document.getElementById('display-userid');
+                
+                if (nicknameEl) nicknameEl.textContent = user.nickname || 'Unknown';
+                if (useridEl) useridEl.textContent = user.userId;
+                
+                // 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
+                document.body.style.visibility = 'visible';
+                document.body.style.opacity = '1';
+            } else {
+                console.error('No user data in response');
+                document.body.style.visibility = 'visible';
+                document.body.style.opacity = '1';
+            }
+        } catch (error) {
+            if (error.status === 401) {
+                localStorage.removeItem('isLoggedIn');
+                window.location.replace('login.html');
+                return;
+            }
+            console.error('Error fetching user data:', error);
             document.body.style.visibility = 'visible';
             document.body.style.opacity = '1';
         }
-    } catch (error) {
-        if (error.status === 401) {
-            window.location.href = 'login.html';
-            return;
-        }
-        console.error('Error fetching user data:', error);
-        document.body.style.visibility = 'visible';
-        document.body.style.opacity = '1';
     }
+
+    await checkAuthAndLoadUserData();
+
+    window.addEventListener('pageshow', async (event) => {
+        if (event.persisted) {
+            await checkAuthAndLoadUserData();
+        }
+    });
 
     // Settings Overlay Logic
     const settingsBtn = document.getElementById('btn-settings-open');
@@ -47,34 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Search Overlay Logic
-    const searchCloseBtn = document.getElementById('btn-search-close');
-    const searchOverlayElement = document.getElementById('search-overlay');
-    const searchInput = searchOverlayElement ? searchOverlayElement.querySelector('.search-overlay-input') : null;
-    
-    const shopBtn = Array.from(document.querySelectorAll('.bottom-nav .nav-item')).find(btn => {
-        const textSpan = btn.querySelector('.nav-text');
-        return textSpan && textSpan.textContent.trim() === 'SHOP';
-    });
 
-    if (shopBtn && searchOverlayElement) {
-        shopBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            searchOverlayElement.classList.add('show');
-            searchOverlayElement.classList.add('open');
-            if (searchInput) {
-                setTimeout(() => searchInput.focus(), 50);
-            }
-        });
-    }
-    
-    if (searchCloseBtn && searchOverlayElement) {
-        searchCloseBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            searchOverlayElement.classList.remove('show');
-            searchOverlayElement.classList.remove('open');
-        });
-    }
     // Logout Logic
     const logoutBtn = document.getElementById('btn-settings-logout');
     if (logoutBtn) {
@@ -155,10 +140,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     card.innerHTML = `
                         <div class="unused-gift-img-wrapper">
-                            <img src="${gift.thumbnailUrl || ''}" alt="상품 썸네일" class="unused-gift-img">
+                            <img alt="상품 썸네일" class="unused-gift-img">
                         </div>
-                        <div class="unused-gift-sender">${senderText}</div>
+                        <div class="unused-gift-sender"></div>
                     `;
+                    
+                    const imgEl = card.querySelector('.unused-gift-img');
+                    if (imgEl) imgEl.src = gift.thumbnailUrl || '';
+                    const senderEl = card.querySelector('.unused-gift-sender');
+                    if (senderEl) senderEl.textContent = senderText;
 
                     unusedGiftsListEl.appendChild(card);
                 });

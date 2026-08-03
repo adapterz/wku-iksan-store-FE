@@ -27,25 +27,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // 검색 오버레이 열기/닫기 로직
-  const searchOpenBtn = document.getElementById('btn-search-open');
-  const searchCloseBtn = document.getElementById('btn-search-close');
-  const searchOverlay = document.getElementById('search-overlay');
-  const searchInput = searchOverlay ? searchOverlay.querySelector('.search-overlay-input') : null;
 
-  if (searchOpenBtn && searchCloseBtn && searchOverlay) {
-    searchOpenBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      searchOverlay.classList.add('open');
-      if (searchInput) {
-        setTimeout(() => searchInput.focus(), 50);
-      }
-    });
-
-    searchCloseBtn.addEventListener('click', () => {
-      searchOverlay.classList.remove('open');
-    });
-  }
 
   let currentUser = null;
   let selectedProduct = null;
@@ -306,26 +288,4 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
-// Top Nav Tab Bar Click Logic (FOR ME, 홈, 랭킹, 썸머세일, 와인/맥주...)
-  const navItems = document.querySelectorAll('.nav-item');
-  navItems.forEach(item => {
-    item.addEventListener('click', (e) => {
-      // Prevent default navigation if href is '#' or equivalent to prevent jumpy page reloads
-      if (item.getAttribute('href') === '#') {
-        e.preventDefault();
-      }
-      navItems.forEach(el => el.classList.remove('active'));
-      item.classList.add('active');
-    });
-  });
 
-  // Mouse wheel horizontal scrolling translation for .nav-bar
-  const navBar = document.querySelector('.nav-bar');
-  if (navBar) {
-    navBar.addEventListener('wheel', (e) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        navBar.scrollLeft += e.deltaY;
-      }
-    }, { passive: false });
-  }
