@@ -93,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (result.code === 'LOGIN_SUCCESS') {
+          localStorage.setItem('isLoggedIn', 'true');
           const redirectTarget = new URLSearchParams(window.location.search).get('redirect');
           let safeUrl = 'index.html';
           
