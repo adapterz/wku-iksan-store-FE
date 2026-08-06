@@ -140,6 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (myText) myText.textContent = 'my';
             } else {
                 localStorage.removeItem('isLoggedIn');
+                window._wishlistCache = null;
+                window._wishlistFetchPromise = null;
                 myBtn.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
                 if (myIcon) {
                     myIcon.className = 'fa-regular fa-user';
