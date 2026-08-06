@@ -193,11 +193,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.preventDefault();
       const icon = btn.querySelector('i');
       if (icon) {
-        const isNowSaved = window.toggleSavedProduct(productId);
+        const isNowSaved = await window.toggleSavedProduct(productId);
 
         if (isNowSaved) {
           // Save

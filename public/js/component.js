@@ -354,21 +354,56 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // 공통 관심상품(북마크) 토글 유틸리티
-window.toggleSavedProduct = function(productId) {
-    let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
-    const productIdStr = productId.toString();
-    const isSaved = savedProducts.includes(productIdStr);
-    
-    if (isSaved) {
-        savedProducts = savedProducts.filter(id => id !== productIdStr);
-    } else {
-        savedProducts.push(productIdStr);
+window.toggleSavedProduct = async function(productId) {
+    let isSaved = false;
+    try {
+        // 찜 추가 시도
+        await requestJson('/api/wishlists', {
+            method: 'POST',
+            body: { productId: Number(productId) }
+        });
+        isSaved = true; // 성공 시 찜 상태로 변경
+    } catch (error) {
+        if (error.status === 401 || error.code === 'UNAUTHORIZED') {
+            // 인증 안됨 에러 처리
+            alert('로그인이 필요합니다.');
+            window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+            return false;
+        } else if (error.status === 409 || error.code === 'PRODUCT_ALREADY_WISHED') {
+            // 이미 찜한 상태라면 해제 요청
+            try {
+                await requestJson(`/api/wishlists/${productId}`, { method: 'DELETE' });
+                isSaved = false; // 성공 시 찜 해제 상태로 변경
+            } catch (deleteError) {
+                console.error('찜 해제 에러:', deleteError);
+                return true; // 에러 시 기존 찜 상태 유지
+            }
+        } else {
+            console.error('찜 등록 에러:', error);
+            return false; // 에러 시 기존 상태 유지 (false라 가정)
+        }
     }
     
-    localStorage.setItem('saved_products', JSON.stringify(savedProducts));
-    window.dispatchEvent(new Event('saved-products-updated'));
-    return !isSaved; // 변경된 상태 반환 (true: 저장됨, false: 해제됨)
+    // UI 업데이트 이벤트를 발생시키고 결과를 반환
+    window.dispatchEvent(new CustomEvent('saved-products-updated', { detail: { productId, isSaved } }));
+    return isSaved;
 };
+
+// 백그라운드 이벤트 리스너를 통해 기존 localStorage 상태를 동기화 (toggle 함수 내에서는 조작하지 않음)
+window.addEventListener('saved-products-updated', (e) => {
+    if (e.detail && e.detail.productId) {
+        const { productId, isSaved } = e.detail;
+        let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
+        const productIdStr = productId.toString();
+        if (isSaved && !savedProducts.includes(productIdStr)) {
+            savedProducts.push(productIdStr);
+            localStorage.setItem('saved_products', JSON.stringify(savedProducts));
+        } else if (!isSaved && savedProducts.includes(productIdStr)) {
+            savedProducts = savedProducts.filter(id => id !== productIdStr);
+            localStorage.setItem('saved_products', JSON.stringify(savedProducts));
+        }
+    }
+});
 
 // 공통 관심상품 여부 확인 유틸리티
 window.isProductSaved = function(productId) {

@@ -60,9 +60,9 @@ document.addEventListener('DOMContentLoaded', () => {
         icon.style.color = '#191919';
       }
 
-      saveBtn.addEventListener('click', (e) => {
+      saveBtn.addEventListener('click', async (e) => {
         e.stopPropagation(); // prevent card click
-        const isNowSaved = window.toggleSavedProduct(product.id);
+        const isNowSaved = await window.toggleSavedProduct(product.id);
         const icon = saveBtn.querySelector('i');
 
         if (isNowSaved) {
