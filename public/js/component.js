@@ -381,7 +381,8 @@ window.toggleSavedProduct = async function(productId) {
                 return true; // 에러 시 기존 찜 상태 유지
             }
         } else {
-            console.error('찜 등록 에러:', error);
+            console.error('찜 등록 에러:', error.status, error.code, error);
+            alert(error.message || 'API 요청에 실패했습니다.');
             return false; // 에러 시 기존 상태 유지 (false라 가정)
         }
     }
