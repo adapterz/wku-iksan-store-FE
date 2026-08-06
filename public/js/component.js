@@ -389,21 +389,11 @@ window.toggleSavedProduct = async function(productId) {
     return isSaved;
 };
 
-// 백그라운드 이벤트 리스너를 통해 기존 localStorage 상태를 동기화 및 캐시 갱신
+// 이벤트 리스너를 통해 캐시 갱신
 window.addEventListener('saved-products-updated', (e) => {
     if (e.detail && e.detail.productId) {
         const { productId, isSaved } = e.detail;
-        let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
         const productIdStr = productId.toString();
-        
-        // localStorage 업데이트 (하위 호환)
-        if (isSaved && !savedProducts.includes(productIdStr)) {
-            savedProducts.push(productIdStr);
-            localStorage.setItem('saved_products', JSON.stringify(savedProducts));
-        } else if (!isSaved && savedProducts.includes(productIdStr)) {
-            savedProducts = savedProducts.filter(id => id !== productIdStr);
-            localStorage.setItem('saved_products', JSON.stringify(savedProducts));
-        }
 
         // 메모리 캐시 업데이트
         if (window._wishlistCache) {

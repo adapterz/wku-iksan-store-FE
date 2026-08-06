@@ -277,11 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   window.addEventListener('saved-products-updated', syncSaveButtons);
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'saved_products') {
-      syncSaveButtons();
-    }
-  });
+
 
 
 
