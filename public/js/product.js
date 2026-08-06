@@ -183,14 +183,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // Save (bookmark) button logic
   const saveBtns = document.querySelectorAll('button[title="선물상자 담기"], button[aria-label="저장"]');
   saveBtns.forEach(btn => {
-    // Initialize state
+    // Initialize state asynchronously
     const icon = btn.querySelector('i');
     if (icon) {
-      if (window.isProductSaved(productId)) {
-        icon.classList.remove('fa-regular');
-        icon.classList.add('fa-solid');
-        icon.style.color = '#191919';
-      }
+      window.isProductSaved(productId).then(isSaved => {
+        if (isSaved) {
+          icon.classList.remove('fa-regular');
+          icon.classList.add('fa-solid');
+          icon.style.color = '#191919';
+        }
+      });
     }
 
     btn.addEventListener('click', async (e) => {
@@ -214,22 +216,23 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Sync logic for product.js
+  // Helper to sync save buttons state
   function syncProductSaveButtons() {
-    const isSaved = window.isProductSaved(productId);
-    saveBtns.forEach(btn => {
-      const icon = btn.querySelector('i');
-      if (icon) {
-        if (isSaved) {
-          icon.classList.remove('fa-regular');
-          icon.classList.add('fa-solid');
-          icon.style.color = '#191919';
-        } else {
-          icon.classList.remove('fa-solid');
-          icon.classList.add('fa-regular');
-          icon.style.color = '';
+    window.isProductSaved(productId).then(isSaved => {
+      saveBtns.forEach(btn => {
+        const icon = btn.querySelector('i');
+        if (icon) {
+          if (isSaved) {
+            icon.classList.remove('fa-regular');
+            icon.classList.add('fa-solid');
+            icon.style.color = '#191919';
+          } else {
+            icon.classList.remove('fa-solid');
+            icon.classList.add('fa-regular');
+            icon.style.color = ''; // reset to CSS default
+          }
         }
-      }
+      });
     });
   }
 

@@ -389,12 +389,14 @@ window.toggleSavedProduct = async function(productId) {
     return isSaved;
 };
 
-// 백그라운드 이벤트 리스너를 통해 기존 localStorage 상태를 동기화 (toggle 함수 내에서는 조작하지 않음)
+// 백그라운드 이벤트 리스너를 통해 기존 localStorage 상태를 동기화 및 캐시 갱신
 window.addEventListener('saved-products-updated', (e) => {
     if (e.detail && e.detail.productId) {
         const { productId, isSaved } = e.detail;
         let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
         const productIdStr = productId.toString();
+        
+        // localStorage 업데이트 (하위 호환)
         if (isSaved && !savedProducts.includes(productIdStr)) {
             savedProducts.push(productIdStr);
             localStorage.setItem('saved_products', JSON.stringify(savedProducts));
@@ -402,11 +404,49 @@ window.addEventListener('saved-products-updated', (e) => {
             savedProducts = savedProducts.filter(id => id !== productIdStr);
             localStorage.setItem('saved_products', JSON.stringify(savedProducts));
         }
+
+        // 메모리 캐시 업데이트
+        if (window._wishlistCache) {
+            if (isSaved && !window._wishlistCache.includes(productIdStr)) {
+                window._wishlistCache.push(productIdStr);
+            } else if (!isSaved) {
+                window._wishlistCache = window._wishlistCache.filter(id => id !== productIdStr);
+            }
+        }
     }
 });
 
-// 공통 관심상품 여부 확인 유틸리티
-window.isProductSaved = function(productId) {
-    let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
-    return savedProducts.includes(productId.toString());
+// 전역 찜 목록 캐시 및 단일 요청 프라미스
+window._wishlistCache = null;
+window._wishlistFetchPromise = null;
+
+// 공통 관심상품 여부 확인 유틸리티 (비동기 및 캐싱 처리)
+window.isProductSaved = async function(productOrId) {
+    // 1. 객체 형태로 전달받았고 isWished 속성이 있다면 API 호출 없이 즉시 반환 (조회 최적화)
+    if (typeof productOrId === 'object' && productOrId !== null && 'isWished' in productOrId) {
+        return productOrId.isWished;
+    }
+    
+    const productId = typeof productOrId === 'object' ? productOrId.id : productOrId;
+    
+    // 2. 캐시가 없다면 서버에서 최초 1회 전체 조회하여 N+1 방지 (Singleflight 패턴 적용)
+    if (!window._wishlistCache) {
+        if (!window._wishlistFetchPromise) {
+            window._wishlistFetchPromise = (async () => {
+                try {
+                    const result = await requestJson('/api/wishlists');
+                    if (result && result.data) {
+                        return result.data.map(item => item.product.id.toString());
+                    }
+                } catch (error) {
+                    // 비로그인(401) 또는 네트워크 에러 시 빈 배열 반환하여 false 처리
+                    return [];
+                }
+                return [];
+            })();
+        }
+        window._wishlistCache = await window._wishlistFetchPromise;
+    }
+    
+    return window._wishlistCache.includes(productId.toString());
 };

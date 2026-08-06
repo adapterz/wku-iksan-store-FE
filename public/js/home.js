@@ -50,15 +50,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const titleEl = card.querySelector('.product-title');
     if (titleEl) titleEl.textContent = name;
 
-    // Initialize save button state from localStorage
+    // Initialize save button state asynchronously
     const saveBtn = card.querySelector('.btn-save-bookmark');
     if (saveBtn) {
       const icon = saveBtn.querySelector('i');
-      if (window.isProductSaved(product.id)) {
-        icon.classList.remove('fa-regular');
-        icon.classList.add('fa-solid');
-        icon.style.color = '#191919';
-      }
+      window.isProductSaved(product).then(isSaved => {
+        if (isSaved) {
+          icon.classList.remove('fa-regular');
+          icon.classList.add('fa-solid');
+          icon.style.color = '#191919';
+        }
+      });
 
       saveBtn.addEventListener('click', async (e) => {
         e.stopPropagation(); // prevent card click
@@ -246,15 +248,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const pid = btn.getAttribute('data-product-id');
       if (!pid) return;
       const icon = btn.querySelector('i');
-      if (window.isProductSaved(pid)) {
-        icon.classList.remove('fa-regular');
-        icon.classList.add('fa-solid');
-        icon.style.color = '#191919';
-      } else {
-        icon.classList.remove('fa-solid');
-        icon.classList.add('fa-regular');
-        icon.style.color = '#999';
-      }
+      window.isProductSaved(pid).then(isSaved => {
+        if (isSaved) {
+          icon.classList.remove('fa-regular');
+          icon.classList.add('fa-solid');
+          icon.style.color = '#191919';
+        } else {
+          icon.classList.remove('fa-solid');
+          icon.classList.add('fa-regular');
+          icon.style.color = '#999';
+        }
+      });
     });
   }
 
