@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
       (async () => {
         try {
           const isSaved = await window.isProductSaved(product);
+          if (!icon || !document.body.contains(icon)) return;
           if (isSaved) {
             icon.classList.remove('fa-regular');
             icon.classList.add('fa-solid');
@@ -72,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           const isNowSaved = await window.toggleSavedProduct(product.id);
           const icon = saveBtn.querySelector('i');
+          if (!icon || !document.body.contains(icon)) return;
 
           if (isNowSaved) {
             icon.classList.remove('fa-regular');
@@ -261,6 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       try {
         const isSaved = await window.isProductSaved(pid);
+        if (!icon || !document.body.contains(icon)) continue;
         if (isSaved) {
           icon.classList.remove('fa-regular');
           icon.classList.add('fa-solid');

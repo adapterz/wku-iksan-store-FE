@@ -189,6 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
       (async () => {
         try {
           const isSaved = await window.isProductSaved(productId);
+          if (!icon || !document.body.contains(icon)) return;
           if (isSaved) {
             icon.classList.remove('fa-regular');
             icon.classList.add('fa-solid');
@@ -206,6 +207,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (icon) {
         try {
           const isNowSaved = await window.toggleSavedProduct(productId);
+          if (!document.body.contains(icon)) return;
 
           if (isNowSaved) {
             // Save
@@ -231,7 +233,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const isSaved = await window.isProductSaved(productId);
       saveBtns.forEach(btn => {
         const icon = btn.querySelector('i');
-        if (icon) {
+        if (icon && document.body.contains(icon)) {
           if (isSaved) {
             icon.classList.remove('fa-regular');
             icon.classList.add('fa-solid');
