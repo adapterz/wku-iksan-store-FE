@@ -186,39 +186,49 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initialize state asynchronously
     const icon = btn.querySelector('i');
     if (icon) {
-      window.isProductSaved(productId).then(isSaved => {
-        if (isSaved) {
-          icon.classList.remove('fa-regular');
-          icon.classList.add('fa-solid');
-          icon.style.color = '#191919';
+      (async () => {
+        try {
+          const isSaved = await window.isProductSaved(productId);
+          if (isSaved) {
+            icon.classList.remove('fa-regular');
+            icon.classList.add('fa-solid');
+            icon.style.color = '#191919';
+          }
+        } catch (error) {
+          console.error('찜 상태 초기화 실패:', error);
         }
-      });
+      })();
     }
 
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
       const icon = btn.querySelector('i');
       if (icon) {
-        const isNowSaved = await window.toggleSavedProduct(productId);
+        try {
+          const isNowSaved = await window.toggleSavedProduct(productId);
 
-        if (isNowSaved) {
-          // Save
-          icon.classList.remove('fa-regular');
-          icon.classList.add('fa-solid');
-          icon.style.color = '#191919';
-        } else {
-          // Unsave
-          icon.classList.remove('fa-solid');
-          icon.classList.add('fa-regular');
-          icon.style.color = ''; // Revert to original CSS color
+          if (isNowSaved) {
+            // Save
+            icon.classList.remove('fa-regular');
+            icon.classList.add('fa-solid');
+            icon.style.color = '#191919';
+          } else {
+            // Unsave
+            icon.classList.remove('fa-solid');
+            icon.classList.add('fa-regular');
+            icon.style.color = ''; // Revert to original CSS color
+          }
+        } catch (error) {
+          console.error('찜 토글 에러:', error);
         }
       }
     });
   });
 
   // Helper to sync save buttons state
-  function syncProductSaveButtons() {
-    window.isProductSaved(productId).then(isSaved => {
+  async function syncProductSaveButtons() {
+    try {
+      const isSaved = await window.isProductSaved(productId);
       saveBtns.forEach(btn => {
         const icon = btn.querySelector('i');
         if (icon) {
@@ -233,7 +243,9 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
       });
-    });
+    } catch (error) {
+      console.error('상세페이지 찜 상태 동기화 실패:', error);
+    }
   }
 
   window.addEventListener('saved-products-updated', syncProductSaveButtons);

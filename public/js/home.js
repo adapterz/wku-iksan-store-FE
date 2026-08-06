@@ -54,27 +54,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveBtn = card.querySelector('.btn-save-bookmark');
     if (saveBtn) {
       const icon = saveBtn.querySelector('i');
-      window.isProductSaved(product).then(isSaved => {
-        if (isSaved) {
-          icon.classList.remove('fa-regular');
-          icon.classList.add('fa-solid');
-          icon.style.color = '#191919';
+      (async () => {
+        try {
+          const isSaved = await window.isProductSaved(product);
+          if (isSaved) {
+            icon.classList.remove('fa-regular');
+            icon.classList.add('fa-solid');
+            icon.style.color = '#191919';
+          }
+        } catch (error) {
+          console.error('찜 상태 초기화 실패:', error);
         }
-      });
+      })();
 
       saveBtn.addEventListener('click', async (e) => {
         e.stopPropagation(); // prevent card click
-        const isNowSaved = await window.toggleSavedProduct(product.id);
-        const icon = saveBtn.querySelector('i');
+        try {
+          const isNowSaved = await window.toggleSavedProduct(product.id);
+          const icon = saveBtn.querySelector('i');
 
-        if (isNowSaved) {
-          icon.classList.remove('fa-regular');
-          icon.classList.add('fa-solid');
-          icon.style.color = '#191919';
-        } else {
-          icon.classList.remove('fa-solid');
-          icon.classList.add('fa-regular');
-          icon.style.color = '#999';
+          if (isNowSaved) {
+            icon.classList.remove('fa-regular');
+            icon.classList.add('fa-solid');
+            icon.style.color = '#191919';
+          } else {
+            icon.classList.remove('fa-solid');
+            icon.classList.add('fa-regular');
+            icon.style.color = '#999';
+          }
+        } catch (error) {
+          console.error('찜 토글 에러:', error);
         }
       });
     }
@@ -243,12 +252,15 @@ document.addEventListener('DOMContentLoaded', () => {
   loadProducts();
 
   // Sync save buttons state across the page
-  function syncSaveButtons() {
-    document.querySelectorAll('.btn-save-bookmark').forEach(btn => {
+  async function syncSaveButtons() {
+    const btns = document.querySelectorAll('.btn-save-bookmark');
+    for (const btn of btns) {
       const pid = btn.getAttribute('data-product-id');
-      if (!pid) return;
+      if (!pid) continue;
       const icon = btn.querySelector('i');
-      window.isProductSaved(pid).then(isSaved => {
+      
+      try {
+        const isSaved = await window.isProductSaved(pid);
         if (isSaved) {
           icon.classList.remove('fa-regular');
           icon.classList.add('fa-solid');
@@ -258,8 +270,10 @@ document.addEventListener('DOMContentLoaded', () => {
           icon.classList.add('fa-regular');
           icon.style.color = '#999';
         }
-      });
-    });
+      } catch (error) {
+        console.error('찜 상태 동기화 실패:', error);
+      }
+    }
   }
 
   window.addEventListener('saved-products-updated', syncSaveButtons);
