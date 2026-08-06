@@ -57,12 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
       (async () => {
         try {
           const isSaved = await window.isProductSaved(product);
-          if (!icon || !document.body.contains(icon)) return;
-          if (isSaved) {
-            icon.classList.remove('fa-regular');
-            icon.classList.add('fa-solid');
-            icon.style.color = '#191919';
-          }
+          window.updateWishlistIcon(icon, isSaved);
         } catch (error) {
           console.error('찜 상태 초기화 실패:', error);
         }
@@ -73,17 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           const isNowSaved = await window.toggleSavedProduct(product.id);
           const icon = saveBtn.querySelector('i');
-          if (!icon || !document.body.contains(icon)) return;
-
-          if (isNowSaved) {
-            icon.classList.remove('fa-regular');
-            icon.classList.add('fa-solid');
-            icon.style.color = '#191919';
-          } else {
-            icon.classList.remove('fa-solid');
-            icon.classList.add('fa-regular');
-            icon.style.color = '#999';
-          }
+          window.updateWishlistIcon(icon, isNowSaved);
         } catch (error) {
           console.error('찜 토글 에러:', error);
         }
@@ -263,16 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       try {
         const isSaved = await window.isProductSaved(pid);
-        if (!icon || !document.body.contains(icon)) continue;
-        if (isSaved) {
-          icon.classList.remove('fa-regular');
-          icon.classList.add('fa-solid');
-          icon.style.color = '#191919';
-        } else {
-          icon.classList.remove('fa-solid');
-          icon.classList.add('fa-regular');
-          icon.style.color = '#999';
-        }
+        window.updateWishlistIcon(icon, isSaved);
       } catch (error) {
         console.error('찜 상태 동기화 실패:', error);
       }

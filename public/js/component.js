@@ -442,3 +442,17 @@ window.isProductSaved = async function(productOrId) {
     
     return window._wishlistCache.includes(productId.toString());
 };
+
+// 찜 아이콘 UI 상태 공통 변경 유틸리티
+window.updateWishlistIcon = function(icon, isSaved) {
+    if (!icon || !document.body.contains(icon)) return;
+    if (isSaved) {
+        icon.classList.remove('fa-regular');
+        icon.classList.add('fa-solid');
+        icon.classList.add('wished-icon');
+    } else {
+        icon.classList.remove('fa-solid');
+        icon.classList.add('fa-regular');
+        icon.classList.remove('wished-icon');
+    }
+};

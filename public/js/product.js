@@ -189,12 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
       (async () => {
         try {
           const isSaved = await window.isProductSaved(productId);
-          if (!icon || !document.body.contains(icon)) return;
-          if (isSaved) {
-            icon.classList.remove('fa-regular');
-            icon.classList.add('fa-solid');
-            icon.style.color = '#191919';
-          }
+          window.updateWishlistIcon(icon, isSaved);
         } catch (error) {
           console.error('찜 상태 초기화 실패:', error);
         }
@@ -207,19 +202,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (icon) {
         try {
           const isNowSaved = await window.toggleSavedProduct(productId);
-          if (!document.body.contains(icon)) return;
-
-          if (isNowSaved) {
-            // Save
-            icon.classList.remove('fa-regular');
-            icon.classList.add('fa-solid');
-            icon.style.color = '#191919';
-          } else {
-            // Unsave
-            icon.classList.remove('fa-solid');
-            icon.classList.add('fa-regular');
-            icon.style.color = ''; // Revert to original CSS color
-          }
+          window.updateWishlistIcon(icon, isNowSaved);
         } catch (error) {
           console.error('찜 토글 에러:', error);
         }
@@ -233,17 +216,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const isSaved = await window.isProductSaved(productId);
       saveBtns.forEach(btn => {
         const icon = btn.querySelector('i');
-        if (icon && document.body.contains(icon)) {
-          if (isSaved) {
-            icon.classList.remove('fa-regular');
-            icon.classList.add('fa-solid');
-            icon.style.color = '#191919';
-          } else {
-            icon.classList.remove('fa-solid');
-            icon.classList.add('fa-regular');
-            icon.style.color = ''; // reset to CSS default
-          }
-        }
+        window.updateWishlistIcon(icon, isSaved);
       });
     } catch (error) {
       console.error('상세페이지 찜 상태 동기화 실패:', error);

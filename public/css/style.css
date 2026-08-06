@@ -2966,3 +2966,8 @@ body.page-complete {
 .password-input-wrapper {
     position: relative;
 }
+
+/* 찜 완료 하트 아이콘 상태 */
+.wished-icon {
+    color: #191919 !important;
+}
