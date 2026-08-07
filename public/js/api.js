@@ -49,6 +49,12 @@ async function requestJson(path, options = {}) {
 
   // 4xx·5xx 응답의 상태, 오류 코드와 데이터를 화면별 catch 처리로 전달한다.
   if (!response.ok) {
+    if (response.status === 401) {
+      alert('로그인이 필요한 서비스입니다.');
+      window.location.href = '/login.html';
+      return;
+    }
+
     throw new ApiError(result.message || 'API 요청에 실패했습니다.', {
       status: response.status,
       code: result.code,
