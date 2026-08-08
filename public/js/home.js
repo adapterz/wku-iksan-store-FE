@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const icon = saveBtn.querySelector('i');
           window.updateWishlistIcon(icon, isNowSaved);
         } catch (error) {
+          // 실패하면 기존 아이콘 유지
           console.error('찜 토글 에러:', error);
         }
       });

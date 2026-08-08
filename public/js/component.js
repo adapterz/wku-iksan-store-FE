@@ -370,7 +370,7 @@ window.toggleSavedProduct = async function(productId) {
             // 인증 안됨 에러 처리
             alert('로그인이 필요합니다.');
             window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
-            return false;
+            throw error;
         } else if (error.status === 409 || error.code === 'PRODUCT_ALREADY_WISHED') {
             // 이미 찜한 상태라면 해제 요청
             try {
@@ -378,12 +378,13 @@ window.toggleSavedProduct = async function(productId) {
                 isSaved = false; // 성공 시 찜 해제 상태로 변경
             } catch (deleteError) {
                 console.error('찜 해제 에러:', deleteError);
-                return true; // 에러 시 기존 찜 상태 유지
+                alert(deleteError.message || '찜 처리에 실패했습니다.');
+                throw deleteError; // 실패 시 기존 상태 유지를 위해 에러 전달
             }
         } else {
             console.error('찜 등록 에러:', error.status, error.code, error);
-            alert(error.message || 'API 요청에 실패했습니다.');
-            return false; // 에러 시 기존 상태 유지 (false라 가정)
+            alert(error.message || '찜 처리에 실패했습니다.');
+            throw error; // 실패 시 기존 상태 유지를 위해 에러 전달
         }
     }
     
