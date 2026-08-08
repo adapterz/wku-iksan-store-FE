@@ -432,11 +432,18 @@ window.isProductSaved = async function(productOrId) {
                     if (result && result.data) {
                         return result.data.map(item => item.product.id.toString());
                     }
-                } catch (error) {
-                    // 비로그인(401) 또는 네트워크 에러 시 빈 배열 반환하여 false 처리
                     return [];
+                } catch (error) {
+                    if (error.status === 401) {
+                        // 비로그인 상태는 정상 상태이므로 빈 배열로 캐시
+                        return [];
+                    }
+                    // 네트워크 오류, 500 등은 캐시를 오염시키지 않고 다음 요청에서 재조회하도록 함
+                    window._wishlistCache = null;
+                    throw error;
+                } finally {
+                    window._wishlistFetchPromise = null;
                 }
-                return [];
             })();
         }
         window._wishlistCache = await window._wishlistFetchPromise;
