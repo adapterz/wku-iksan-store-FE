@@ -10,13 +10,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Docker Hub 로그인
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+      - name: Private Registry 로그인
+        run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login registry.iksan.store -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
 
       - name: 이미지 빌드 및 푸시
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/wku-iksan-store-fe:latest .
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/wku-iksan-store-fe:latest
+          docker build -t registry.iksan.store/wku-iksan-store-fe:latest .
+          docker push registry.iksan.store/wku-iksan-store-fe:latest
 
   deploy:
     needs: build-and-push
