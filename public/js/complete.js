@@ -16,6 +16,9 @@ document.addEventListener("header:ready", async () => {
     if (result && result.data) {
       const order = result.data;
       renderCompletePage(order);
+      // 인증 및 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
+      document.body.style.visibility = "visible";
+      document.body.style.opacity = "1";
     } else {
       alert("주문 정보가 올바르지 않습니다.");
       location.href = "index.html";
