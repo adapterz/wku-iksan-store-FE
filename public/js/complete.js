@@ -13,7 +13,14 @@ document.addEventListener("header:ready", async () => {
 
   try {
     const result = await requestJson(`/api/orders/${orderId}`);
-    if (result && result.data) {
+
+    // result가 없으면(=undefined) api.js 전역 인터셉터가 401을 처리(로그인 페이지 이동)한 것이므로
+    // 그 이동을 다른 리다이렉트로 덮어쓰지 않도록 그대로 반환한다.
+    if (!result) {
+      return;
+    }
+
+    if (result.data) {
       const order = result.data;
       renderCompletePage(order);
       // 인증 및 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
