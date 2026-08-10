@@ -433,14 +433,9 @@ window.toggleSavedProduct = async function(productId) {
 
 // 공통 관심상품 여부 확인 유틸리티 (비동기 및 캐싱 처리)
 window.isProductSaved = async function(productOrId) {
-    // 1. 객체 형태로 전달받았고 isWished 속성이 있다면 API 호출 없이 즉시 반환 (조회 최적화)
-    if (typeof productOrId === 'object' && productOrId !== null && 'isWished' in productOrId) {
-        return productOrId.isWished;
-    }
-
     const productId = typeof productOrId === 'object' ? productOrId.id : productOrId;
 
-    // 2. 캐시가 없다면 서버에서 최초 1회 전체 조회하여 N+1 방지
+    // 캐시가 없다면 서버에서 최초 1회 전체 조회하여 N+1 방지
     const wishlist = await ensureWishlistLoaded();
 
     return wishlist.includes(productId.toString());
