@@ -183,62 +183,46 @@ document.addEventListener("DOMContentLoaded", () => {
   // Save (bookmark) button logic
   const saveBtns = document.querySelectorAll('button[title="선물상자 담기"], button[aria-label="저장"]');
   saveBtns.forEach(btn => {
-    // Initialize state
+    // Initialize state asynchronously
     const icon = btn.querySelector('i');
     if (icon) {
-      if (window.isProductSaved(productId)) {
-        icon.classList.remove('fa-regular');
-        icon.classList.add('fa-solid');
-        icon.style.color = '#191919';
-      }
+      (async () => {
+        try {
+          const isSaved = await window.isProductSaved(productId);
+          window.updateWishlistIcon(icon, isSaved);
+        } catch (error) {
+          console.error('찜 상태 초기화 실패:', error);
+        }
+      })();
     }
 
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.preventDefault();
       const icon = btn.querySelector('i');
       if (icon) {
-        const isNowSaved = window.toggleSavedProduct(productId);
-
-        if (isNowSaved) {
-          // Save
-          icon.classList.remove('fa-regular');
-          icon.classList.add('fa-solid');
-          icon.style.color = '#191919';
-        } else {
-          // Unsave
-          icon.classList.remove('fa-solid');
-          icon.classList.add('fa-regular');
-          icon.style.color = ''; // Revert to original CSS color
+        try {
+          const isNowSaved = await window.toggleSavedProduct(productId);
+          window.updateWishlistIcon(icon, isNowSaved);
+        } catch (error) {
+          // 실패하면 기존 아이콘 유지
+          console.error('찜 토글 에러:', error);
         }
       }
     });
   });
 
-  // Sync logic for product.js
-  function syncProductSaveButtons() {
-    const isSaved = window.isProductSaved(productId);
-    saveBtns.forEach(btn => {
-      const icon = btn.querySelector('i');
-      if (icon) {
-        if (isSaved) {
-          icon.classList.remove('fa-regular');
-          icon.classList.add('fa-solid');
-          icon.style.color = '#191919';
-        } else {
-          icon.classList.remove('fa-solid');
-          icon.classList.add('fa-regular');
-          icon.style.color = '';
-        }
-      }
-    });
+  // Helper to sync save buttons state
+  async function syncProductSaveButtons() {
+    try {
+      const isSaved = await window.isProductSaved(productId);
+      saveBtns.forEach(btn => {
+        const icon = btn.querySelector('i');
+        window.updateWishlistIcon(icon, isSaved);
+      });
+    } catch (error) {
+      console.error('상세페이지 찜 상태 동기화 실패:', error);
+    }
   }
 
   window.addEventListener('saved-products-updated', syncProductSaveButtons);
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'saved_products') {
-      syncProductSaveButtons();
-    }
-  });
 });
-
-

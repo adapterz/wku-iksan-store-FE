@@ -50,29 +50,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const titleEl = card.querySelector('.product-title');
     if (titleEl) titleEl.textContent = name;
 
-    // Initialize save button state from localStorage
+    // Initialize save button state asynchronously
     const saveBtn = card.querySelector('.btn-save-bookmark');
     if (saveBtn) {
       const icon = saveBtn.querySelector('i');
-      if (window.isProductSaved(product.id)) {
-        icon.classList.remove('fa-regular');
-        icon.classList.add('fa-solid');
-        icon.style.color = '#191919';
-      }
+      (async () => {
+        try {
+          const isSaved = await window.isProductSaved(product);
+          window.updateWishlistIcon(icon, isSaved);
+        } catch (error) {
+          console.error('찜 상태 초기화 실패:', error);
+        }
+      })();
 
-      saveBtn.addEventListener('click', (e) => {
+      saveBtn.addEventListener('click', async (e) => {
         e.stopPropagation(); // prevent card click
-        const isNowSaved = window.toggleSavedProduct(product.id);
-        const icon = saveBtn.querySelector('i');
-
-        if (isNowSaved) {
-          icon.classList.remove('fa-regular');
-          icon.classList.add('fa-solid');
-          icon.style.color = '#191919';
-        } else {
-          icon.classList.remove('fa-solid');
-          icon.classList.add('fa-regular');
-          icon.style.color = '#999';
+        try {
+          const isNowSaved = await window.toggleSavedProduct(product.id);
+          const icon = saveBtn.querySelector('i');
+          window.updateWishlistIcon(icon, isNowSaved);
+        } catch (error) {
+          // 실패하면 기존 아이콘 유지
+          console.error('찜 토글 에러:', error);
         }
       });
     }
@@ -241,29 +240,24 @@ document.addEventListener('DOMContentLoaded', () => {
   loadProducts();
 
   // Sync save buttons state across the page
-  function syncSaveButtons() {
-    document.querySelectorAll('.btn-save-bookmark').forEach(btn => {
+  async function syncSaveButtons() {
+    const btns = document.querySelectorAll('.btn-save-bookmark');
+    for (const btn of btns) {
       const pid = btn.getAttribute('data-product-id');
-      if (!pid) return;
+      if (!pid) continue;
       const icon = btn.querySelector('i');
-      if (window.isProductSaved(pid)) {
-        icon.classList.remove('fa-regular');
-        icon.classList.add('fa-solid');
-        icon.style.color = '#191919';
-      } else {
-        icon.classList.remove('fa-solid');
-        icon.classList.add('fa-regular');
-        icon.style.color = '#999';
+      
+      try {
+        const isSaved = await window.isProductSaved(pid);
+        window.updateWishlistIcon(icon, isSaved);
+      } catch (error) {
+        console.error('찜 상태 동기화 실패:', error);
       }
-    });
+    }
   }
 
   window.addEventListener('saved-products-updated', syncSaveButtons);
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'saved_products') {
-      syncSaveButtons();
-    }
-  });
+
 
 
 

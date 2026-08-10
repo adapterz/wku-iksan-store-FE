@@ -140,6 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (myText) myText.textContent = 'my';
             } else {
                 localStorage.removeItem('isLoggedIn');
+                window._wishlistCache = null;
+                window._wishlistFetchPromise = null;
                 myBtn.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
                 if (myIcon) {
                     myIcon.className = 'fa-regular fa-user';
@@ -353,25 +355,101 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// 공통 관심상품(북마크) 토글 유틸리티
-window.toggleSavedProduct = function(productId) {
-    let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
-    const productIdStr = productId.toString();
-    const isSaved = savedProducts.includes(productIdStr);
-    
-    if (isSaved) {
-        savedProducts = savedProducts.filter(id => id !== productIdStr);
-    } else {
-        savedProducts.push(productIdStr);
+// 전역 찜 목록 캐시 및 단일 요청 프라미스
+window._wishlistCache = null;
+window._wishlistFetchPromise = null;
+
+// 찜 목록 캐시가 없다면 서버에서 최초 1회 전체 조회하여 캐시를 채우는 공통 헬퍼 (Singleflight 패턴 적용)
+async function ensureWishlistLoaded() {
+    if (!window._wishlistCache) {
+        if (!window._wishlistFetchPromise) {
+            window._wishlistFetchPromise = (async () => {
+                try {
+                    const result = await requestJson('/api/wishlists');
+                    if (result && result.data) {
+                        return result.data.map(item => item.product.id.toString());
+                    }
+                    return [];
+                } catch (error) {
+                    if (error.status === 401) {
+                        // 비로그인 상태는 정상 상태이므로 빈 배열로 캐시
+                        return [];
+                    }
+                    // 네트워크 오류, 500 등은 캐시를 오염시키지 않고 다음 요청에서 재조회하도록 함
+                    window._wishlistCache = null;
+                    throw error;
+                } finally {
+                    window._wishlistFetchPromise = null;
+                }
+            })();
+        }
+        window._wishlistCache = await window._wishlistFetchPromise;
     }
-    
-    localStorage.setItem('saved_products', JSON.stringify(savedProducts));
-    window.dispatchEvent(new Event('saved-products-updated'));
-    return !isSaved; // 변경된 상태 반환 (true: 저장됨, false: 해제됨)
+    return window._wishlistCache;
+}
+
+// 공통 관심상품(북마크) 토글 유틸리티
+window.toggleSavedProduct = async function(productId) {
+    // 초기 목록 조회가 진행 중이라면 완료를 기다려, 늦게 도착한 조회 결과가
+    // 이후의 토글 결과를 덮어쓰는 레이스 컨디션을 방지
+    const wishlist = await ensureWishlistLoaded();
+    const productIdStr = productId.toString();
+    const isWished = wishlist.includes(productIdStr);
+    let isSaved = isWished;
+
+    try {
+        if (isWished) {
+            // 이미 찜한 상품이면 해제 요청
+            await requestJson(`/api/wishlists/${productId}`, { method: 'DELETE' });
+            window._wishlistCache = window._wishlistCache.filter(id => id !== productIdStr);
+            isSaved = false;
+        } else {
+            // 찜하지 않은 상품이면 등록 요청
+            await requestJson('/api/wishlists', {
+                method: 'POST',
+                body: { productId: Number(productId) }
+            });
+            // 등록 성공 후 재조회 대신 캐시에 바로 추가하여, 재조회 실패로 인한 상태 불일치를 방지
+            window._wishlistCache = [...wishlist, productIdStr];
+            isSaved = true;
+        }
+    } catch (error) {
+        if (error.status === 401 || error.code === 'UNAUTHORIZED') {
+            // 인증 안됨 에러 처리
+            alert('로그인이 필요합니다.');
+            window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+            throw error;
+        }
+        console.error('찜 토글 에러:', error.status, error.code, error);
+        alert(error.message || '찜 처리에 실패했습니다.');
+        throw error; // 실패 시 기존 상태 유지를 위해 에러 전달
+    }
+
+    // UI 업데이트 이벤트를 발생시키고 결과를 반환
+    window.dispatchEvent(new CustomEvent('saved-products-updated', { detail: { productId, isSaved } }));
+    return isSaved;
 };
 
-// 공통 관심상품 여부 확인 유틸리티
-window.isProductSaved = function(productId) {
-    let savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
-    return savedProducts.includes(productId.toString());
+// 공통 관심상품 여부 확인 유틸리티 (비동기 및 캐싱 처리)
+window.isProductSaved = async function(productOrId) {
+    const productId = typeof productOrId === 'object' ? productOrId.id : productOrId;
+
+    // 캐시가 없다면 서버에서 최초 1회 전체 조회하여 N+1 방지
+    const wishlist = await ensureWishlistLoaded();
+
+    return wishlist.includes(productId.toString());
+};
+
+// 찜 아이콘 UI 상태 공통 변경 유틸리티
+window.updateWishlistIcon = function(icon, isSaved) {
+    if (!icon || !document.body.contains(icon)) return;
+    if (isSaved) {
+        icon.classList.remove('fa-regular');
+        icon.classList.add('fa-solid');
+        icon.classList.add('wished-icon');
+    } else {
+        icon.classList.remove('fa-solid');
+        icon.classList.add('fa-regular');
+        icon.classList.remove('wished-icon');
+    }
 };

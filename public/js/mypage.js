@@ -75,6 +75,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.error('로그아웃 요청 실패:', error);
             }
             localStorage.removeItem('isLoggedIn');
+            window._wishlistCache = null;
+            window._wishlistFetchPromise = null;
             window.location.href = 'login.html';
         });
     }
