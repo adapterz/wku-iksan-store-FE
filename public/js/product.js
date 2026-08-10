@@ -104,7 +104,8 @@ async function goToOrder(productId, type) {
     let url = `order.html?productId=${productId}&type=${type}`;
     window.location.href = url;
   } catch (error) {
-    if (error.status === 401 || error.status === 403) {
+    // 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 403 등 나머지 오류만 다룬다.
+    if (error.status === 403) {
       const redirectTarget = encodeURIComponent(window.location.href);
       window.location.href = `login.html?redirect=${redirectTarget}`;
       return;

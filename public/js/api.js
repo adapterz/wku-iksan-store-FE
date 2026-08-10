@@ -51,7 +51,8 @@ async function requestJson(path, options = {}) {
   if (!response.ok) {
     if (response.status === 401) {
       alert('로그인이 필요한 서비스입니다.');
-      window.location.href = '/login.html';
+      const redirectTarget = encodeURIComponent(window.location.href);
+      window.location.href = `/login.html?redirect=${redirectTarget}`;
       return;
     }
 

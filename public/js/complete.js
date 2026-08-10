@@ -22,8 +22,9 @@ document.addEventListener("header:ready", async () => {
     }
   } catch (error) {
     console.error("주문 정보 조회 실패:", error);
-    if (error.status === 401 || error.status === 403) {
-      alert("로그인이 필요하거나 접근 권한이 없습니다.");
+    // 401은 api.js 전역 인터셉터가 처리하므로 여기선 403 등 나머지 오류만 다룬다.
+    if (error.status === 403) {
+      alert("접근 권한이 없습니다.");
       location.href = "login.html";
     } else {
       alert("주문 정보를 불러올 수 없습니다.");

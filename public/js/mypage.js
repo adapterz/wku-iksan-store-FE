@@ -25,13 +25,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.body.style.opacity = '1';
             return true;
         } catch (error) {
-            if (error.status === 401 || error.code === 'UNAUTHORIZED') {
-                localStorage.removeItem('isLoggedIn');
-                window.location.replace('login.html');
-                return false;
-            }
-
-            // 401 외 에러(네트워크 장애 등): 데이터 없는 화면이 노출되지 않도록 hidden 상태를 유지한 채 렌더링을 중단하고 사용자에게 안내한다.
+            // 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류(네트워크 장애 등)만 다룬다.
+            // 데이터 없는 화면이 노출되지 않도록 hidden 상태를 유지한 채 렌더링을 중단하고 사용자에게 안내한다.
             console.error('Error fetching user data:', error);
             alert('사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
             return false;
@@ -221,16 +216,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function ensureUserData() {
         if (!cachedUserData) {
-            try {
-                const result = await window.requestJson('/api/auth/me');
-                cachedUserData = result.data;
-            } catch (error) {
-                if (error.status === 401 || error.code === 'UNAUTHORIZED') {
-                    console.warn('마이페이지 오버레이: 비로그인 상태입니다.');
-                    return null;
-                }
-                throw error;
-            }
+            // 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류만 호출부로 전달한다.
+            const result = await window.requestJson('/api/auth/me');
+            cachedUserData = result.data;
         }
         return cachedUserData;
     }
