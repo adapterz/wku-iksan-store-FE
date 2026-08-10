@@ -409,9 +409,8 @@ window.toggleSavedProduct = async function(productId) {
                 method: 'POST',
                 body: { productId: Number(productId) }
             });
-            // 등록 성공 후 최신 목록을 다시 조회하도록 캐시 초기화
-            window._wishlistCache = null;
-            await ensureWishlistLoaded();
+            // 등록 성공 후 재조회 대신 캐시에 바로 추가하여, 재조회 실패로 인한 상태 불일치를 방지
+            window._wishlistCache = [...wishlist, productIdStr];
             isSaved = true;
         }
     } catch (error) {
