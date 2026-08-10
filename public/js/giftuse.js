@@ -101,7 +101,7 @@ function renderGift(gift) {
     if (barcodeCard) barcodeCard.style.display = '';
 
     // 닉네임 / 나 배지 처리
-    document.getElementById('receiver-nickname').textContent = gift.isSelfGift ? "나" : (gift.sender?.nickname || "친구");
+    document.getElementById('receiver-nickname').textContent = gift.isSelfGift ? "나" : (gift.sender?.nickname ?? gift.senderNickname ?? "친구");
     if (gift.isSelfGift) {
         document.getElementById('self-badge').style.display = 'block';
     } else {
