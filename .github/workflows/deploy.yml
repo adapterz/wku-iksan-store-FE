@@ -22,15 +22,17 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: FE 서버에 SSH 접속해 재배포 (Nginx 경유)
+      - name: Tailscale 연결
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+
+      - name: FE 서버에 SSH 접속해 재배포 (Tailscale 직접 연결)
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.FE_HOST }}
           username: ${{ secrets.FE_USER }}
           key: ${{ secrets.CICD_SSH_KEY }}
-          proxy_host: ${{ secrets.NGINX_HOST }}
-          proxy_username: ${{ secrets.NGINX_USER }}
-          proxy_key: ${{ secrets.CICD_SSH_KEY }}
           script: |
             cd ~/wku-iksan-store-FE
             ./deploy.sh
