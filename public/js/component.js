@@ -366,7 +366,9 @@ async function ensureWishlistLoaded() {
         if (!window._wishlistFetchPromise) {
             window._wishlistFetchPromise = (async () => {
                 try {
-                    const result = await requestJson('/api/wishlists');
+                    // silent401: 비로그인 상태에서도 홈 화면 등에서 조용히 빈 찜 목록으로 처리해야 하므로
+                    // 전역 401 리다이렉트를 건너뛴다.
+                    const result = await requestJson('/api/wishlists', { silent401: true });
                     if (result && result.data) {
                         return result.data.map(item => item.product.id.toString());
                     }
