@@ -100,11 +100,17 @@ async function loadProductDetail(id) {
 
 async function goToOrder(productId, type) {
   try {
-    await requestJson('/api/auth/me');
+    const authResult = await requestJson('/api/auth/me');
+
+    // authResult가 없으면(=undefined) api.js 전역 인터셉터가 401을 처리(로그인 페이지 이동)한 것이므로
+    // 그 이동을 order.html로 덮어쓰지 않도록 그대로 반환한다.
+    if (!authResult) {
+      return;
+    }
+
     let url = `order.html?productId=${productId}&type=${type}`;
     window.location.href = url;
   } catch (error) {
-    // 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 403 등 나머지 오류만 다룬다.
     if (error.status === 403) {
       const redirectTarget = encodeURIComponent(window.location.href);
       window.location.href = `login.html?redirect=${redirectTarget}`;
