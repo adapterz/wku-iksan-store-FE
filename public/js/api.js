@@ -11,7 +11,7 @@ class ApiError extends Error {
 
 // 세션 쿠키, JSON 변환, HTTP·네트워크 오류 처리를 공통으로 수행한다.
 async function requestJson(path, options = {}) {
-  const { body, headers = {}, ...requestOptions } = options;
+  const { body, headers = {}, silent401 = false, ...requestOptions } = options;
   const config = {
     credentials: 'include',
     ...requestOptions,
@@ -49,7 +49,9 @@ async function requestJson(path, options = {}) {
 
   // 4xx·5xx 응답의 상태, 오류 코드와 데이터를 화면별 catch 처리로 전달한다.
   if (!response.ok) {
-    if (response.status === 401) {
+    // silent401: 로그인 여부만 조용히 확인하는 배경 호출(예: 전역 네비게이션 상태 갱신)은
+    // 인증이 필수인 페이지가 아니므로 전역 리다이렉트를 건너뛰고 호출부에서 직접 처리하게 한다.
+    if (response.status === 401 && !silent401) {
       alert('로그인이 필요한 서비스입니다.');
       const redirectTarget = encodeURIComponent(window.location.href);
       window.location.href = `/login.html?redirect=${redirectTarget}`;

@@ -115,8 +115,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let nickname = '';
         try {
             // requestJson이 전역(api.js)에 선언되어 있다고 가정
+            // silent401: 로그인 여부만 조용히 확인하는 배경 호출이므로 전역 401 리다이렉트를 건너뛴다.
             if (typeof requestJson === 'function') {
-                const result = await requestJson('/api/auth/me');
+                const result = await requestJson('/api/auth/me', { silent401: true });
                 isLoggedIn = true;
                 nickname = result.data?.nickname || '';
             }
