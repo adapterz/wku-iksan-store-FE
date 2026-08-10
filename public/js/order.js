@@ -34,20 +34,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   let receiverId = null;
   let celebrationMessage = "나는 내가 챙긴다!\n소중한 나에게 주는 선물";
 
-  // 1. 로그인 여부 확인
+  // 1. 로그인 여부 확인 (화면을 그리기 전에 먼저 검증 - Route Guard)
+  // 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류만 다룬다.
   try {
     const authResult = await requestJson('/api/auth/me');
     if (authResult && authResult.data) {
       currentUser = authResult.data;
     } else {
-      alert("로그인이 필요한 서비스입니다.");
-      location.href = "login.html";
       return;
     }
   } catch (error) {
     console.error("인증 확인 실패:", error);
-    alert("로그인이 필요한 서비스입니다.");
-    location.href = "login.html";
+    alert("사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
     return;
   }
 
@@ -96,6 +94,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     location.href = "index.html";
     return;
   }
+
+  // 인증 및 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
+  document.body.style.visibility = "visible";
+  document.body.style.opacity = "1";
 
   // 4. 선물 유형에 따른 받는 사람 UI 제어
   const receiverSection = document.getElementById("receiver-section");

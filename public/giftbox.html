@@ -7,12 +7,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>선물함 - Iksan Gift</title>
+    <!-- Auth Check & bfcache -->
+    <script>
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                document.body.style.visibility = 'hidden';
+                document.body.style.opacity = '0';
+            }
+        });
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
-    
+
 </head>
 
-<body class="page-giftbox">
+<body class="page-giftbox" style="visibility: hidden; opacity: 0; transition: opacity 0.3s ease;">
     <!-- Main Header -->
     <!-- Main Header -->
     <header class="main-header" style="border-bottom: none;">
