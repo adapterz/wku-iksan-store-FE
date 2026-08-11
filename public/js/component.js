@@ -23,6 +23,109 @@ if (document.body && !document.getElementById('search-overlay')) {
     document.body.insertAdjacentHTML('beforeend', getSearchOverlayHTML());
 }
 
+// 검색어를 받아 검색 결과 페이지로 이동하는 공통 유틸리티 (빈 값은 무시)
+function navigateToSearch(keyword) {
+    const trimmed = (keyword || '').trim();
+    if (!trimmed) return;
+    window.location.href = `search.html?keyword=${encodeURIComponent(trimmed)}`;
+}
+
+// 하단 네비게이션의 로그인 링크(redirect 파라미터)를 현재 window.location.href 기준으로 다시 계산한다.
+// history.pushState로 URL만 바뀌는 화면(search.js의 재검색 등)은 페이지가 새로 로드되지 않아
+// checkGlobalAuthStatus가 다시 실행되지 않으므로, 그런 화면에서 URL이 바뀔 때마다 직접 호출해야 한다.
+window.refreshBottomNavLoginLink = function() {
+    const myBtn = document.getElementById('btn-bottom-my');
+    if (!myBtn) return;
+    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    if (!isLoggedIn) {
+        myBtn.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+    }
+};
+
+// 헤더의 #btn-back 뒤로가기 버튼 공통 이벤트 바인딩 (히스토리가 없으면 홈으로 이동)
+function bindHeaderBackButton() {
+    const btnBack = document.getElementById('btn-back');
+    if (btnBack) {
+        btnBack.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+    }
+}
+
+// 검색 결과 페이지(search.html) 전용 헤더 HTML 반환 함수
+// index.html의 회색 검색 인라인 박스(.header-search-box)를 재사용하되, 오버레이 대신
+// 이 자리에서 바로 입력·재검색할 수 있도록 실제 <input>으로 구성한다.
+function getSearchHeaderHTML(keyword) {
+    const escapedKeyword = (keyword || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `
+    <div class="header-container">
+        <a href="#" id="btn-back" class="header-icon" title="뒤로가기">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <div class="header-search-box search-header-box">
+            <input type="text" id="search-page-input" class="header-search-text has-keyword" value="${escapedKeyword}" placeholder="브랜드, 상품, 프로필, 태그 등">
+            <div class="header-search-icon" id="search-page-submit" style="cursor: pointer;">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </div>
+        </div>
+        <div class="header-right-icons">
+            <a href="index.html" class="header-icon" title="홈">
+                <i class="fa-solid fa-house"></i>
+            </a>
+            <a href="#" class="header-icon" title="주문내역">
+                <i class="fa-solid fa-receipt"></i>
+            </a>
+            <a href="giftbox.html" class="header-icon" title="선물함">
+                <i class="fa-solid fa-gift"></i>
+            </a>
+        </div>
+    </div>`;
+}
+
+// search.html에서 header:ready 이후 호출하여 검색 전용 헤더를 그려주는 공통 함수
+// 오버레이를 열지 않고, 헤더의 검색창에서 바로 입력해 재검색할 수 있도록 바인딩한다.
+window.renderSearchHeader = function(keyword) {
+    const headerElement = document.querySelector('header.main-header');
+    if (!headerElement) return;
+    headerElement.innerHTML = getSearchHeaderHTML(keyword);
+    bindHeaderBackButton();
+
+    const searchPageInput = document.getElementById('search-page-input');
+    const searchPageSubmit = document.getElementById('search-page-submit');
+
+    // search.html 안에서의 재검색은 페이지 새로고침 없이 처리하기 위해
+    // search.js가 등록한 콜백(window.onSearchPageKeywordSubmit)에 위임한다.
+    // 콜백이 없는 경우(비정상 진입 등)에는 기존처럼 페이지 이동으로 대체한다.
+    function submitPageSearch() {
+        if (!searchPageInput) return;
+        const trimmed = searchPageInput.value.trim();
+        if (!trimmed) return;
+        if (typeof window.onSearchPageKeywordSubmit === 'function') {
+            window.onSearchPageKeywordSubmit(trimmed);
+        } else {
+            navigateToSearch(trimmed);
+        }
+    }
+
+    if (searchPageInput) {
+        searchPageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitPageSearch();
+            }
+        });
+    }
+
+    if (searchPageSubmit) {
+        searchPageSubmit.addEventListener('click', submitPageSearch);
+    }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     // 서브 페이지 공통 헤더 HTML 반환 함수
     function getSubHeaderHTML() {
@@ -52,24 +155,13 @@ document.addEventListener('DOMContentLoaded', () => {
         currentFile = 'index.html';
     }
 
-    if (currentFile !== 'index.html' && currentFile !== 'mypage.html') {
+    // search.html은 검색 인라인 박스가 포함된 전용 헤더(window.renderSearchHeader)를 사용하므로 공통 헤더 자동 삽입에서 제외
+    if (currentFile !== 'index.html' && currentFile !== 'mypage.html' && currentFile !== 'search.html') {
         const headerElement = document.querySelector('header.main-header');
         if (headerElement) {
             headerElement.innerHTML = getSubHeaderHTML();
             document.dispatchEvent(new Event('header:ready'));
-            
-            // 뒤로가기 버튼 이벤트 바인딩
-            const btnBack = document.getElementById('btn-back');
-            if (btnBack) {
-                btnBack.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    if (window.history.length > 1) {
-                        window.history.back();
-                    } else {
-                        window.location.href = 'index.html';
-                    }
-                });
-            }
+            bindHeaderBackButton();
         }
     }
 
@@ -143,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.removeItem('isLoggedIn');
                 window._wishlistCache = null;
                 window._wishlistFetchPromise = null;
-                myBtn.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+                window.refreshBottomNavLoginLink();
                 if (myIcon) {
                     myIcon.className = 'fa-regular fa-user';
                 }
@@ -217,6 +309,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 검색 오버레이 공통 로직 (전역 위임 또는 DOMContentLoaded 이후 바인딩)
     const searchOverlay = document.getElementById('search-overlay');
     if (searchOverlay) {
+        const searchInput = searchOverlay.querySelector('.search-overlay-input');
+        const searchIcon = searchOverlay.querySelector('.search-overlay-input-icon');
+
         // btn-search-open은 메인(index.html)에서는 정적, 서브페이지에서는 동적 삽입됨
         // 동적 삽입 이후에 바인딩하기 위해 문서 전체에 위임(이벤트 버블링) 사용
         document.addEventListener('click', (e) => {
@@ -224,7 +319,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (openBtn) {
                 e.preventDefault();
                 searchOverlay.classList.add('open');
-                const searchInput = searchOverlay.querySelector('.search-overlay-input');
                 if (searchInput) {
                     setTimeout(() => searchInput.focus(), 50);
                 }
@@ -238,6 +332,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchOverlay.classList.remove('open');
                 updateActiveStates(); // 검색 오버레이 닫기 시 active 상태 복구
             });
+        }
+
+        // 검색어 제출(Enter 입력 또는 검색 아이콘 클릭) 시 검색 결과 페이지로 이동
+        function submitSearch() {
+            if (!searchInput) return;
+            navigateToSearch(searchInput.value);
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitSearch();
+                }
+            });
+        }
+
+        if (searchIcon) {
+            searchIcon.addEventListener('click', submitSearch);
         }
     }
 
@@ -455,4 +568,101 @@ window.updateWishlistIcon = function(icon, isSaved) {
         icon.classList.add('fa-regular');
         icon.classList.remove('wished-icon');
     }
+};
+
+// 공통 상품 카드 마크업 생성 유틸리티 (home.js, search.js 등 여러 화면에서 재사용)
+window.createProductCard = function(product, options = {}) {
+    const card = document.createElement('article');
+    card.className = 'product-card';
+
+    const price = Number(product.price || 0);
+    const discountRate = product.discountRate || 0;
+    const thumbnailUrl = product.thumbnailUrl || '';
+    const name = product.name || '';
+    const brand = product.brand || '';
+
+    const formattedPrice = price.toLocaleString() + '원';
+    const discountHtml = discountRate ? `<span class="discount-rate">${discountRate}%</span>` : '';
+    const rankHtml = options.showRank && options.rankIndex ? `<span class="rank-badge">${options.rankIndex}</span>` : '';
+
+    card.innerHTML = `
+      <div class="card-img-wrapper skeleton">
+        ${rankHtml}
+        <img class="product-img" alt="" onload="this.parentElement.classList.remove('skeleton'); this.classList.add('loaded');" onerror="this.parentElement.classList.remove('skeleton'); this.style.opacity=1;">
+      </div>
+      <div class="card-body">
+        <span class="brand-name"></span>
+        <h4 class="product-title"></h4>
+        <div class="price-info" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            ${discountHtml}
+            <span class="price">${formattedPrice}</span>
+          </div>
+          <button class="btn-save-bookmark" data-product-id="${product.id}" title="저장" style="background:none; border:none; padding:4px; cursor:pointer;">
+            <i class="fa-regular fa-bookmark" style="font-size: 20px; color: #999;"></i>
+          </button>
+        </div>
+        <div class="stats-row">
+          관심 0 · 리뷰 0
+        </div>
+      </div>
+    `;
+
+    const imgEl = card.querySelector('.product-img');
+    if (imgEl) {
+        imgEl.src = thumbnailUrl;
+        imgEl.alt = name;
+    }
+    const brandEl = card.querySelector('.brand-name');
+    if (brandEl) brandEl.textContent = brand;
+    const titleEl = card.querySelector('.product-title');
+    if (titleEl) titleEl.textContent = name;
+
+    // Initialize save button state asynchronously
+    const saveBtn = card.querySelector('.btn-save-bookmark');
+    if (saveBtn) {
+        const icon = saveBtn.querySelector('i');
+        (async () => {
+            try {
+                const isSaved = await window.isProductSaved(product);
+                window.updateWishlistIcon(icon, isSaved);
+            } catch (error) {
+                console.error('찜 상태 초기화 실패:', error);
+            }
+        })();
+
+        saveBtn.addEventListener('click', async (e) => {
+            e.stopPropagation(); // prevent card click
+            try {
+                const isNowSaved = await window.toggleSavedProduct(product.id);
+                const icon = saveBtn.querySelector('i');
+                window.updateWishlistIcon(icon, isNowSaved);
+            } catch (error) {
+                // 실패하면 기존 아이콘 유지
+                console.error('찜 토글 에러:', error);
+            }
+        });
+    }
+
+    // Card click handler to navigate to product.html?id=ID
+    card.addEventListener('click', () => {
+        window.location.href = `product.html?id=${product.id}`;
+    });
+
+    return card;
+};
+
+// 공통 스켈레톤 상품 카드 마크업 생성 유틸리티 (.product-card 레이아웃과 동일한 자리표시자)
+window.createSkeletonCard = function() {
+    const card = document.createElement('div');
+    card.className = 'product-card skeleton-card';
+    card.innerHTML = `
+      <div class="card-img-wrapper"><div class="skeleton skeleton-card-img"></div></div>
+      <div class="card-body">
+        <div class="skeleton skeleton-line" style="width:35%;height:11px;"></div>
+        <div class="skeleton skeleton-line" style="width:90%;height:13px;"></div>
+        <div class="skeleton skeleton-line" style="width:45%;height:15px;"></div>
+      </div>
+    `;
+    return card;
 };
