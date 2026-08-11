@@ -109,6 +109,20 @@ button {
   color: #191919;
 }
 
+/* search.html 헤더: 오버레이 대신 이 자리에서 바로 입력·재검색하는 실제 input */
+input.header-search-text {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 0;
+}
+
+input.header-search-text::placeholder {
+  color: #999999;
+}
+
 .header-search-icon {
   color: #191919;
   display: flex;

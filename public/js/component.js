@@ -23,6 +23,13 @@ if (document.body && !document.getElementById('search-overlay')) {
     document.body.insertAdjacentHTML('beforeend', getSearchOverlayHTML());
 }
 
+// 검색어를 받아 검색 결과 페이지로 이동하는 공통 유틸리티 (빈 값은 무시)
+function navigateToSearch(keyword) {
+    const trimmed = (keyword || '').trim();
+    if (!trimmed) return;
+    window.location.href = `search.html?keyword=${encodeURIComponent(trimmed)}`;
+}
+
 // 헤더의 #btn-back 뒤로가기 버튼 공통 이벤트 바인딩 (히스토리가 없으면 홈으로 이동)
 function bindHeaderBackButton() {
     const btnBack = document.getElementById('btn-back');
@@ -39,17 +46,18 @@ function bindHeaderBackButton() {
 }
 
 // 검색 결과 페이지(search.html) 전용 헤더 HTML 반환 함수
-// index.html의 회색 검색 인라인 박스(.header-search-box)를 재사용하여 keyword를 채워 보여준다.
+// index.html의 회색 검색 인라인 박스(.header-search-box)를 재사용하되, 오버레이 대신
+// 이 자리에서 바로 입력·재검색할 수 있도록 실제 <input>으로 구성한다.
 function getSearchHeaderHTML(keyword) {
-    const displayText = keyword || '브랜드, 상품, 프로필, 태그 등';
+    const escapedKeyword = (keyword || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return `
     <div class="header-container">
         <a href="#" id="btn-back" class="header-icon" title="뒤로가기">
             <i class="fa-solid fa-arrow-left"></i>
         </a>
-        <div class="header-search-box search-header-box" id="btn-search-open" style="cursor: text;">
-            <span class="header-search-text${keyword ? ' has-keyword' : ''}">${displayText}</span>
-            <div class="header-search-icon">
+        <div class="header-search-box search-header-box">
+            <input type="text" id="search-page-input" class="header-search-text has-keyword" value="${escapedKeyword}" placeholder="브랜드, 상품, 프로필, 태그 등">
+            <div class="header-search-icon" id="search-page-submit" style="cursor: pointer;">
                 <i class="fa-solid fa-magnifying-glass"></i>
             </div>
         </div>
@@ -68,11 +76,42 @@ function getSearchHeaderHTML(keyword) {
 }
 
 // search.html에서 header:ready 이후 호출하여 검색 전용 헤더를 그려주는 공통 함수
+// 오버레이를 열지 않고, 헤더의 검색창에서 바로 입력해 재검색할 수 있도록 바인딩한다.
 window.renderSearchHeader = function(keyword) {
     const headerElement = document.querySelector('header.main-header');
     if (!headerElement) return;
     headerElement.innerHTML = getSearchHeaderHTML(keyword);
     bindHeaderBackButton();
+
+    const searchPageInput = document.getElementById('search-page-input');
+    const searchPageSubmit = document.getElementById('search-page-submit');
+
+    // search.html 안에서의 재검색은 페이지 새로고침 없이 처리하기 위해
+    // search.js가 등록한 콜백(window.onSearchPageKeywordSubmit)에 위임한다.
+    // 콜백이 없는 경우(비정상 진입 등)에는 기존처럼 페이지 이동으로 대체한다.
+    function submitPageSearch() {
+        if (!searchPageInput) return;
+        const trimmed = searchPageInput.value.trim();
+        if (!trimmed) return;
+        if (typeof window.onSearchPageKeywordSubmit === 'function') {
+            window.onSearchPageKeywordSubmit(trimmed);
+        } else {
+            navigateToSearch(trimmed);
+        }
+    }
+
+    if (searchPageInput) {
+        searchPageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitPageSearch();
+            }
+        });
+    }
+
+    if (searchPageSubmit) {
+        searchPageSubmit.addEventListener('click', submitPageSearch);
+    }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -286,9 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 검색어 제출(Enter 입력 또는 검색 아이콘 클릭) 시 검색 결과 페이지로 이동
         function submitSearch() {
             if (!searchInput) return;
-            const keyword = searchInput.value.trim();
-            if (!keyword) return;
-            window.location.href = `search.html?keyword=${encodeURIComponent(keyword)}`;
+            navigateToSearch(searchInput.value);
         }
 
         if (searchInput) {
