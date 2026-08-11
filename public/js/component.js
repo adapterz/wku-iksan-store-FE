@@ -23,6 +23,58 @@ if (document.body && !document.getElementById('search-overlay')) {
     document.body.insertAdjacentHTML('beforeend', getSearchOverlayHTML());
 }
 
+// 헤더의 #btn-back 뒤로가기 버튼 공통 이벤트 바인딩 (히스토리가 없으면 홈으로 이동)
+function bindHeaderBackButton() {
+    const btnBack = document.getElementById('btn-back');
+    if (btnBack) {
+        btnBack.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+    }
+}
+
+// 검색 결과 페이지(search.html) 전용 헤더 HTML 반환 함수
+// index.html의 회색 검색 인라인 박스(.header-search-box)를 재사용하여 keyword를 채워 보여준다.
+function getSearchHeaderHTML(keyword) {
+    const displayText = keyword || '브랜드, 상품, 프로필, 태그 등';
+    return `
+    <div class="header-container">
+        <a href="#" id="btn-back" class="header-icon" title="뒤로가기">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <div class="header-search-box search-header-box" id="btn-search-open" style="cursor: text;">
+            <span class="header-search-text${keyword ? ' has-keyword' : ''}">${displayText}</span>
+            <div class="header-search-icon">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </div>
+        </div>
+        <div class="header-right-icons">
+            <a href="index.html" class="header-icon" title="홈">
+                <i class="fa-solid fa-house"></i>
+            </a>
+            <a href="#" class="header-icon" title="주문내역">
+                <i class="fa-solid fa-receipt"></i>
+            </a>
+            <a href="giftbox.html" class="header-icon" title="선물함">
+                <i class="fa-solid fa-gift"></i>
+            </a>
+        </div>
+    </div>`;
+}
+
+// search.html에서 header:ready 이후 호출하여 검색 전용 헤더를 그려주는 공통 함수
+window.renderSearchHeader = function(keyword) {
+    const headerElement = document.querySelector('header.main-header');
+    if (!headerElement) return;
+    headerElement.innerHTML = getSearchHeaderHTML(keyword);
+    bindHeaderBackButton();
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     // 서브 페이지 공통 헤더 HTML 반환 함수
     function getSubHeaderHTML() {
@@ -52,24 +104,13 @@ document.addEventListener('DOMContentLoaded', () => {
         currentFile = 'index.html';
     }
 
-    if (currentFile !== 'index.html' && currentFile !== 'mypage.html') {
+    // search.html은 검색 인라인 박스가 포함된 전용 헤더(window.renderSearchHeader)를 사용하므로 공통 헤더 자동 삽입에서 제외
+    if (currentFile !== 'index.html' && currentFile !== 'mypage.html' && currentFile !== 'search.html') {
         const headerElement = document.querySelector('header.main-header');
         if (headerElement) {
             headerElement.innerHTML = getSubHeaderHTML();
             document.dispatchEvent(new Event('header:ready'));
-            
-            // 뒤로가기 버튼 이벤트 바인딩
-            const btnBack = document.getElementById('btn-back');
-            if (btnBack) {
-                btnBack.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    if (window.history.length > 1) {
-                        window.history.back();
-                    } else {
-                        window.location.href = 'index.html';
-                    }
-                });
-            }
+            bindHeaderBackButton();
         }
     }
 

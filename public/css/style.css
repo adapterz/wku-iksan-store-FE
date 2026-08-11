@@ -99,6 +99,16 @@ button {
   font-weight: 400;
 }
 
+/* search.html 헤더: 뒤로가기 아이콘 옆에 위치하므로 좌우 여백을 16px로 통일 */
+.search-header-box {
+  margin-left: 16px;
+}
+
+/* search.html 헤더: 검색된 키워드는 placeholder와 구분되도록 진한 색으로 표시 */
+.header-search-text.has-keyword {
+  color: #191919;
+}
+
 .header-search-icon {
   color: #191919;
   display: flex;

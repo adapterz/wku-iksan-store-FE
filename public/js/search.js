@@ -1,13 +1,11 @@
-document.addEventListener('header:ready', () => {
-  const titleEl = document.getElementById('search-result-title');
+document.addEventListener('DOMContentLoaded', () => {
   const listEl = document.getElementById('search-result-list');
 
   const urlParams = new URLSearchParams(window.location.search);
   const keyword = (urlParams.get('keyword') || '').trim();
 
-  if (titleEl) {
-    titleEl.textContent = keyword ? `'${keyword}' 검색 결과` : '검색 결과';
-  }
+  // 뒤로가기 + 검색 인라인 박스(keyword 표시) + 홈/영수증/선물함 아이콘으로 구성된 검색 전용 헤더 (component.js 공통 함수)
+  window.renderSearchHeader(keyword);
 
   // 상품 카드 마크업은 component.js가 전역에 노출한 createProductCard/createSkeletonCard를 재사용한다.
   function renderSkeletonState() {
