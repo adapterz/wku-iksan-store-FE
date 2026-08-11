@@ -217,6 +217,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 검색 오버레이 공통 로직 (전역 위임 또는 DOMContentLoaded 이후 바인딩)
     const searchOverlay = document.getElementById('search-overlay');
     if (searchOverlay) {
+        const searchInput = searchOverlay.querySelector('.search-overlay-input');
+        const searchIcon = searchOverlay.querySelector('.search-overlay-input-icon');
+
         // btn-search-open은 메인(index.html)에서는 정적, 서브페이지에서는 동적 삽입됨
         // 동적 삽입 이후에 바인딩하기 위해 문서 전체에 위임(이벤트 버블링) 사용
         document.addEventListener('click', (e) => {
@@ -224,7 +227,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (openBtn) {
                 e.preventDefault();
                 searchOverlay.classList.add('open');
-                const searchInput = searchOverlay.querySelector('.search-overlay-input');
                 if (searchInput) {
                     setTimeout(() => searchInput.focus(), 50);
                 }
@@ -238,6 +240,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchOverlay.classList.remove('open');
                 updateActiveStates(); // 검색 오버레이 닫기 시 active 상태 복구
             });
+        }
+
+        // 검색어 제출(Enter 입력 또는 검색 아이콘 클릭) 시 검색 결과 페이지로 이동
+        function submitSearch() {
+            if (!searchInput) return;
+            const keyword = searchInput.value.trim();
+            if (!keyword) return;
+            window.location.href = `search.html?keyword=${encodeURIComponent(keyword)}`;
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitSearch();
+                }
+            });
+        }
+
+        if (searchIcon) {
+            searchIcon.addEventListener('click', submitSearch);
         }
     }
 
