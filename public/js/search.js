@@ -109,6 +109,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // 응답이 오면 바로 교체한다(스켈레톤 왕복 없음 → 깜빡임 없음).
   window.onSearchPageKeywordSubmit = function(keyword) {
     history.pushState(null, '', `search.html?keyword=${encodeURIComponent(keyword)}`);
+    // pushState는 페이지를 새로 로드하지 않아 하단 로그인 링크가 최초 진입 시의 URL(이전 검색어)로
+    // 고정된 채 남으므로, URL이 바뀔 때마다 redirect 값을 현재 위치 기준으로 다시 계산한다.
+    window.refreshBottomNavLoginLink();
     loadSearchResults(keyword, { showSkeleton: false });
   };
 
@@ -121,6 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('popstate', () => {
     const keyword = getKeywordFromUrl();
     window.renderSearchHeader(keyword);
+    window.refreshBottomNavLoginLink();
     loadSearchResults(keyword);
   });
 });

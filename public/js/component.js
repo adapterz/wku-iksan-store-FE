@@ -30,6 +30,18 @@ function navigateToSearch(keyword) {
     window.location.href = `search.html?keyword=${encodeURIComponent(trimmed)}`;
 }
 
+// 하단 네비게이션의 로그인 링크(redirect 파라미터)를 현재 window.location.href 기준으로 다시 계산한다.
+// history.pushState로 URL만 바뀌는 화면(search.js의 재검색 등)은 페이지가 새로 로드되지 않아
+// checkGlobalAuthStatus가 다시 실행되지 않으므로, 그런 화면에서 URL이 바뀔 때마다 직접 호출해야 한다.
+window.refreshBottomNavLoginLink = function() {
+    const myBtn = document.getElementById('btn-bottom-my');
+    if (!myBtn) return;
+    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    if (!isLoggedIn) {
+        myBtn.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+    }
+};
+
 // 헤더의 #btn-back 뒤로가기 버튼 공통 이벤트 바인딩 (히스토리가 없으면 홈으로 이동)
 function bindHeaderBackButton() {
     const btnBack = document.getElementById('btn-back');
@@ -223,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.removeItem('isLoggedIn');
                 window._wishlistCache = null;
                 window._wishlistFetchPromise = null;
-                myBtn.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+                window.refreshBottomNavLoginLink();
                 if (myIcon) {
                     myIcon.className = 'fa-regular fa-user';
                 }
