@@ -299,6 +299,11 @@ input.header-search-text::placeholder {
   padding: 0 16px 24px 16px;
 }
 
+/* search.html: 헤더 바와 상품 카드 그리드 사이에 카드 좌측 여백(16px)만큼 세로 간격 추가 */
+.main-content.page-search {
+  padding-top: 16px;
+}
+
 /* Ad Banner Slider */
 .ad-banner-section {
   width: 100%;
