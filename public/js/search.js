@@ -53,13 +53,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('saved-products-updated', syncSaveButtons);
 
+  // 빠르게 재검색할 때 응답이 요청 순서와 다르게 도착해 이전(오래된) 검색 결과가
+  // 최신 결과를 덮어쓰는 것을 막기 위해, 새 요청을 시작할 때마다 진행 중인 이전 요청을 취소한다.
+  // controller: 이전 fetch를 중단시켜 응답 자체가 화면에 반영되지 않도록 함
+  // settle: 이전 요청의 5초 타임아웃 타이머를 즉시 정리해, 최신 결과가 표시된 뒤
+  //         뒤늦게 실행되는 스테일 타이머가 화면을 오류 상태로 덮어쓰지 못하게 함
+  let currentSearch = null;
+
   // showSkeleton=false: 이미 결과가 떠 있는 상태에서의 재검색은 기존 카드를 그대로 유지하다가
   // 응답이 오면 바로 새 카드로 교체한다(스켈레톤 왕복으로 인한 깜빡임 방지).
   async function loadSearchResults(keyword, { showSkeleton = true } = {}) {
+    if (currentSearch) {
+      currentSearch.controller.abort();
+      currentSearch.settle();
+      currentSearch = null;
+    }
+
     if (!keyword) {
       renderFallbackState('검색어를 입력해주세요.');
       return;
     }
+
+    const controller = new AbortController();
 
     if (showSkeleton) {
       renderSkeletonState();
@@ -68,9 +83,14 @@ document.addEventListener('DOMContentLoaded', () => {
       renderFallbackState('상품 정보를 불러오는 데 실패했습니다.');
     }, 5000);
 
+    currentSearch = { controller, settle };
+
     try {
-      const result = await requestJson(`/api/products?keyword=${encodeURIComponent(keyword)}`);
+      const result = await requestJson(`/api/products?keyword=${encodeURIComponent(keyword)}`, {
+        signal: controller.signal
+      });
       settle();
+      if (controller.signal.aborted) return;
       const products = (result && result.data && Array.isArray(result.data)) ? result.data : [];
       if (products.length === 0) {
         renderFallbackState('검색 결과가 없습니다.');
@@ -79,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (error) {
       settle();
+      if (controller.signal.aborted || error.name === 'AbortError') return;
       console.error('상품 검색에 실패했습니다:', error);
       renderFallbackState('상품 정보를 불러오는 데 실패했습니다.');
     }
