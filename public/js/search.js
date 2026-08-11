@@ -9,12 +9,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // 상품 카드 마크업은 component.js가 전역에 노출한 createProductCard/createSkeletonCard를 재사용한다.
   function renderSkeletonState() {
     if (!listEl) return;
+    listEl.classList.remove('is-empty');
     listEl.innerHTML = '';
     for (let i = 0; i < 6; i++) listEl.appendChild(createSkeletonCard());
   }
 
+  // is-empty: 결과가 없거나 실패했을 때, 리스트 영역을 남은 화면 높이만큼 늘려
+  // 안내 문구가 화면 세로 중앙에 오도록 하는 CSS 훅(style.css의 .page-search 규칙 참고)
   function renderFallbackState(message) {
     if (!listEl) return;
+    listEl.classList.add('is-empty');
     listEl.innerHTML = `
       <div class="empty-state">
         <i class="fa-solid fa-box-open"></i>
@@ -25,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderResults(products) {
     if (!listEl) return;
+    listEl.classList.remove('is-empty');
     listEl.innerHTML = '';
     products.forEach(product => {
       listEl.appendChild(createProductCard(product));
