@@ -456,3 +456,100 @@ window.updateWishlistIcon = function(icon, isSaved) {
         icon.classList.remove('wished-icon');
     }
 };
+
+// 공통 상품 카드 마크업 생성 유틸리티 (home.js, search.js 등 여러 화면에서 재사용)
+window.createProductCard = function(product, options = {}) {
+    const card = document.createElement('article');
+    card.className = 'product-card';
+
+    const price = Number(product.price || 0);
+    const discountRate = product.discountRate || 0;
+    const thumbnailUrl = product.thumbnailUrl || '';
+    const name = product.name || '';
+    const brand = product.brand || '';
+
+    const formattedPrice = price.toLocaleString() + '원';
+    const discountHtml = discountRate ? `<span class="discount-rate">${discountRate}%</span>` : '';
+    const rankHtml = options.showRank && options.rankIndex ? `<span class="rank-badge">${options.rankIndex}</span>` : '';
+
+    card.innerHTML = `
+      <div class="card-img-wrapper skeleton">
+        ${rankHtml}
+        <img class="product-img" alt="" onload="this.parentElement.classList.remove('skeleton'); this.classList.add('loaded');" onerror="this.parentElement.classList.remove('skeleton'); this.style.opacity=1;">
+      </div>
+      <div class="card-body">
+        <span class="brand-name"></span>
+        <h4 class="product-title"></h4>
+        <div class="price-info" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            ${discountHtml}
+            <span class="price">${formattedPrice}</span>
+          </div>
+          <button class="btn-save-bookmark" data-product-id="${product.id}" title="저장" style="background:none; border:none; padding:4px; cursor:pointer;">
+            <i class="fa-regular fa-bookmark" style="font-size: 20px; color: #999;"></i>
+          </button>
+        </div>
+        <div class="stats-row">
+          관심 0 · 리뷰 0
+        </div>
+      </div>
+    `;
+
+    const imgEl = card.querySelector('.product-img');
+    if (imgEl) {
+        imgEl.src = thumbnailUrl;
+        imgEl.alt = name;
+    }
+    const brandEl = card.querySelector('.brand-name');
+    if (brandEl) brandEl.textContent = brand;
+    const titleEl = card.querySelector('.product-title');
+    if (titleEl) titleEl.textContent = name;
+
+    // Initialize save button state asynchronously
+    const saveBtn = card.querySelector('.btn-save-bookmark');
+    if (saveBtn) {
+        const icon = saveBtn.querySelector('i');
+        (async () => {
+            try {
+                const isSaved = await window.isProductSaved(product);
+                window.updateWishlistIcon(icon, isSaved);
+            } catch (error) {
+                console.error('찜 상태 초기화 실패:', error);
+            }
+        })();
+
+        saveBtn.addEventListener('click', async (e) => {
+            e.stopPropagation(); // prevent card click
+            try {
+                const isNowSaved = await window.toggleSavedProduct(product.id);
+                const icon = saveBtn.querySelector('i');
+                window.updateWishlistIcon(icon, isNowSaved);
+            } catch (error) {
+                // 실패하면 기존 아이콘 유지
+                console.error('찜 토글 에러:', error);
+            }
+        });
+    }
+
+    // Card click handler to navigate to product.html?id=ID
+    card.addEventListener('click', () => {
+        window.location.href = `product.html?id=${product.id}`;
+    });
+
+    return card;
+};
+
+// 공통 스켈레톤 상품 카드 마크업 생성 유틸리티 (.product-card 레이아웃과 동일한 자리표시자)
+window.createSkeletonCard = function() {
+    const card = document.createElement('div');
+    card.className = 'product-card skeleton-card';
+    card.innerHTML = `
+      <div class="card-img-wrapper"><div class="skeleton skeleton-card-img"></div></div>
+      <div class="card-body">
+        <div class="skeleton skeleton-line" style="width:35%;height:11px;"></div>
+        <div class="skeleton skeleton-line" style="width:90%;height:13px;"></div>
+        <div class="skeleton skeleton-line" style="width:45%;height:15px;"></div>
+      </div>
+    `;
+    return card;
+};
