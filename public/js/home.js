@@ -1,6 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
   const PRODUCT_CACHE_KEY = 'iksanstore:products:v1';
   const PRODUCT_CACHE_TTL_MS = 5 * 60 * 1000;
+  const CATEGORY_CACHE_KEY = 'iksanstore:categories:v1';
+  const CATEGORY_CACHE_TTL_MS = 5 * 60 * 1000;
 
   // 상품 카드/스켈레톤 카드 마크업은 component.js가 전역에 노출한
   // createProductCard/createSkeletonCard를 재사용한다.
@@ -97,17 +99,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 5분 이내의 상품 캐시가 있으면 재요청 없이 사용하고, 없으면 API에서 새로 조회한다.
   async function loadProducts() {
-    const sessionProducts = window.sessionCache
+    const cached = window.sessionCache
       ? window.sessionCache.get(PRODUCT_CACHE_KEY, PRODUCT_CACHE_TTL_MS)
       : null;
 
-    if (Array.isArray(sessionProducts)) {
-      cachedProducts = sessionProducts;
+    if (Array.isArray(cached)) {
+      cachedProducts = cached;
 
-      if (sessionProducts.length === 0) {
+      if (cached.length === 0) {
         showEmptyState();
       } else {
-        renderProductsData(sessionProducts);
+        renderProductsData(cached);
       }
       return;
     }
@@ -118,13 +120,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let apiProducts = [];
     let fetchFailed = false;
     try {
-      const result = await requestJson('/api/products');
-      if (result && result.data && Array.isArray(result.data)) {
-        apiProducts = result.data;
-        if (window.sessionCache) {
-          window.sessionCache.set(PRODUCT_CACHE_KEY, apiProducts);
-        }
-      }
+      const result = await window.fetchListWithCache('/api/products', PRODUCT_CACHE_KEY, PRODUCT_CACHE_TTL_MS);
+      apiProducts = result.data;
     } catch (error) {
       console.error('Failed to fetch products from API:', error);
       fetchFailed = true;
@@ -142,8 +139,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // 카테고리 목록은 자주 바뀌지 않으므로 캐시가 있으면 스켈레톤 없이 조용히 채우고,
+  // 없을 때만 API를 조회한다. 렌더링(마크업 교체)은 이후 단계에서 구현한다.
+  let cachedCategories = [];
+
+  async function loadCategories() {
+    try {
+      const result = await window.fetchListWithCache('/api/categories', CATEGORY_CACHE_KEY, CATEGORY_CACHE_TTL_MS);
+      cachedCategories = result.data;
+    } catch (error) {
+      console.error('Failed to fetch categories from API:', error);
+      cachedCategories = [];
+    }
+  }
+
   // Call load functions
   loadProducts();
+  loadCategories();
 
   // Sync save buttons state across the page
   async function syncSaveButtons() {

@@ -68,6 +68,24 @@ async function requestJson(path, options = {}) {
   return result;
 }
 
+// sessionCache에 유효한 배열 캐시가 있으면 그대로 반환하고, 없으면 API를 조회해 캐시에 저장한다.
+// 목록 형태(data가 배열) 응답을 캐시 우선으로 조회하는 화면(홈 상품 목록, 카테고리 목록 등)에서 공통으로 사용한다.
+// 반환값의 fromCache로 호출부가 스켈레톤 노출 여부를 판단할 수 있다.
+async function fetchListWithCache(path, cacheKey, ttlMs) {
+  const cached = window.sessionCache ? window.sessionCache.get(cacheKey, ttlMs) : null;
+  if (Array.isArray(cached)) {
+    return { data: cached, fromCache: true };
+  }
+
+  const result = await requestJson(path);
+  const data = (result && Array.isArray(result.data)) ? result.data : [];
+  if (window.sessionCache) {
+    window.sessionCache.set(cacheKey, data);
+  }
+  return { data, fromCache: false };
+}
+
 // 일반 script 태그로 불러온 각 화면에서 공통 함수와 오류 객체를 사용할 수 있게 공개한다.
 window.ApiError = ApiError;
 window.requestJson = requestJson;
+window.fetchListWithCache = fetchListWithCache;
