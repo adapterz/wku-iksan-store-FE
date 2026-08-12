@@ -570,6 +570,53 @@ window.updateWishlistIcon = function(icon, isSaved) {
     }
 };
 
+// 카테고리 이름별 아이콘 이미지. API 응답(id, name)에는 아이콘이 없으므로 FE에서 이름으로 매핑한다.
+// 매핑에 없는 이름(백엔드에 새 카테고리가 추가된 경우 등)은 CATEGORY_DEFAULT_ICON_URL을 사용한다.
+const CATEGORY_ICON_MAP = {
+    '카페': 'https://em-content.zobj.net/source/apple/453/hot-beverage_2615.png',
+    '맛집': 'https://em-content.zobj.net/source/apple/453/fork-and-knife-with-plate_1f37d-fe0f.png',
+    '디저트': 'https://em-content.zobj.net/source/apple/453/ice-cream_1f368.png',
+    '금액권': 'https://em-content.zobj.net/source/apple/453/dollar-banknote_1f4b5.png',
+    '인기매장': 'https://em-content.zobj.net/source/apple/453/department-store_1f3ec.png',
+    '특산품': 'https://em-content.zobj.net/source/apple/453/shopping-cart_1f6d2.png',
+    '체험': 'https://em-content.zobj.net/source/apple/453/bow-and-arrow_1f3f9.png',
+    '숙박': 'https://em-content.zobj.net/source/apple/453/bed_1f6cf-fe0f.png',
+    '관광': 'https://em-content.zobj.net/source/apple/453/shinto-shrine_26e9-fe0f.png',
+    '기념품': 'https://em-content.zobj.net/source/apple/453/folding-hand-fan_1faad.png',
+    '로컬푸드': 'https://em-content.zobj.net/source/apple/453/red-apple_1f34e.png',
+    '축제·행사': 'https://em-content.zobj.net/source/apple/453/balloon_1f388.png',
+    '익산 투어': 'https://em-content.zobj.net/source/apple/453/metro_1f687.png',
+    '전통시장': 'https://em-content.zobj.net/source/apple/453/red-paper-lantern_1f3ee.png',
+    '문화생활': 'https://em-content.zobj.net/source/apple/453/admission-tickets_1f39f-fe0f.png'
+};
+const CATEGORY_DEFAULT_ICON_URL = 'https://em-content.zobj.net/source/apple/453/shopping-bags_1f6cd-fe0f.png';
+
+// 공통 카테고리 카드 마크업 생성 유틸리티 (home.js 등 여러 화면에서 재사용)
+// TODO: 카테고리 클릭 시 이동할 상품 목록 경로가 정해지면 href를 실제 경로로 교체한다.
+window.createCategoryCard = function(category) {
+    const card = document.createElement('a');
+    card.className = 'category-card';
+    card.href = '#';
+    card.dataset.categoryId = category.id;
+
+    const name = category.name || '';
+    const iconUrl = CATEGORY_ICON_MAP[name] || CATEGORY_DEFAULT_ICON_URL;
+
+    card.innerHTML = `
+      <div class="category-icon-wrapper">
+        <img class="category-img" src="${iconUrl}" alt="">
+      </div>
+      <span class="category-name"></span>
+    `;
+
+    const imgEl = card.querySelector('.category-img');
+    if (imgEl) imgEl.alt = name;
+    const nameEl = card.querySelector('.category-name');
+    if (nameEl) nameEl.textContent = name;
+
+    return card;
+};
+
 // 공통 상품 카드 마크업 생성 유틸리티 (home.js, search.js 등 여러 화면에서 재사용)
 window.createProductCard = function(product, options = {}) {
     const card = document.createElement('article');

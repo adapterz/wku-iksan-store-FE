@@ -139,17 +139,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 카테고리 목록은 자주 바뀌지 않으므로 캐시가 있으면 스켈레톤 없이 조용히 채우고,
-  // 없을 때만 API를 조회한다. 렌더링(마크업 교체)은 이후 단계에서 구현한다.
+  // 카테고리 카드 마크업은 component.js가 전역에 노출한 createCategoryCard를 재사용한다.
+  // 그리드 마지막에 정적으로 남아있는 '더보기' 항목(.category-more)은 그대로 두고,
+  // API로 받아온 카테고리 카드만 그 앞에 채워 넣는다.
+  function renderCategoriesData(categories) {
+    const grid = document.querySelector('.category-grid');
+    if (!grid) return;
+    const moreLink = grid.querySelector('.category-more');
+    grid.querySelectorAll('.category-card:not(.category-more)').forEach(card => card.remove());
+    categories.forEach(category => {
+      grid.insertBefore(createCategoryCard(category), moreLink);
+    });
+  }
+
+  // 카테고리가 없거나 조회에 실패하면, 하드코딩된 대체 문구 대신 섹션 자체를 숨겨
+  // 빈 그리드가 화면에 노출되지 않게 한다.
+  function hideCategorySection() {
+    const section = document.querySelector('.category-section');
+    if (section) section.style.display = 'none';
+  }
+
+  // 카테고리 목록은 자주 바뀌지 않으므로 캐시가 있으면 API 요청 없이 바로 그린다.
   let cachedCategories = [];
 
   async function loadCategories() {
+    let apiCategories = [];
     try {
       const result = await window.fetchListWithCache('/api/categories', CATEGORY_CACHE_KEY, CATEGORY_CACHE_TTL_MS);
-      cachedCategories = result.data;
+      apiCategories = result.data;
     } catch (error) {
       console.error('Failed to fetch categories from API:', error);
-      cachedCategories = [];
+      apiCategories = [];
+    }
+
+    cachedCategories = apiCategories;
+
+    if (apiCategories.length === 0) {
+      hideCategorySection();
+    } else {
+      renderCategoriesData(apiCategories);
     }
   }
 
@@ -233,17 +261,15 @@ document.addEventListener('DOMContentLoaded', () => {
       categoryGrid.scrollLeft = scrollLeft - walk;
     });
 
-    // Disable click navigation for all category items (ui only)
-    const categoryCards = categoryGrid.querySelectorAll('.category-card');
-    categoryCards.forEach((card) => {
-      card.addEventListener('click', (e) => {
-        e.preventDefault(); // Prevent default link behavior (jumping to top)
-        // Additional functional behaviors are disabled here
-      });
+    // 카테고리 카드는 아직 실제 이동 대상(href)이 정해지지 않은 placeholder(#)이므로,
+    // 클릭 시 페이지 맨 위로 튀는 기본 동작만 막는다. '더보기'(.category-more)는 실제 링크이므로 제외.
+    // API 응답으로 동적 삽입되는 카드까지 포함해야 하므로 이벤트 위임으로 처리한다.
+    categoryGrid.addEventListener('click', (e) => {
+      const card = e.target.closest('.category-card');
+      if (card && !card.classList.contains('category-more')) {
+        e.preventDefault();
+      }
     });
-
-    // Handle '더보기' button click normally if clicked without dragging
-    // The browser natively handles link clicks if drag isn't significantly moving the mouse.
   }
 
   // Sub Tab Segmented Control (선물 테마, 카테고리, 추천 브랜드) Click Logic
