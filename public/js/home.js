@@ -161,8 +161,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 카테고리 목록은 자주 바뀌지 않으므로 캐시가 있으면 API 요청 없이 바로 그린다.
-  let cachedCategories = [];
-
   async function loadCategories() {
     let apiCategories = [];
     try {
@@ -172,8 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Failed to fetch categories from API:', error);
       apiCategories = [];
     }
-
-    cachedCategories = apiCategories;
 
     if (apiCategories.length === 0) {
       hideCategorySection();

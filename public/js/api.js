@@ -78,8 +78,12 @@ async function fetchListWithCache(path, cacheKey, ttlMs) {
   }
 
   const result = await requestJson(path);
-  const data = (result && Array.isArray(result.data)) ? result.data : [];
-  if (window.sessionCache) {
+  // requestJson은 401(silent401 미지정 시) 발생 시 예외 대신 로그인 페이지로 리다이렉트하며
+  // undefined를 반환한다. 이런 비정상 응답까지 빈 배열로 캐시하면, 재로그인 후에도 TTL이
+  // 끝나기 전까지 빈 목록이 계속 노출되므로 정상 응답(data가 배열)일 때만 캐시에 쓴다.
+  const isValidResponse = result && Array.isArray(result.data);
+  const data = isValidResponse ? result.data : [];
+  if (window.sessionCache && isValidResponse) {
     window.sessionCache.set(cacheKey, data);
   }
   return { data, fromCache: false };
