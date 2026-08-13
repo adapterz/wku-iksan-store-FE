@@ -1,11 +1,10 @@
 // 공통 서브 헤더 우측 아이콘들(검색/홈/주문내역)을 이 페이지에서만 북마크 버튼 하나로 교체
-// TODO: wishlist.html 추가되면 href를 해당 경로로 연결
 document.addEventListener('header:ready', () => {
     const headerContainer = document.querySelector('header.main-header .header-container');
     const rightIcons = document.querySelector('header.main-header .header-right-icons');
     if (!rightIcons) return;
     rightIcons.innerHTML = `
-        <a href="#" class="header-icon" title="위시리스트">
+        <a href="wishlist.html" class="header-icon" title="위시리스트">
             <i class="fa-solid fa-bookmark"></i>
         </a>`;
 
