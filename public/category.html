@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <link rel="icon" type="image/png" href="/images/favicon.png">
+    <link rel="apple-touch-icon" href="/images/favicon.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전체 카테고리 - Iksan Gift</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <!-- Main Header -->
+    <header class="main-header">
+        <!-- Header dynamically injected by component.js -->
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content page-category">
+        <!-- 좌측 1열 카테고리 텍스트 리스트: home.js의 loadCategories()와 동일하게 GET /api/categories로 채운다. -->
+        <aside class="category-list-panel">
+            <ul class="category-list" id="category-list">
+                <!-- Dynamically loaded via API -->
+            </ul>
+        </aside>
+
+        <!-- 우측 상품 목록: 좌측 카테고리 클릭 시 해당 categoryId 상품을 로드 (SPA 방식, 페이지 이동 없음) -->
+        <section class="category-product-panel">
+            <div class="ranking-cards-row" id="category-product-list">
+                <!-- Dynamically loaded via API -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+        <!-- Dynamically injected by component.js -->
+    </nav>
+
+    <!-- Script -->
+    <script src="js/skeleton.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/cache.js"></script>
+    <script src="js/component.js" defer></script>
+    <script src="js/category.js" defer></script>
+</body>
+
+</html>

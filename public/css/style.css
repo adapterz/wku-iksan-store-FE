@@ -146,6 +146,36 @@ input.header-search-text::placeholder {
   gap: 14px;
 }
 
+/* category.html 상단바 중앙 탭 (카테고리 | 브랜드) */
+.header-center-tabs {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-center-tabs .header-tab-btn {
+  font-size: 16px;
+  font-weight: 600;
+  color: #999999;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.header-center-tabs .header-tab-btn.active {
+  color: #191919;
+}
+
+.header-center-tabs .header-tab-divider {
+  color: #DDDDDD;
+  font-size: 14px;
+}
+
 .login-status-icon-wrapper {
   position: relative;
   display: inline-flex;
@@ -306,6 +336,63 @@ input.header-search-text::placeholder {
   flex-direction: column;
 }
 
+/* category.html: 좌측 1열 카테고리 텍스트 리스트 + 우측 선택된 카테고리 상품 목록 */
+.main-content.page-category {
+  padding: 0;
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+}
+
+.category-list-panel {
+  flex: 0 0 auto;
+  border-right: 1px solid var(--border-color);
+}
+
+.category-product-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 16px 24px;
+}
+
+.category-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.category-list-item + .category-list-item {
+  border-top: 1px solid var(--border-color);
+}
+
+.category-list-link {
+  position: relative;
+  display: inline-block;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #191919;
+  white-space: nowrap;
+}
+
+/* index.html 등에서 categoryId를 들고 진입했을 때 해당 카테고리 강조 표시:
+   텍스트 bold + 인라인 박스 가장 좌측에 검은색 세로 막대 */
+.category-list-link.active {
+  font-weight: 700;
+}
+
+.category-list-link.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  background-color: #191919;
+}
+
 /* search.html: 검색 결과가 없을 때 empty-state가 그리드 상단이 아닌 남은 화면의 세로 중앙에 오도록
    섹션과 리스트를 남은 높이만큼 늘려서 그 안에서 중앙 정렬한다. */
 .page-search .ranking-section {
@@ -321,6 +408,19 @@ input.header-search-text::placeholder {
 
 .page-search .ranking-cards-row.is-empty .empty-state,
 .page-search .ranking-cards-row.is-empty .error-state {
+  flex: 1;
+}
+
+/* category.html: 카테고리 미선택/결과 없음/에러 안내 문구를 헤더/하단 네비를 제외한
+   화면 전체 세로 중앙에 표시 (.category-product-panel이 flex column이므로 flex:1로 남은 높이를 채운다) */
+.page-category .ranking-cards-row.is-empty {
+  flex: 1;
+  display: flex;
+  min-height: 240px;
+}
+
+.page-category .ranking-cards-row.is-empty .empty-state,
+.page-category .ranking-cards-row.is-empty .error-state {
   flex: 1;
 }
 
@@ -392,13 +492,16 @@ input.header-search-text::placeholder {
 }
 
 .category-grid {
-  display: grid;
-  grid-template-columns: repeat(8, calc((100% - 48px) / 5));
-  row-gap: 16px;
-  column-gap: 12px;
+  display: flex;
+  gap: 12px;
   overflow-x: auto;
   padding-bottom: 8px;
   scrollbar-width: none;
+}
+
+.category-grid .category-card {
+  flex: 0 0 auto;
+  width: calc((100% - 48px) / 5);
 }
 
 .category-grid::-webkit-scrollbar {

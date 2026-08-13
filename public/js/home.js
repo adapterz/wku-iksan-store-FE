@@ -1,6 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const PRODUCT_CACHE_KEY = 'iksanstore:products:v1';
-  const PRODUCT_CACHE_TTL_MS = 5 * 60 * 1000;
+  // 캐시 키·TTL은 category.js와 공유해야 하므로 api.js가 노출한 전역 상수를 사용한다.
+  const PRODUCT_CACHE_KEY = window.PRODUCT_CACHE_KEY;
+  const PRODUCT_CACHE_TTL_MS = window.PRODUCT_CACHE_TTL_MS;
+  const CATEGORY_CACHE_KEY = window.CATEGORY_CACHE_KEY;
+  const CATEGORY_CACHE_TTL_MS = window.CATEGORY_CACHE_TTL_MS;
 
   // 상품 카드/스켈레톤 카드 마크업은 component.js가 전역에 노출한
   // createProductCard/createSkeletonCard를 재사용한다.
@@ -97,17 +100,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 5분 이내의 상품 캐시가 있으면 재요청 없이 사용하고, 없으면 API에서 새로 조회한다.
   async function loadProducts() {
-    const sessionProducts = window.sessionCache
+    const cached = window.sessionCache
       ? window.sessionCache.get(PRODUCT_CACHE_KEY, PRODUCT_CACHE_TTL_MS)
       : null;
 
-    if (Array.isArray(sessionProducts)) {
-      cachedProducts = sessionProducts;
+    if (Array.isArray(cached)) {
+      cachedProducts = cached;
 
-      if (sessionProducts.length === 0) {
+      if (cached.length === 0) {
         showEmptyState();
       } else {
-        renderProductsData(sessionProducts);
+        renderProductsData(cached);
       }
       return;
     }
@@ -118,13 +121,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let apiProducts = [];
     let fetchFailed = false;
     try {
-      const result = await requestJson('/api/products');
-      if (result && result.data && Array.isArray(result.data)) {
-        apiProducts = result.data;
-        if (window.sessionCache) {
-          window.sessionCache.set(PRODUCT_CACHE_KEY, apiProducts);
-        }
-      }
+      const result = await window.fetchListWithCache('/api/products', PRODUCT_CACHE_KEY, PRODUCT_CACHE_TTL_MS);
+      apiProducts = result.data;
     } catch (error) {
       console.error('Failed to fetch products from API:', error);
       fetchFailed = true;
@@ -142,8 +140,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // 카테고리 카드 마크업은 component.js가 전역에 노출한 createCategoryCard를 재사용한다.
+  // 그리드 마지막에 정적으로 남아있는 '더보기' 항목(.category-more)은 그대로 두고,
+  // API로 받아온 카테고리 카드만 그 앞(1행 가로 스크롤)에 채워 넣는다.
+  function renderCategoriesData(categories) {
+    const grid = document.querySelector('.category-grid');
+    if (!grid) return;
+    const moreLink = grid.querySelector('.category-more');
+    grid.querySelectorAll('.category-card:not(.category-more)').forEach(card => card.remove());
+    categories.forEach(category => {
+      grid.insertBefore(createCategoryCard(category), moreLink);
+    });
+  }
+
+  // 카테고리가 없거나 조회에 실패하면, 하드코딩된 대체 문구 대신 섹션 자체를 숨겨
+  // 빈 그리드가 화면에 노출되지 않게 한다.
+  function hideCategorySection() {
+    const section = document.querySelector('.category-section');
+    if (section) section.style.display = 'none';
+  }
+
+  // 카테고리 목록은 자주 바뀌지 않으므로 캐시가 있으면 API 요청 없이 바로 그린다.
+  async function loadCategories() {
+    let apiCategories = [];
+    try {
+      const result = await window.fetchListWithCache('/api/categories', CATEGORY_CACHE_KEY, CATEGORY_CACHE_TTL_MS);
+      apiCategories = result.data;
+    } catch (error) {
+      console.error('Failed to fetch categories from API:', error);
+      apiCategories = [];
+    }
+
+    if (apiCategories.length === 0) {
+      hideCategorySection();
+    } else {
+      renderCategoriesData(apiCategories);
+    }
+  }
+
   // Call load functions
   loadProducts();
+  loadCategories();
 
   // Sync save buttons state across the page
   async function syncSaveButtons() {
@@ -198,9 +235,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let isDown = false;
     let startX;
     let scrollLeft;
+    let didDrag = false;
+    const DRAG_THRESHOLD_PX = 5; // 이보다 적게 움직인 클릭은 드래그가 아닌 카드 클릭으로 간주
 
     categoryGrid.addEventListener('mousedown', (e) => {
       isDown = true;
+      didDrag = false;
       categoryGrid.style.cursor = 'grabbing';
       startX = e.pageX - categoryGrid.offsetLeft;
       scrollLeft = categoryGrid.scrollLeft;
@@ -218,20 +258,17 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const x = e.pageX - categoryGrid.offsetLeft;
       const walk = (x - startX) * 2;
+      if (Math.abs(walk) > DRAG_THRESHOLD_PX) didDrag = true;
       categoryGrid.scrollLeft = scrollLeft - walk;
     });
 
-    // Disable click navigation for all category items (ui only)
-    const categoryCards = categoryGrid.querySelectorAll('.category-card');
-    categoryCards.forEach((card) => {
-      card.addEventListener('click', (e) => {
-        e.preventDefault(); // Prevent default link behavior (jumping to top)
-        // Additional functional behaviors are disabled here
-      });
+    // 드래그로 스크롤하다 마우스를 뗀 클릭은 카드 이동으로 이어지지 않게 막는다.
+    // API 응답으로 동적 삽입되는 카드까지 포함해야 하므로 이벤트 위임으로 처리한다.
+    categoryGrid.addEventListener('click', (e) => {
+      if (didDrag && e.target.closest('.category-card')) {
+        e.preventDefault();
+      }
     });
-
-    // Handle '더보기' button click normally if clicked without dragging
-    // The browser natively handles link clicks if drag isn't significantly moving the mouse.
   }
 
   // Sub Tab Segmented Control (선물 테마, 카테고리, 추천 브랜드) Click Logic
