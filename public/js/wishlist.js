@@ -8,7 +8,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const wishlistLoader = window.createProductListLoader(listEl, {
     buildRequestPath: () => '/api/wishlists',
     mapResults: (items) => items.map(item => item.product).filter(Boolean),
-    emptyMessage: '찜한 상품이 없습니다.',
+    // 찜한 상품 자체가 없는 경우와, 찜한 상품이 있었지만 카탈로그에서 삭제되어 product가 null로
+    // 내려온 경우(mapResults의 filter(Boolean)가 걸러냄)를 구분해서 안내한다.
+    emptyMessage: (rawItems, products) => {
+      const hasDeletedItems = rawItems.length > 0 && products.length === 0;
+      return hasDeletedItems
+        ? '찜한 상품 중 판매가 종료되었거나 삭제된 상품이 있습니다.'
+        : '찜한 상품이 없습니다.';
+    },
     errorMessage: '찜 목록을 불러오지 못했습니다.',
     unauthorizedMessage: '로그인 후 위시리스트를 확인할 수 있습니다.',
     removeUnsavedCards: true

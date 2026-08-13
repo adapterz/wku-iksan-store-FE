@@ -722,6 +722,8 @@ window.createSkeletonCard = function() {
 // 덮어쓰지 않도록 이전 요청을 취소하는 레이스 컨디션 방지 로직까지 포함한다. (search.js의 기존 로직을 일반화)
 // buildRequestPath(query): query(검색어·categoryId 등)를 받아 '/api/products?...' 경로 문자열을 반환.
 // emptyMessage / errorMessage: 결과 0건 / 요청 실패 시 노출할 안내 문구.
+//   emptyMessage는 문자열 대신 (rawItems, products) => 문자열 함수로도 줄 수 있다.
+//   (예: 위시리스트에서 mapResults가 걸러낸 항목이 있으면 "찜한 상품 없음"과 다른 문구로 안내)
 // mapResults(data): 응답의 data 배열을 상품 배열로 변환하는 훅. 생략 시 data를 그대로 상품 배열로 사용한다.
 //   (예: 위시리스트 API의 data는 [{product: {...}}] 형태라 item => item.product로 매핑해야 함)
 // unauthorizedMessage: 지정하면 401 응답 시 errorMessage 대신 이 메시지로 안내(로그인 필요 등). 미지정 시 기존처럼 일반 에러로 처리.
@@ -765,18 +767,26 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
         if (!card) return;
         card.remove();
         if (!listEl.querySelector('.product-card')) {
-            renderFallbackState(emptyMessage);
+            // 남은 카드가 없는 것은 실제로 목록이 빈 상태이지, mapResults가 걸러낸 상황이 아니므로
+            // 함수형 emptyMessage에는 빈 배열을 넘겨 "진짜 빈 목록" 문구가 나오도록 한다.
+            const message = typeof emptyMessage === 'function' ? emptyMessage([], []) : emptyMessage;
+            renderFallbackState(message);
         }
     }
 
     async function syncSaveButtons(e) {
         if (!listEl) return;
 
-        // removeUnsavedCards 화면은 이벤트로 전달된 productId만 즉시 제거하면 되므로 전체 재조회가 필요 없다.
+        // removeUnsavedCards 화면은 찜 해제 시 이벤트로 전달된 productId만 즉시 제거하면 되지만,
+        // 다른 화면(product.html 등)에서 같은 상품을 다시 찜한 경우에는 카드를 만들 상품 정보가
+        // 이벤트에 없으므로 전체 목록을 다시 불러와야 한다(이미 목록에 있으면 재조회 없이 무시).
         if (removeUnsavedCards) {
             const { productId, isSaved } = (e && e.detail) || {};
-            if (!isSaved && productId !== undefined) {
+            if (productId === undefined) return;
+            if (!isSaved) {
                 removeUnsavedCard(productId);
+            } else if (!listEl.querySelector(`.btn-save-bookmark[data-product-id="${productId}"]`)) {
+                load(undefined, { showSkeleton: false });
             }
             return;
         }
@@ -836,7 +846,8 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
             const rawItems = (result && result.data && Array.isArray(result.data)) ? result.data : [];
             const products = mapResults ? mapResults(rawItems) : rawItems;
             if (products.length === 0) {
-                renderFallbackState(emptyMessage);
+                const message = typeof emptyMessage === 'function' ? emptyMessage(rawItems, products) : emptyMessage;
+                renderFallbackState(message);
             } else {
                 renderResults(products);
             }
