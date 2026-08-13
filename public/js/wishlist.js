@@ -14,5 +14,31 @@ document.addEventListener('DOMContentLoaded', () => {
     removeUnsavedCards: true
   });
 
-  wishlistLoader.load();
+  function renderLoginRequired() {
+    listEl.classList.add('is-empty');
+    listEl.innerHTML = `
+      <div class="empty-state">
+        <i class="fa-solid fa-box-open"></i>
+        <p>로그인 후 위시리스트를 확인할 수 있습니다.</p>
+      </div>
+    `;
+  }
+
+  // 로그인 상태 확인(auth:updated) 전에도 공백 화면 없이 로딩 중임을 보여주기 위해
+  // 로더의 스켈레톤과 동일한 마크업을 이 시점에 직접 그린다. 실제 데이터 요청은 로그인 여부가
+  // 확정된 뒤(아래 auth:updated)에만 시작하므로 /api/wishlists로의 불필요한 401 요청은 없다.
+  listEl.classList.remove('is-empty');
+  listEl.innerHTML = '';
+  for (let i = 0; i < 6; i++) listEl.appendChild(createSkeletonCard());
+
+  // component.js가 페이지 로드마다 한 번 확인하는 로그인 상태(/api/auth/me → auth:updated)를 재사용해,
+  // 비로그인 사용자는 /api/wishlists 요청 자체를 생략한다(중복 인증 확인 및 불필요한 401 왕복 방지).
+  document.addEventListener('auth:updated', (e) => {
+    const { isLoggedIn } = e.detail || {};
+    if (isLoggedIn) {
+      wishlistLoader.load();
+    } else {
+      renderLoginRequired();
+    }
+  }, { once: true });
 });
