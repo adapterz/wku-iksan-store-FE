@@ -1,8 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const PRODUCT_CACHE_KEY = 'iksanstore:products:v1';
-  const PRODUCT_CACHE_TTL_MS = 5 * 60 * 1000;
-  const CATEGORY_CACHE_KEY = 'iksanstore:categories:v1';
-  const CATEGORY_CACHE_TTL_MS = 5 * 60 * 1000;
+  // 캐시 키·TTL은 category.js와 공유해야 하므로 api.js가 노출한 전역 상수를 사용한다.
+  const PRODUCT_CACHE_KEY = window.PRODUCT_CACHE_KEY;
+  const PRODUCT_CACHE_TTL_MS = window.PRODUCT_CACHE_TTL_MS;
+  const CATEGORY_CACHE_KEY = window.CATEGORY_CACHE_KEY;
+  const CATEGORY_CACHE_TTL_MS = window.CATEGORY_CACHE_TTL_MS;
 
   // 상품 카드/스켈레톤 카드 마크업은 component.js가 전역에 노출한
   // createProductCard/createSkeletonCard를 재사용한다.
@@ -238,9 +239,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let isDown = false;
     let startX;
     let scrollLeft;
+    let didDrag = false;
+    const DRAG_THRESHOLD_PX = 5; // 이보다 적게 움직인 클릭은 드래그가 아닌 카드 클릭으로 간주
 
     categoryGrid.addEventListener('mousedown', (e) => {
       isDown = true;
+      didDrag = false;
       categoryGrid.style.cursor = 'grabbing';
       startX = e.pageX - categoryGrid.offsetLeft;
       scrollLeft = categoryGrid.scrollLeft;
@@ -258,15 +262,14 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const x = e.pageX - categoryGrid.offsetLeft;
       const walk = (x - startX) * 2;
+      if (Math.abs(walk) > DRAG_THRESHOLD_PX) didDrag = true;
       categoryGrid.scrollLeft = scrollLeft - walk;
     });
 
-    // 카테고리 카드는 아직 실제 이동 대상(href)이 정해지지 않은 placeholder(#)이므로,
-    // 클릭 시 페이지 맨 위로 튀는 기본 동작만 막는다. '더보기'(.category-more)는 실제 링크이므로 제외.
+    // 드래그로 스크롤하다 마우스를 뗀 클릭은 카드 이동으로 이어지지 않게 막는다.
     // API 응답으로 동적 삽입되는 카드까지 포함해야 하므로 이벤트 위임으로 처리한다.
     categoryGrid.addEventListener('click', (e) => {
-      const card = e.target.closest('.category-card');
-      if (card && !card.classList.contains('category-more')) {
+      if (didDrag && e.target.closest('.category-card')) {
         e.preventDefault();
       }
     });

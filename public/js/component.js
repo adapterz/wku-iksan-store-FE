@@ -592,11 +592,11 @@ const CATEGORY_ICON_MAP = {
 const CATEGORY_DEFAULT_ICON_URL = 'https://em-content.zobj.net/source/apple/453/shopping-bags_1f6cd-fe0f.png';
 
 // 공통 카테고리 카드 마크업 생성 유틸리티 (home.js 등 여러 화면에서 재사용)
-// TODO: 카테고리 클릭 시 이동할 상품 목록 경로가 정해지면 href를 실제 경로로 교체한다.
+// 클릭 시 category.html?categoryId=ID(category.js)로 이동해 해당 카테고리의 상품 목록을 보여준다.
 window.createCategoryCard = function(category) {
     const card = document.createElement('a');
     card.className = 'category-card';
-    card.href = '#';
+    card.href = `category.html?categoryId=${category.id}`;
     card.dataset.categoryId = category.id;
 
     const name = category.name || '';
@@ -712,4 +712,108 @@ window.createSkeletonCard = function() {
       </div>
     `;
     return card;
+};
+
+// GET /api/products 기반 상품 목록 화면(검색 결과, 카테고리 상품 목록 등)이 공통으로 쓰는 컨트롤러.
+// listEl에 스켈레톤/결과/빈 상태/에러 상태를 그려주고, 빠른 재요청 시 오래된 응답이 최신 결과를
+// 덮어쓰지 않도록 이전 요청을 취소하는 레이스 컨디션 방지 로직까지 포함한다. (search.js의 기존 로직을 일반화)
+// buildRequestPath(query): query(검색어·categoryId 등)를 받아 '/api/products?...' 경로 문자열을 반환.
+// emptyMessage / errorMessage: 결과 0건 / 요청 실패 시 노출할 안내 문구.
+window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessage, errorMessage, blankMessage }) {
+    function renderSkeletonState() {
+        if (!listEl) return;
+        listEl.classList.remove('is-empty');
+        listEl.innerHTML = '';
+        for (let i = 0; i < 6; i++) listEl.appendChild(createSkeletonCard());
+    }
+
+    // is-empty: 결과가 없거나 실패했을 때, 리스트 영역을 남은 화면 높이만큼 늘려
+    // 안내 문구가 화면 세로 중앙에 오도록 하는 CSS 훅(style.css의 .page-search 규칙 참고)
+    function renderFallbackState(message) {
+        if (!listEl) return;
+        listEl.classList.add('is-empty');
+        listEl.innerHTML = `
+          <div class="empty-state">
+            <i class="fa-solid fa-box-open"></i>
+            <p>${message}</p>
+          </div>
+        `;
+    }
+
+    function renderResults(products) {
+        if (!listEl) return;
+        listEl.classList.remove('is-empty');
+        listEl.innerHTML = '';
+        products.forEach(product => {
+            listEl.appendChild(createProductCard(product));
+        });
+    }
+
+    async function syncSaveButtons() {
+        if (!listEl) return;
+        const btns = listEl.querySelectorAll('.btn-save-bookmark');
+        for (const btn of btns) {
+            const pid = btn.getAttribute('data-product-id');
+            if (!pid) continue;
+            const icon = btn.querySelector('i');
+            try {
+                const isSaved = await window.isProductSaved(pid);
+                window.updateWishlistIcon(icon, isSaved);
+            } catch (error) {
+                console.error('찜 상태 동기화 실패:', error);
+            }
+        }
+    }
+
+    window.addEventListener('saved-products-updated', syncSaveButtons);
+
+    // 빠르게 재요청할 때 응답이 요청 순서와 다르게 도착해 이전(오래된) 결과가
+    // 최신 결과를 덮어쓰는 것을 막기 위해, 새 요청을 시작할 때마다 진행 중인 이전 요청을 취소한다.
+    let current = null;
+
+    // showSkeleton=false: 이미 결과가 떠 있는 상태에서의 재요청은 기존 카드를 그대로 유지하다가
+    // 응답이 오면 바로 새 카드로 교체한다(스켈레톤 왕복으로 인한 깜빡임 방지).
+    async function load(query, { showSkeleton = true } = {}) {
+        if (current) {
+            current.controller.abort();
+            current.settle();
+            current = null;
+        }
+
+        const path = buildRequestPath(query);
+        if (!path) {
+            renderFallbackState(blankMessage || emptyMessage);
+            return;
+        }
+
+        const controller = new AbortController();
+
+        if (showSkeleton) {
+            renderSkeletonState();
+        }
+        const settle = createSkeletonGuard(() => {
+            renderFallbackState(errorMessage);
+        }, 5000);
+
+        current = { controller, settle };
+
+        try {
+            const result = await requestJson(path, { signal: controller.signal });
+            settle();
+            if (controller.signal.aborted) return;
+            const products = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+            if (products.length === 0) {
+                renderFallbackState(emptyMessage);
+            } else {
+                renderResults(products);
+            }
+        } catch (error) {
+            settle();
+            if (controller.signal.aborted || error.name === 'AbortError') return;
+            console.error('상품 목록 조회에 실패했습니다:', error);
+            renderFallbackState(errorMessage);
+        }
+    }
+
+    return { load };
 };

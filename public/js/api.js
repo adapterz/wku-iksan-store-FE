@@ -85,6 +85,13 @@ async function fetchListWithCache(path, cacheKey, ttlMs) {
   return { data, fromCache: false };
 }
 
+// sessionCache 키·TTL은 데이터를 저장하는 화면(home.js)과 읽기만 하는 화면(category.js)이
+// 값을 동일하게 맞춰야 하므로 여러 화면(js 파일)에서 공유하도록 전역 상수로 둔다.
+window.CATEGORY_CACHE_KEY = 'iksanstore:categories:v1';
+window.CATEGORY_CACHE_TTL_MS = 5 * 60 * 1000;
+window.PRODUCT_CACHE_KEY = 'iksanstore:products:v1';
+window.PRODUCT_CACHE_TTL_MS = 5 * 60 * 1000;
+
 // 일반 script 태그로 불러온 각 화면에서 공통 함수와 오류 객체를 사용할 수 있게 공개한다.
 window.ApiError = ApiError;
 window.requestJson = requestJson;
