@@ -725,7 +725,9 @@ window.createSkeletonCard = function() {
 // mapResults(data): 응답의 data 배열을 상품 배열로 변환하는 훅. 생략 시 data를 그대로 상품 배열로 사용한다.
 //   (예: 위시리스트 API의 data는 [{product: {...}}] 형태라 item => item.product로 매핑해야 함)
 // unauthorizedMessage: 지정하면 401 응답 시 errorMessage 대신 이 메시지로 안내(로그인 필요 등). 미지정 시 기존처럼 일반 에러로 처리.
-window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessage, errorMessage, blankMessage, mapResults, unauthorizedMessage }) {
+// removeUnsavedCards: true면 saved-products-updated에서 찜 해제된 카드를 아이콘 동기화 대신 목록에서 완전히 제거한다.
+//   (위시리스트처럼 "찜한 상품만 보여주는" 화면 전용. 미지정 시 기존처럼 아이콘만 동기화)
+window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessage, errorMessage, blankMessage, mapResults, unauthorizedMessage, removeUnsavedCards }) {
     function renderSkeletonState() {
         if (!listEl) return;
         listEl.classList.remove('is-empty');
@@ -755,8 +757,30 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
         });
     }
 
-    async function syncSaveButtons() {
+    // removeUnsavedCards가 켜진 화면(위시리스트)에서 찜 해제된 상품의 카드를 목록에서 제거하고,
+    // 마지막 카드가 사라지면 빈 목록 안내로 전환한다.
+    function removeUnsavedCard(productId) {
+        const btn = listEl.querySelector(`.btn-save-bookmark[data-product-id="${productId}"]`);
+        const card = btn ? btn.closest('.product-card') : null;
+        if (!card) return;
+        card.remove();
+        if (!listEl.querySelector('.product-card')) {
+            renderFallbackState(emptyMessage);
+        }
+    }
+
+    async function syncSaveButtons(e) {
         if (!listEl) return;
+
+        // removeUnsavedCards 화면은 이벤트로 전달된 productId만 즉시 제거하면 되므로 전체 재조회가 필요 없다.
+        if (removeUnsavedCards) {
+            const { productId, isSaved } = (e && e.detail) || {};
+            if (!isSaved && productId !== undefined) {
+                removeUnsavedCard(productId);
+            }
+            return;
+        }
+
         const btns = listEl.querySelectorAll('.btn-save-bookmark');
         for (const btn of btns) {
             const pid = btn.getAttribute('data-product-id');
