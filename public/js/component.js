@@ -715,12 +715,15 @@ window.createSkeletonCard = function() {
     return card;
 };
 
-// GET /api/products 기반 상품 목록 화면(검색 결과, 카테고리 상품 목록 등)이 공통으로 쓰는 컨트롤러.
+// GET /api/products 기반 상품 목록 화면(검색 결과, 카테고리 상품 목록, 위시리스트 등)이 공통으로 쓰는 컨트롤러.
 // listEl에 스켈레톤/결과/빈 상태/에러 상태를 그려주고, 빠른 재요청 시 오래된 응답이 최신 결과를
 // 덮어쓰지 않도록 이전 요청을 취소하는 레이스 컨디션 방지 로직까지 포함한다. (search.js의 기존 로직을 일반화)
 // buildRequestPath(query): query(검색어·categoryId 등)를 받아 '/api/products?...' 경로 문자열을 반환.
 // emptyMessage / errorMessage: 결과 0건 / 요청 실패 시 노출할 안내 문구.
-window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessage, errorMessage, blankMessage }) {
+// mapResults(data): 응답의 data 배열을 상품 배열로 변환하는 훅. 생략 시 data를 그대로 상품 배열로 사용한다.
+//   (예: 위시리스트 API의 data는 [{product: {...}}] 형태라 item => item.product로 매핑해야 함)
+// unauthorizedMessage: 지정하면 401 응답 시 errorMessage 대신 이 메시지로 안내(로그인 필요 등). 미지정 시 기존처럼 일반 에러로 처리.
+window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessage, errorMessage, blankMessage, mapResults, unauthorizedMessage }) {
     function renderSkeletonState() {
         if (!listEl) return;
         listEl.classList.remove('is-empty');
@@ -799,10 +802,13 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
         current = { controller, settle };
 
         try {
-            const result = await requestJson(path, { signal: controller.signal });
+            // silent401: unauthorizedMessage가 지정된 화면(예: 위시리스트)은 전역 401 리다이렉트 대신
+            // 이 컨트롤러의 catch 블록에서 안내 문구로 직접 처리한다.
+            const result = await requestJson(path, { signal: controller.signal, silent401: !!unauthorizedMessage });
             settle();
             if (controller.signal.aborted) return;
-            const products = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+            const rawItems = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+            const products = mapResults ? mapResults(rawItems) : rawItems;
             if (products.length === 0) {
                 renderFallbackState(emptyMessage);
             } else {
@@ -811,6 +817,10 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
         } catch (error) {
             settle();
             if (controller.signal.aborted || error.name === 'AbortError') return;
+            if (error.status === 401 && unauthorizedMessage) {
+                renderFallbackState(unauthorizedMessage);
+                return;
+            }
             console.error('상품 목록 조회에 실패했습니다:', error);
             renderFallbackState(errorMessage);
         }
