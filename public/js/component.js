@@ -186,6 +186,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fa-solid fa-magnifying-glass"></i>
             <span class="nav-text">SHOP</span>
         </a>
+        <a href="wishlist.html" id="btn-bottom-wishlist" class="nav-item">
+            <i class="fa-regular fa-bookmark"></i>
+            <span class="nav-text">SAVED</span>
+        </a>
         <a href="${myHref}" id="btn-bottom-my" class="nav-item">
             <div class="login-status-icon-wrapper">
                 <i id="bottom-login-status-icon" class="${userIconClass}"></i>
@@ -277,10 +281,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (qIndex !== -1) hrefFile = href.substring(0, qIndex);
             hrefFile = hrefFile.substring(hrefFile.lastIndexOf('/') + 1);
 
-            if (currentFile === hrefFile) {
-                item.classList.add('active');
-            } else {
-                item.classList.remove('active');
+            const isActive = currentFile === hrefFile;
+            item.classList.toggle('active', isActive);
+
+            // 위시리스트 버튼은 현재 페이지일 때만 북마크 아이콘을 채워진 상태로 표시
+            if (item.id === 'btn-bottom-wishlist') {
+                const icon = item.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-solid', isActive);
+                    icon.classList.toggle('fa-regular', !isActive);
+                }
             }
         });
     }
