@@ -573,21 +573,12 @@ window.updateWishlistIcon = function(icon, isSaved) {
 // 카테고리 이름별 아이콘 이미지. API 응답(id, name)에는 아이콘이 없으므로 FE에서 이름으로 매핑한다.
 // 매핑에 없는 이름(백엔드에 새 카테고리가 추가된 경우 등)은 CATEGORY_DEFAULT_ICON_URL을 사용한다.
 const CATEGORY_ICON_MAP = {
-    '카페': 'https://em-content.zobj.net/source/apple/453/hot-beverage_2615.png',
-    '맛집': 'https://em-content.zobj.net/source/apple/453/fork-and-knife-with-plate_1f37d-fe0f.png',
-    '디저트': 'https://em-content.zobj.net/source/apple/453/ice-cream_1f368.png',
-    '금액권': 'https://em-content.zobj.net/source/apple/453/dollar-banknote_1f4b5.png',
-    '인기매장': 'https://em-content.zobj.net/source/apple/453/department-store_1f3ec.png',
-    '특산품': 'https://em-content.zobj.net/source/apple/453/shopping-cart_1f6d2.png',
-    '체험': 'https://em-content.zobj.net/source/apple/453/bow-and-arrow_1f3f9.png',
-    '숙박': 'https://em-content.zobj.net/source/apple/453/bed_1f6cf-fe0f.png',
-    '관광': 'https://em-content.zobj.net/source/apple/453/shinto-shrine_26e9-fe0f.png',
-    '기념품': 'https://em-content.zobj.net/source/apple/453/folding-hand-fan_1faad.png',
-    '로컬푸드': 'https://em-content.zobj.net/source/apple/453/red-apple_1f34e.png',
-    '축제·행사': 'https://em-content.zobj.net/source/apple/453/balloon_1f388.png',
-    '익산 투어': 'https://em-content.zobj.net/source/apple/453/metro_1f687.png',
-    '전통시장': 'https://em-content.zobj.net/source/apple/453/red-paper-lantern_1f3ee.png',
-    '문화생활': 'https://em-content.zobj.net/source/apple/453/admission-tickets_1f39f-fe0f.png'
+    '음료': 'https://em-content.zobj.net/source/apple/453/hot-beverage_2615.png',
+    '베이커리·간식': 'https://em-content.zobj.net/source/apple/453/ice-cream_1f368.png',
+    '축산·농산물': 'https://em-content.zobj.net/source/apple/453/cooked-rice_1f35a.png',
+    '외식·상품권': 'https://em-content.zobj.net/source/apple/453/fork-and-knife-with-plate_1f37d-fe0f.png',
+    '체험·관광이용권': 'https://em-content.zobj.net/source/apple/453/bow-and-arrow_1f3f9.png',
+    '지역특산 선물세트': 'https://em-content.zobj.net/source/apple/453/carp-streamer_1f38f.png'
 };
 const CATEGORY_DEFAULT_ICON_URL = 'https://em-content.zobj.net/source/apple/453/shopping-bags_1f6cd-fe0f.png';
 

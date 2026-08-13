@@ -392,13 +392,16 @@ input.header-search-text::placeholder {
 }
 
 .category-grid {
-  display: grid;
-  grid-template-columns: repeat(8, calc((100% - 48px) / 5));
-  row-gap: 16px;
-  column-gap: 12px;
+  display: flex;
+  gap: 12px;
   overflow-x: auto;
   padding-bottom: 8px;
   scrollbar-width: none;
+}
+
+.category-grid .category-card {
+  flex: 0 0 auto;
+  width: calc((100% - 48px) / 5);
 }
 
 .category-grid::-webkit-scrollbar {

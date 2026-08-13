@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 카테고리 카드 마크업은 component.js가 전역에 노출한 createCategoryCard를 재사용한다.
   // 그리드 마지막에 정적으로 남아있는 '더보기' 항목(.category-more)은 그대로 두고,
-  // API로 받아온 카테고리 카드만 그 앞에 채워 넣는다.
+  // API로 받아온 카테고리 카드만 그 앞(1행 가로 스크롤)에 채워 넣는다.
   function renderCategoriesData(categories) {
     const grid = document.querySelector('.category-grid');
     if (!grid) return;
