@@ -186,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fa-solid fa-magnifying-glass"></i>
             <span class="nav-text">SHOP</span>
         </a>
-        <a href="wishlist.html" id="btn-bottom-wishlist" class="nav-item">
+        <a href="wishlist.html" class="nav-item" data-icon-active="fa-solid fa-bookmark" data-icon-inactive="fa-regular fa-bookmark">
             <i class="fa-regular fa-bookmark"></i>
             <span class="nav-text">SAVED</span>
         </a>
@@ -284,12 +284,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const isActive = currentFile === hrefFile;
             item.classList.toggle('active', isActive);
 
-            // 위시리스트 버튼은 현재 페이지일 때만 북마크 아이콘을 채워진 상태로 표시
-            if (item.id === 'btn-bottom-wishlist') {
+            // data-icon-active/data-icon-inactive가 지정된 nav 아이템은 현재 페이지 여부에 따라
+            // 아이콘 클래스(fa-regular ↔ fa-solid 등)를 전환한다 (예: 위시리스트의 빈/채워진 북마크).
+            const activeIconClass = item.dataset.iconActive;
+            const inactiveIconClass = item.dataset.iconInactive;
+            if (activeIconClass && inactiveIconClass) {
                 const icon = item.querySelector('i');
                 if (icon) {
-                    icon.classList.toggle('fa-solid', isActive);
-                    icon.classList.toggle('fa-regular', !isActive);
+                    icon.className = isActive ? activeIconClass : inactiveIconClass;
                 }
             }
         });
