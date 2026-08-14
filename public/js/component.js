@@ -777,16 +777,14 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
     async function syncSaveButtons(e) {
         if (!listEl) return;
 
-        // removeUnsavedCards 화면은 찜 해제 시 이벤트로 전달된 productId만 즉시 제거하면 되지만,
-        // 다른 화면(product.html 등)에서 같은 상품을 다시 찜한 경우에는 카드를 만들 상품 정보가
-        // 이벤트에 없으므로 전체 목록을 다시 불러와야 한다(이미 목록에 있으면 재조회 없이 무시).
+        // removeUnsavedCards 화면(위시리스트)의 카드는 전부 이미 찜한 상품이고, saved-products-updated는
+        // window.dispatchEvent로 같은 페이지 내에서만 전달되므로 이 화면에서 isSaved: true 이벤트가
+        // 발생할 일은 없다. 찜 해제 시 이벤트로 전달된 productId만 제거하면 된다.
         if (removeUnsavedCards) {
             const { productId, isSaved } = (e && e.detail) || {};
             if (productId === undefined) return;
             if (!isSaved) {
                 removeUnsavedCard(productId);
-            } else if (!listEl.querySelector(`.btn-save-bookmark[data-product-id="${productId}"]`)) {
-                load(undefined, { showSkeleton: false });
             }
             return;
         }
