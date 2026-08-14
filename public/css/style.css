@@ -329,8 +329,10 @@ input.header-search-text::placeholder {
   padding: 0 16px 24px 16px;
 }
 
-/* search.html: 헤더 바와 상품 카드 그리드 사이에 카드 좌측 여백(16px)만큼 세로 간격 추가 */
-.main-content.page-search {
+/* search.html: 헤더 바와 상품 카드 그리드 사이에 카드 좌측 여백(16px)만큼 세로 간격 추가
+   wishlist.html도 동일한 그리드 레이아웃을 재사용한다. */
+.main-content.page-search,
+.main-content.page-wishlist {
   padding-top: 16px;
   display: flex;
   flex-direction: column;
@@ -394,20 +396,25 @@ input.header-search-text::placeholder {
 }
 
 /* search.html: 검색 결과가 없을 때 empty-state가 그리드 상단이 아닌 남은 화면의 세로 중앙에 오도록
-   섹션과 리스트를 남은 높이만큼 늘려서 그 안에서 중앙 정렬한다. */
-.page-search .ranking-section {
+   섹션과 리스트를 남은 높이만큼 늘려서 그 안에서 중앙 정렬한다.
+   wishlist.html도 동일한 그리드 레이아웃을 재사용하므로 같은 규칙을 적용한다. */
+.page-search .ranking-section,
+.page-wishlist .ranking-section {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-.page-search .ranking-cards-row.is-empty {
+.page-search .ranking-cards-row.is-empty,
+.page-wishlist .ranking-cards-row.is-empty {
   flex: 1;
   display: flex;
 }
 
 .page-search .ranking-cards-row.is-empty .empty-state,
-.page-search .ranking-cards-row.is-empty .error-state {
+.page-search .ranking-cards-row.is-empty .error-state,
+.page-wishlist .ranking-cards-row.is-empty .empty-state,
+.page-wishlist .ranking-cards-row.is-empty .error-state {
   flex: 1;
 }
 

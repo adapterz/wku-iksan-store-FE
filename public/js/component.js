@@ -186,6 +186,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fa-solid fa-magnifying-glass"></i>
             <span class="nav-text">SHOP</span>
         </a>
+        <a href="wishlist.html" class="nav-item" data-icon-active="fa-solid fa-bookmark" data-icon-inactive="fa-regular fa-bookmark">
+            <i class="fa-regular fa-bookmark"></i>
+            <span class="nav-text">SAVED</span>
+        </a>
         <a href="${myHref}" id="btn-bottom-my" class="nav-item">
             <div class="login-status-icon-wrapper">
                 <i id="bottom-login-status-icon" class="${userIconClass}"></i>
@@ -277,10 +281,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (qIndex !== -1) hrefFile = href.substring(0, qIndex);
             hrefFile = hrefFile.substring(hrefFile.lastIndexOf('/') + 1);
 
-            if (currentFile === hrefFile) {
-                item.classList.add('active');
-            } else {
-                item.classList.remove('active');
+            const isActive = currentFile === hrefFile;
+            item.classList.toggle('active', isActive);
+
+            // data-icon-active/data-icon-inactive가 지정된 nav 아이템은 현재 페이지 여부에 따라
+            // 아이콘 클래스(fa-regular ↔ fa-solid 등)를 전환한다 (예: 위시리스트의 빈/채워진 북마크).
+            const activeIconClass = item.dataset.iconActive;
+            const inactiveIconClass = item.dataset.iconInactive;
+            if (activeIconClass && inactiveIconClass) {
+                const icon = item.querySelector('i');
+                if (icon) {
+                    icon.className = isActive ? activeIconClass : inactiveIconClass;
+                }
             }
         });
     }
@@ -483,7 +495,8 @@ async function ensureWishlistLoaded() {
                     // 전역 401 리다이렉트를 건너뛴다.
                     const result = await requestJson('/api/wishlists', { silent401: true });
                     if (result && result.data) {
-                        return result.data.map(item => item.product.id.toString());
+                        // 찜한 상품이 카탈로그에서 삭제되면 서버가 product: null을 내려줄 수 있어 걸러낸다.
+                        return result.data.filter(item => item.product).map(item => item.product.id.toString());
                     }
                     return [];
                 } catch (error) {
@@ -705,12 +718,19 @@ window.createSkeletonCard = function() {
     return card;
 };
 
-// GET /api/products 기반 상품 목록 화면(검색 결과, 카테고리 상품 목록 등)이 공통으로 쓰는 컨트롤러.
+// GET /api/products 기반 상품 목록 화면(검색 결과, 카테고리 상품 목록, 위시리스트 등)이 공통으로 쓰는 컨트롤러.
 // listEl에 스켈레톤/결과/빈 상태/에러 상태를 그려주고, 빠른 재요청 시 오래된 응답이 최신 결과를
 // 덮어쓰지 않도록 이전 요청을 취소하는 레이스 컨디션 방지 로직까지 포함한다. (search.js의 기존 로직을 일반화)
 // buildRequestPath(query): query(검색어·categoryId 등)를 받아 '/api/products?...' 경로 문자열을 반환.
 // emptyMessage / errorMessage: 결과 0건 / 요청 실패 시 노출할 안내 문구.
-window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessage, errorMessage, blankMessage }) {
+//   emptyMessage는 문자열 대신 (rawItems, products) => 문자열 함수로도 줄 수 있다.
+//   (예: 위시리스트에서 mapResults가 걸러낸 항목이 있으면 "찜한 상품 없음"과 다른 문구로 안내)
+// mapResults(data): 응답의 data 배열을 상품 배열로 변환하는 훅. 생략 시 data를 그대로 상품 배열로 사용한다.
+//   (예: 위시리스트 API의 data는 [{product: {...}}] 형태라 item => item.product로 매핑해야 함)
+// unauthorizedMessage: 지정하면 401 응답 시 errorMessage 대신 이 메시지로 안내(로그인 필요 등). 미지정 시 기존처럼 일반 에러로 처리.
+// removeUnsavedCards: true면 saved-products-updated에서 찜 해제된 카드를 아이콘 동기화 대신 목록에서 완전히 제거한다.
+//   (위시리스트처럼 "찜한 상품만 보여주는" 화면 전용. 미지정 시 기존처럼 아이콘만 동기화)
+window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessage, errorMessage, blankMessage, mapResults, unauthorizedMessage, removeUnsavedCards }) {
     function renderSkeletonState() {
         if (!listEl) return;
         listEl.classList.remove('is-empty');
@@ -740,8 +760,36 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
         });
     }
 
-    async function syncSaveButtons() {
+    // removeUnsavedCards가 켜진 화면(위시리스트)에서 찜 해제된 상품의 카드를 목록에서 제거하고,
+    // 마지막 카드가 사라지면 빈 목록 안내로 전환한다.
+    function removeUnsavedCard(productId) {
+        const btn = listEl.querySelector(`.btn-save-bookmark[data-product-id="${productId}"]`);
+        const card = btn ? btn.closest('.product-card') : null;
+        if (!card) return;
+        card.remove();
+        if (!listEl.querySelector('.product-card')) {
+            // 남은 카드가 없는 것은 실제로 목록이 빈 상태이지, mapResults가 걸러낸 상황이 아니므로
+            // 함수형 emptyMessage에는 빈 배열을 넘겨 "진짜 빈 목록" 문구가 나오도록 한다.
+            const message = typeof emptyMessage === 'function' ? emptyMessage([], []) : emptyMessage;
+            renderFallbackState(message);
+        }
+    }
+
+    async function syncSaveButtons(e) {
         if (!listEl) return;
+
+        // removeUnsavedCards 화면(위시리스트)의 카드는 전부 이미 찜한 상품이고, saved-products-updated는
+        // window.dispatchEvent로 같은 페이지 내에서만 전달되므로 이 화면에서 isSaved: true 이벤트가
+        // 발생할 일은 없다. 찜 해제 시 이벤트로 전달된 productId만 제거하면 된다.
+        if (removeUnsavedCards) {
+            const { productId, isSaved } = (e && e.detail) || {};
+            if (productId === undefined) return;
+            if (!isSaved) {
+                removeUnsavedCard(productId);
+            }
+            return;
+        }
+
         const btns = listEl.querySelectorAll('.btn-save-bookmark');
         for (const btn of btns) {
             const pid = btn.getAttribute('data-product-id');
@@ -773,7 +821,8 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
 
         const path = buildRequestPath(query);
         if (!path) {
-            renderFallbackState(blankMessage || emptyMessage);
+            const message = blankMessage || (typeof emptyMessage === 'function' ? emptyMessage([], []) : emptyMessage);
+            renderFallbackState(message);
             return;
         }
 
@@ -789,22 +838,30 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
         current = { controller, settle };
 
         try {
-            const result = await requestJson(path, { signal: controller.signal });
+            // silent401: unauthorizedMessage가 지정된 화면(예: 위시리스트)은 전역 401 리다이렉트 대신
+            // 이 컨트롤러의 catch 블록에서 안내 문구로 직접 처리한다.
+            const result = await requestJson(path, { signal: controller.signal, silent401: !!unauthorizedMessage });
             settle();
             if (controller.signal.aborted) return;
-            const products = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+            const rawItems = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+            const products = mapResults ? mapResults(rawItems) : rawItems;
             if (products.length === 0) {
-                renderFallbackState(emptyMessage);
+                const message = typeof emptyMessage === 'function' ? emptyMessage(rawItems, products) : emptyMessage;
+                renderFallbackState(message);
             } else {
                 renderResults(products);
             }
         } catch (error) {
             settle();
             if (controller.signal.aborted || error.name === 'AbortError') return;
+            if (error.status === 401 && unauthorizedMessage) {
+                renderFallbackState(unauthorizedMessage);
+                return;
+            }
             console.error('상품 목록 조회에 실패했습니다:', error);
             renderFallbackState(errorMessage);
         }
     }
 
-    return { load };
+    return { load, renderMessage: renderFallbackState };
 };
