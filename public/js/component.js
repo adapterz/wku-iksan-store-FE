@@ -495,7 +495,8 @@ async function ensureWishlistLoaded() {
                     // 전역 401 리다이렉트를 건너뛴다.
                     const result = await requestJson('/api/wishlists', { silent401: true });
                     if (result && result.data) {
-                        return result.data.map(item => item.product.id.toString());
+                        // 찜한 상품이 카탈로그에서 삭제되면 서버가 product: null을 내려줄 수 있어 걸러낸다.
+                        return result.data.filter(item => item.product).map(item => item.product.id.toString());
                     }
                     return [];
                 } catch (error) {
