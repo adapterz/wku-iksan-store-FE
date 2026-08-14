@@ -2,6 +2,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const listEl = document.getElementById('wishlist-product-list');
   if (!listEl) return;
 
+  const LOGIN_REQUIRED_MESSAGE = '로그인 후 위시리스트를 확인할 수 있습니다.';
+
   // 스켈레톤/빈 상태/에러 상태 렌더링, 요청 취소(레이스 컨디션 방지)는 component.js의 공통 컨트롤러를 재사용한다.
   // 위시리스트 API 응답(data가 [{product:{...}}] 형태)은 mapResults로 상품 배열로 변환해서 넘기고,
   // removeUnsavedCards: 찜 해제 시 아이콘만 동기화하는 다른 화면과 달리 이 화면은 카드 자체를 목록에서 제거한다.
@@ -24,19 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
         : '찜한 상품이 없습니다.';
     },
     errorMessage: '찜 목록을 불러오지 못했습니다.',
-    unauthorizedMessage: '로그인 후 위시리스트를 확인할 수 있습니다.',
+    unauthorizedMessage: LOGIN_REQUIRED_MESSAGE,
     removeUnsavedCards: true
   });
-
-  function renderLoginRequired() {
-    listEl.classList.add('is-empty');
-    listEl.innerHTML = `
-      <div class="empty-state">
-        <i class="fa-solid fa-box-open"></i>
-        <p>로그인 후 위시리스트를 확인할 수 있습니다.</p>
-      </div>
-    `;
-  }
 
   // 로그인 상태 확인(auth:updated) 전에도 공백 화면 없이 로딩 중임을 보여주기 위해
   // 로더의 스켈레톤과 동일한 마크업을 이 시점에 직접 그린다. 실제 데이터 요청은 로그인 여부가
@@ -52,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isLoggedIn) {
       wishlistLoader.load();
     } else {
-      renderLoginRequired();
+      wishlistLoader.renderMessage(LOGIN_REQUIRED_MESSAGE);
     }
   }, { once: true });
 });

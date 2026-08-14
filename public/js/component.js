@@ -864,5 +864,5 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
         }
     }
 
-    return { load };
+    return { load, renderMessage: renderFallbackState };
 };
