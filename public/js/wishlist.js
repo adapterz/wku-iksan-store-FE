@@ -7,7 +7,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // removeUnsavedCards: 찜 해제 시 아이콘만 동기화하는 다른 화면과 달리 이 화면은 카드 자체를 목록에서 제거한다.
   const wishlistLoader = window.createProductListLoader(listEl, {
     buildRequestPath: () => '/api/wishlists',
-    mapResults: (items) => items.map(item => item.product).filter(Boolean),
+    mapResults: (items) => {
+      // 이 화면의 카드는 전부 이미 찜한 상품이므로, 조회 결과로 전역 찜 캐시를 미리 채워
+      // 카드별 isProductSaved() 확인이 /api/wishlists를 다시 호출하지 않도록 한다.
+      window._wishlistCache = items
+        .filter(item => item.product)
+        .map(item => item.product.id.toString());
+      return items.map(item => item.product).filter(Boolean);
+    },
     // 찜한 상품 자체가 없는 경우와, 찜한 상품이 있었지만 카탈로그에서 삭제되어 product가 null로
     // 내려온 경우(mapResults의 filter(Boolean)가 걸러냄)를 구분해서 안내한다.
     emptyMessage: (rawItems, products) => {
