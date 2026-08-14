@@ -822,7 +822,8 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
 
         const path = buildRequestPath(query);
         if (!path) {
-            renderFallbackState(blankMessage || emptyMessage);
+            const message = blankMessage || (typeof emptyMessage === 'function' ? emptyMessage([], []) : emptyMessage);
+            renderFallbackState(message);
             return;
         }
 
