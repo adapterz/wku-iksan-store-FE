@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <link rel="icon" type="image/png" href="/images/favicon.png">
+    <link rel="apple-touch-icon" href="/images/favicon.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실시간 급상승 선물랭킹 - Iksan Gift</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <!-- Main Header -->
+    <header class="main-header">
+        <!-- Header dynamically injected by component.js -->
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content page-ranking">
+        <section class="ranking-section">
+            <div class="ranking-title-container">
+                <h3 class="ranking-title">실시간 급상승 선물랭킹</h3>
+            </div>
+
+            <!-- Ranking Cards Row (search.html/wishlist.html과 동일한 상품 카드 그리드 마크업/스타일 재사용) -->
+            <div class="ranking-cards-row" id="ranking-product-list">
+                <!-- Dynamically loaded via API -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+        <!-- Dynamically injected by component.js -->
+    </nav>
+
+    <!-- Script -->
+    <script src="js/skeleton.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/component.js" defer></script>
+    <script src="js/ranking.js" defer></script>
+</body>
+
+</html>
