@@ -654,10 +654,17 @@ window.createProductCard = function(product, options = {}) {
           </button>
         </div>
         <div class="stats-row">
-          관심 0 · 리뷰 0
+          <span class="interest-count">관심 0</span> · 리뷰 0
         </div>
       </div>
     `;
+
+    // 랭킹 화면(GET /api/products/ranking)처럼 응답에 wishlistCount가 포함된 경우에만 실제 찜 개수로 대체.
+    // 검색/카테고리 등 이 필드가 없는 화면은 기존과 동일하게 "관심 0"으로 표시된다.
+    if (product.wishlistCount !== undefined) {
+        const interestCountEl = card.querySelector('.interest-count');
+        if (interestCountEl) interestCountEl.textContent = `관심 ${product.wishlistCount}`;
+    }
 
     const imgEl = card.querySelector('.product-img');
     if (imgEl) {
@@ -730,7 +737,9 @@ window.createSkeletonCard = function() {
 // unauthorizedMessage: 지정하면 401 응답 시 errorMessage 대신 이 메시지로 안내(로그인 필요 등). 미지정 시 기존처럼 일반 에러로 처리.
 // removeUnsavedCards: true면 saved-products-updated에서 찜 해제된 카드를 아이콘 동기화 대신 목록에서 완전히 제거한다.
 //   (위시리스트처럼 "찜한 상품만 보여주는" 화면 전용. 미지정 시 기존처럼 아이콘만 동기화)
-window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessage, errorMessage, blankMessage, mapResults, unauthorizedMessage, removeUnsavedCards }) {
+// showRank: true면 각 카드에 순위 배지를 표시한다. GET /api/products/ranking처럼 응답 항목에 이미
+//   rank가 매겨져 있는 화면(ranking.html) 전용. 미지정 시 기존처럼 배지 없이 렌더링.
+window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessage, errorMessage, blankMessage, mapResults, unauthorizedMessage, removeUnsavedCards, showRank }) {
     function renderSkeletonState() {
         if (!listEl) return;
         listEl.classList.remove('is-empty');
@@ -756,7 +765,8 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
         listEl.classList.remove('is-empty');
         listEl.innerHTML = '';
         products.forEach(product => {
-            listEl.appendChild(createProductCard(product));
+            const cardOptions = showRank ? { showRank: true, rankIndex: product.rank } : undefined;
+            listEl.appendChild(createProductCard(product, cardOptions));
         });
     }
 

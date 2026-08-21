@@ -330,9 +330,10 @@ input.header-search-text::placeholder {
 }
 
 /* search.html: 헤더 바와 상품 카드 그리드 사이에 카드 좌측 여백(16px)만큼 세로 간격 추가
-   wishlist.html도 동일한 그리드 레이아웃을 재사용한다. */
+   wishlist.html, ranking.html도 동일한 그리드 레이아웃을 재사용한다. */
 .main-content.page-search,
-.main-content.page-wishlist {
+.main-content.page-wishlist,
+.main-content.page-ranking {
   padding-top: 16px;
   display: flex;
   flex-direction: column;
@@ -397,16 +398,18 @@ input.header-search-text::placeholder {
 
 /* search.html: 검색 결과가 없을 때 empty-state가 그리드 상단이 아닌 남은 화면의 세로 중앙에 오도록
    섹션과 리스트를 남은 높이만큼 늘려서 그 안에서 중앙 정렬한다.
-   wishlist.html도 동일한 그리드 레이아웃을 재사용하므로 같은 규칙을 적용한다. */
+   wishlist.html, ranking.html도 동일한 그리드 레이아웃을 재사용하므로 같은 규칙을 적용한다. */
 .page-search .ranking-section,
-.page-wishlist .ranking-section {
+.page-wishlist .ranking-section,
+.page-ranking .ranking-section {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
 .page-search .ranking-cards-row.is-empty,
-.page-wishlist .ranking-cards-row.is-empty {
+.page-wishlist .ranking-cards-row.is-empty,
+.page-ranking .ranking-cards-row.is-empty {
   flex: 1;
   display: flex;
 }
@@ -414,7 +417,9 @@ input.header-search-text::placeholder {
 .page-search .ranking-cards-row.is-empty .empty-state,
 .page-search .ranking-cards-row.is-empty .error-state,
 .page-wishlist .ranking-cards-row.is-empty .empty-state,
-.page-wishlist .ranking-cards-row.is-empty .error-state {
+.page-wishlist .ranking-cards-row.is-empty .error-state,
+.page-ranking .ranking-cards-row.is-empty .empty-state,
+.page-ranking .ranking-cards-row.is-empty .error-state {
   flex: 1;
 }
 
@@ -706,6 +711,14 @@ input.header-search-text::placeholder {
   align-items: center;
   gap: 6px;
   margin-bottom: 16px;
+}
+
+/* ranking.html: 응답 수신 시각 문구를 타이틀 오른쪽 끝으로 밀어냄(margin-left: auto).
+   .ranking-title-container를 공유하는 다른 화면(홈 추천 상품 등)은 이 요소 자체가 없어 영향 없음. */
+.ranking-updated-at {
+  margin-left: auto;
+  font-size: 12px;
+  color: #999;
 }
 
 .ranking-title {
