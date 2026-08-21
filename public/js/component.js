@@ -654,10 +654,17 @@ window.createProductCard = function(product, options = {}) {
           </button>
         </div>
         <div class="stats-row">
-          관심 0 · 리뷰 0
+          <span class="interest-count">관심 0</span> · 리뷰 0
         </div>
       </div>
     `;
+
+    // 랭킹 화면(GET /api/products/ranking)처럼 응답에 wishlistCount가 포함된 경우에만 실제 찜 개수로 대체.
+    // 검색/카테고리 등 이 필드가 없는 화면은 기존과 동일하게 "관심 0"으로 표시된다.
+    if (product.wishlistCount !== undefined) {
+        const interestCountEl = card.querySelector('.interest-count');
+        if (interestCountEl) interestCountEl.textContent = `관심 ${product.wishlistCount}`;
+    }
 
     const imgEl = card.querySelector('.product-img');
     if (imgEl) {

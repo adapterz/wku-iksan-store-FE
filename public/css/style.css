@@ -713,6 +713,14 @@ input.header-search-text::placeholder {
   margin-bottom: 16px;
 }
 
+/* ranking.html: 응답 수신 시각 문구를 타이틀 오른쪽 끝으로 밀어냄(margin-left: auto).
+   .ranking-title-container를 공유하는 다른 화면(홈 추천 상품 등)은 이 요소 자체가 없어 영향 없음. */
+.ranking-updated-at {
+  margin-left: auto;
+  font-size: 12px;
+  color: #999;
+}
+
 .ranking-title {
   font-size: 16px;
   font-weight: 700;
