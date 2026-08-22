@@ -18,6 +18,9 @@ document.addEventListener('header:ready', () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    const BRAND_CACHE_TTL_MS = 5 * 60 * 1000;
+    const BRAND_CACHE_KEY_PREFIX = 'iksanstore:brand-api:v1:';
+
     // 대표 상품 사진 대신 브랜드 성격을 보여주는 전용 정적 아이콘을 우선 사용한다.
     // API에만 존재하는 새로운 브랜드는 기존 대표 상품 썸네일로 자연스럽게 대체한다.
     const BRAND_ICON_MAP = {
@@ -42,6 +45,26 @@ document.addEventListener('DOMContentLoaded', () => {
     let brands = [];
     let brandRequestController = null;
 
+    function getBrandCacheKey(path) {
+        return `${BRAND_CACHE_KEY_PREFIX}${encodeURIComponent(path)}`;
+    }
+
+    // 홈 상품 목록과 같은 sessionStorage 캐시를 사용하되, 서버 오류는 저장하지 않는다.
+    async function requestWithBrandCache(path, options = {}) {
+        const cacheKey = getBrandCacheKey(path);
+        const cachedResult = window.sessionCache
+            ? window.sessionCache.get(cacheKey, BRAND_CACHE_TTL_MS)
+            : null;
+
+        if (cachedResult) return cachedResult;
+
+        const result = await window.requestJson(path, options);
+        if (window.sessionCache) {
+            window.sessionCache.set(cacheKey, result);
+        }
+        return result;
+    }
+
     // 기존 검색·카테고리 화면과 동일한 상품 카드·스켈레톤·오류 처리 컨트롤러를 재사용한다.
     const productListLoader = window.createProductListLoader(productListEl, {
         buildRequestPath: (brand) => brand
@@ -49,7 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
             : null,
         blankMessage: '왼쪽에서 브랜드를 선택해주세요.',
         emptyMessage: '해당 브랜드에 등록된 상품이 없습니다.',
-        errorMessage: '브랜드 상품을 불러오지 못했습니다.'
+        errorMessage: '브랜드 상품을 불러오지 못했습니다.',
+        request: requestWithBrandCache
     });
 
     function getBrandFromUrl() {
@@ -186,7 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBrandListSkeleton();
 
         try {
-            const result = await window.requestJson(path, { signal: controller.signal });
+            // 대표 목록과 검색 결과 모두 같은 5분 캐시 규칙을 사용한다.
+            const result = await requestWithBrandCache(path, { signal: controller.signal });
             if (controller.signal.aborted) return;
             const items = result && Array.isArray(result.data) ? result.data : [];
             renderBrands(items, Boolean(normalizedKeyword));

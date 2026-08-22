@@ -14,16 +14,21 @@ document.addEventListener('DOMContentLoaded', () => {
     showRank: true
   });
 
-  // load()는 성공/실패를 구분해 알려주지 않으므로(내부에서 에러도 안내문구로 처리하고 끝남),
-  // 실제로 카드가 그려졌는지(listEl 안에 .product-card가 있는지)로 성공 여부를 판단한다.
+  // load()가 반환한 API 응답의 계산 시각을 사용하되,
+  // 실제로 카드가 그려진 경우에만 업데이트 시각을 표시한다.
   // 빈 목록/에러 상태에서는 "몇 시 기준"이라는 문구가 오히려 오해를 줄 수 있어 표시하지 않는다.
-  rankingLoader.load().then(() => {
+  rankingLoader.load().then((result) => {
     if (!updatedAtEl) return;
     const hasResults = listEl.querySelector('.product-card') !== null;
     if (!hasResults) return;
-    const now = new Date();
-    const hh = String(now.getHours()).padStart(2, '0');
-    const mm = String(now.getMinutes()).padStart(2, '0');
+
+    // 브라우저가 응답을 받은 시간이 아니라 BE가 랭킹을 실제 계산한 시각을 표시한다.
+    const computedAt = result && result.meta && result.meta.computedAt;
+    const calculatedAt = computedAt ? new Date(computedAt) : null;
+    if (!calculatedAt || Number.isNaN(calculatedAt.getTime())) return;
+
+    const hh = String(calculatedAt.getHours()).padStart(2, '0');
+    const mm = String(calculatedAt.getMinutes()).padStart(2, '0');
     updatedAtEl.textContent = `${hh}:${mm} 업데이트`;
   });
 });

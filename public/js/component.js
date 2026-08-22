@@ -739,7 +739,8 @@ window.createSkeletonCard = function() {
 //   (위시리스트처럼 "찜한 상품만 보여주는" 화면 전용. 미지정 시 기존처럼 아이콘만 동기화)
 // showRank: true면 각 카드에 순위 배지를 표시한다. GET /api/products/ranking처럼 응답 항목에 이미
 //   rank가 매겨져 있는 화면(ranking.html) 전용. 미지정 시 기존처럼 배지 없이 렌더링.
-window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessage, errorMessage, blankMessage, mapResults, unauthorizedMessage, removeUnsavedCards, showRank }) {
+// request: 기본 requestJson 대신 캐시 등을 적용한 요청 함수를 화면별로 주입할 때 사용한다.
+window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessage, errorMessage, blankMessage, mapResults, unauthorizedMessage, removeUnsavedCards, showRank, request = window.requestJson }) {
     function renderSkeletonState() {
         if (!listEl) return;
         listEl.classList.remove('is-empty');
@@ -850,7 +851,7 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
         try {
             // silent401: unauthorizedMessage가 지정된 화면(예: 위시리스트)은 전역 401 리다이렉트 대신
             // 이 컨트롤러의 catch 블록에서 안내 문구로 직접 처리한다.
-            const result = await requestJson(path, { signal: controller.signal, silent401: !!unauthorizedMessage });
+            const result = await request(path, { signal: controller.signal, silent401: !!unauthorizedMessage });
             settle();
             if (controller.signal.aborted) return;
             const rawItems = (result && result.data && Array.isArray(result.data)) ? result.data : [];
@@ -861,6 +862,7 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
             } else {
                 renderResults(products);
             }
+            return result;
         } catch (error) {
             settle();
             if (controller.signal.aborted || error.name === 'AbortError') return;
