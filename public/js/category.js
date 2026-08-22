@@ -1,4 +1,4 @@
-// 공통 서브 헤더 우측 아이콘들(검색/홈/주문내역)을 이 페이지에서만 북마크 버튼 하나로 교체
+// 공통 서브 헤더를 카테고리 페이지용 제목·위시리스트 헤더로 변경한다.
 document.addEventListener('header:ready', () => {
     const headerContainer = document.querySelector('header.main-header .header-container');
     const rightIcons = document.querySelector('header.main-header .header-right-icons');
@@ -8,16 +8,11 @@ document.addEventListener('header:ready', () => {
             <i class="fa-solid fa-bookmark"></i>
         </a>`;
 
-    // 상단바 중앙 탭: 카테고리 | 브랜드
-    // TODO: 브랜드를 별도 페이지로 분리하고 클릭 시 이동/active 전환 기능 추가
     if (headerContainer) {
-        const centerTabs = document.createElement('div');
-        centerTabs.className = 'header-center-tabs';
-        centerTabs.innerHTML = `
-            <span class="header-tab-btn active">카테고리</span>
-            <span class="header-tab-divider">|</span>
-            <span class="header-tab-btn">브랜드</span>`;
-        headerContainer.appendChild(centerTabs);
+        const title = document.createElement('h1');
+        title.className = 'header-title';
+        title.textContent = '카테고리';
+        headerContainer.appendChild(title);
     }
 });
 
