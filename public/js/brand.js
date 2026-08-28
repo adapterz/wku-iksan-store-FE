@@ -243,8 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function selectBrand(brand) {
         if (getBrandFromUrl() === brand) return;
         const url = `brand.html?brand=${encodeURIComponent(brand)}`;
-        // 브랜드 전환은 같은 화면 안에서의 상태 변경이므로 히스토리를 새로 쌓지 않고 현재 엔트리를 갱신한다.
-        history.replaceState({}, '', url);
+        history.pushState({}, '', url);
         window.refreshBottomNavLoginLink();
         loadSelectedBrand(brand);
     }
@@ -270,9 +269,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // URL에 brand 값이 있어도(뒤로가기로 재진입 등) 검색 모드로 전환하지 않고,
-    // 항상 대표 브랜드 목록을 불러온 뒤 해당 브랜드를 활성화 상태로 복원한다.
     const initialBrand = getBrandFromUrl();
-    loadBrands();
+    if (initialBrand) {
+        searchInput.value = initialBrand;
+        loadBrands(initialBrand);
+    } else {
+        loadBrands();
+    }
     loadSelectedBrand(initialBrand);
 });
