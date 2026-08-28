@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <link rel="icon" type="image/png" href="/images/favicon.png">
+    <link rel="apple-touch-icon" href="/images/favicon.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>브랜드 - Iksan Gift</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <!-- Main Header -->
+    <header class="main-header">
+        <!-- Header dynamically injected by component.js -->
+    </header>
+
+    <!-- 카테고리·브랜드를 페이지 제목과 분리한 공통 탐색 탭 -->
+    <nav class="section-tabs" aria-label="상품 탐색 메뉴">
+        <a href="category.html" class="section-tab">카테고리</a>
+        <span class="section-tab active" aria-current="page">브랜드</span>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="main-content page-brand">
+        <!-- 브랜드 검색: 검색어가 없으면 대표 브랜드 4개, 검색어가 있으면 일치하는 브랜드를 조회한다. -->
+        <form class="brand-search-form" id="brand-search-form" role="search">
+            <label class="sr-only" for="brand-search-input">브랜드 검색</label>
+            <div class="brand-search-box">
+                <input
+                    type="search"
+                    id="brand-search-input"
+                    class="brand-search-input"
+                    maxlength="100"
+                    placeholder="브랜드를 검색해보세요"
+                    autocomplete="off"
+                >
+                <button type="submit" class="brand-search-button" aria-label="브랜드 검색">
+                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                </button>
+            </div>
+        </form>
+
+        <div class="brand-browser-layout">
+            <!-- 좌측 브랜드 목록: GET /api/brands 응답으로 채운다. -->
+            <aside class="brand-list-panel" aria-labelledby="brand-list-title">
+                <div class="brand-list-heading">
+                    <h2 id="brand-list-title">대표 브랜드</h2>
+                    <span id="brand-list-count"></span>
+                </div>
+                <ul class="brand-list" id="brand-list">
+                    <!-- Dynamically loaded via API -->
+                </ul>
+                <div class="brand-list-state" id="brand-list-state" hidden></div>
+            </aside>
+
+            <!-- 우측 상품 목록: 좌측 브랜드 선택 시 정확한 브랜드명으로 상품을 조회한다. -->
+            <section class="brand-product-panel" aria-labelledby="selected-brand-title">
+                <div class="brand-product-heading" id="brand-product-heading" hidden>
+                    <h2 id="selected-brand-title"></h2>
+                    <span>브랜드 상품</span>
+                </div>
+                <div class="ranking-cards-row" id="brand-product-list">
+                    <!-- Dynamically loaded via API -->
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+        <!-- Dynamically injected by component.js -->
+    </nav>
+
+    <!-- Script -->
+    <script src="js/skeleton.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/cache.js"></script>
+    <script src="js/component.js" defer></script>
+    <script src="js/brand.js" defer></script>
+</body>
+
+</html>

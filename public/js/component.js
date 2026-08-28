@@ -23,6 +23,109 @@ if (document.body && !document.getElementById('search-overlay')) {
     document.body.insertAdjacentHTML('beforeend', getSearchOverlayHTML());
 }
 
+// 검색어를 받아 검색 결과 페이지로 이동하는 공통 유틸리티 (빈 값은 무시)
+function navigateToSearch(keyword) {
+    const trimmed = (keyword || '').trim();
+    if (!trimmed) return;
+    window.location.href = `search.html?keyword=${encodeURIComponent(trimmed)}`;
+}
+
+// 하단 네비게이션의 로그인 링크(redirect 파라미터)를 현재 window.location.href 기준으로 다시 계산한다.
+// history.pushState로 URL만 바뀌는 화면(search.js의 재검색 등)은 페이지가 새로 로드되지 않아
+// checkGlobalAuthStatus가 다시 실행되지 않으므로, 그런 화면에서 URL이 바뀔 때마다 직접 호출해야 한다.
+window.refreshBottomNavLoginLink = function() {
+    const myBtn = document.getElementById('btn-bottom-my');
+    if (!myBtn) return;
+    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    if (!isLoggedIn) {
+        myBtn.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+    }
+};
+
+// 헤더의 #btn-back 뒤로가기 버튼 공통 이벤트 바인딩 (히스토리가 없으면 홈으로 이동)
+function bindHeaderBackButton() {
+    const btnBack = document.getElementById('btn-back');
+    if (btnBack) {
+        btnBack.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+    }
+}
+
+// 검색 결과 페이지(search.html) 전용 헤더 HTML 반환 함수
+// index.html의 회색 검색 인라인 박스(.header-search-box)를 재사용하되, 오버레이 대신
+// 이 자리에서 바로 입력·재검색할 수 있도록 실제 <input>으로 구성한다.
+function getSearchHeaderHTML(keyword) {
+    const escapedKeyword = (keyword || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `
+    <div class="header-container">
+        <a href="#" id="btn-back" class="header-icon" title="뒤로가기">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <div class="header-search-box search-header-box">
+            <input type="text" id="search-page-input" class="header-search-text has-keyword" value="${escapedKeyword}" placeholder="브랜드, 상품, 프로필, 태그 등">
+            <div class="header-search-icon" id="search-page-submit" style="cursor: pointer;">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </div>
+        </div>
+        <div class="header-right-icons">
+            <a href="index.html" class="header-icon" title="홈">
+                <i class="fa-solid fa-house"></i>
+            </a>
+            <a href="#" class="header-icon" title="주문내역">
+                <i class="fa-solid fa-receipt"></i>
+            </a>
+            <a href="giftbox.html" class="header-icon" title="선물함">
+                <i class="fa-solid fa-gift"></i>
+            </a>
+        </div>
+    </div>`;
+}
+
+// search.html에서 header:ready 이후 호출하여 검색 전용 헤더를 그려주는 공통 함수
+// 오버레이를 열지 않고, 헤더의 검색창에서 바로 입력해 재검색할 수 있도록 바인딩한다.
+window.renderSearchHeader = function(keyword) {
+    const headerElement = document.querySelector('header.main-header');
+    if (!headerElement) return;
+    headerElement.innerHTML = getSearchHeaderHTML(keyword);
+    bindHeaderBackButton();
+
+    const searchPageInput = document.getElementById('search-page-input');
+    const searchPageSubmit = document.getElementById('search-page-submit');
+
+    // search.html 안에서의 재검색은 페이지 새로고침 없이 처리하기 위해
+    // search.js가 등록한 콜백(window.onSearchPageKeywordSubmit)에 위임한다.
+    // 콜백이 없는 경우(비정상 진입 등)에는 기존처럼 페이지 이동으로 대체한다.
+    function submitPageSearch() {
+        if (!searchPageInput) return;
+        const trimmed = searchPageInput.value.trim();
+        if (!trimmed) return;
+        if (typeof window.onSearchPageKeywordSubmit === 'function') {
+            window.onSearchPageKeywordSubmit(trimmed);
+        } else {
+            navigateToSearch(trimmed);
+        }
+    }
+
+    if (searchPageInput) {
+        searchPageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitPageSearch();
+            }
+        });
+    }
+
+    if (searchPageSubmit) {
+        searchPageSubmit.addEventListener('click', submitPageSearch);
+    }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     // 서브 페이지 공통 헤더 HTML 반환 함수
     function getSubHeaderHTML() {
@@ -52,24 +155,13 @@ document.addEventListener('DOMContentLoaded', () => {
         currentFile = 'index.html';
     }
 
-    if (currentFile !== 'index.html' && currentFile !== 'mypage.html') {
+    // search.html은 검색 인라인 박스가 포함된 전용 헤더(window.renderSearchHeader)를 사용하므로 공통 헤더 자동 삽입에서 제외
+    if (currentFile !== 'index.html' && currentFile !== 'mypage.html' && currentFile !== 'search.html') {
         const headerElement = document.querySelector('header.main-header');
         if (headerElement) {
             headerElement.innerHTML = getSubHeaderHTML();
             document.dispatchEvent(new Event('header:ready'));
-            
-            // 뒤로가기 버튼 이벤트 바인딩
-            const btnBack = document.getElementById('btn-back');
-            if (btnBack) {
-                btnBack.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    if (window.history.length > 1) {
-                        window.history.back();
-                    } else {
-                        window.location.href = 'index.html';
-                    }
-                });
-            }
+            bindHeaderBackButton();
         }
     }
 
@@ -94,6 +186,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fa-solid fa-magnifying-glass"></i>
             <span class="nav-text">SHOP</span>
         </a>
+        <a href="wishlist.html" class="nav-item" data-icon-active="fa-solid fa-bookmark" data-icon-inactive="fa-regular fa-bookmark">
+            <i class="fa-regular fa-bookmark"></i>
+            <span class="nav-text">SAVED</span>
+        </a>
         <a href="${myHref}" id="btn-bottom-my" class="nav-item">
             <div class="login-status-icon-wrapper">
                 <i id="bottom-login-status-icon" class="${userIconClass}"></i>
@@ -115,8 +211,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let nickname = '';
         try {
             // requestJson이 전역(api.js)에 선언되어 있다고 가정
+            // silent401: 로그인 여부만 조용히 확인하는 배경 호출이므로 전역 401 리다이렉트를 건너뛴다.
             if (typeof requestJson === 'function') {
-                const result = await requestJson('/api/auth/me');
+                const result = await requestJson('/api/auth/me', { silent401: true });
                 isLoggedIn = true;
                 nickname = result.data?.nickname || '';
             }
@@ -142,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.removeItem('isLoggedIn');
                 window._wishlistCache = null;
                 window._wishlistFetchPromise = null;
-                myBtn.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+                window.refreshBottomNavLoginLink();
                 if (myIcon) {
                     myIcon.className = 'fa-regular fa-user';
                 }
@@ -184,10 +281,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (qIndex !== -1) hrefFile = href.substring(0, qIndex);
             hrefFile = hrefFile.substring(hrefFile.lastIndexOf('/') + 1);
 
-            if (currentFile === hrefFile) {
-                item.classList.add('active');
-            } else {
-                item.classList.remove('active');
+            const isActive = currentFile === hrefFile;
+            item.classList.toggle('active', isActive);
+
+            // data-icon-active/data-icon-inactive가 지정된 nav 아이템은 현재 페이지 여부에 따라
+            // 아이콘 클래스(fa-regular ↔ fa-solid 등)를 전환한다 (예: 위시리스트의 빈/채워진 북마크).
+            const activeIconClass = item.dataset.iconActive;
+            const inactiveIconClass = item.dataset.iconInactive;
+            if (activeIconClass && inactiveIconClass) {
+                const icon = item.querySelector('i');
+                if (icon) {
+                    icon.className = isActive ? activeIconClass : inactiveIconClass;
+                }
             }
         });
     }
@@ -216,6 +321,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 검색 오버레이 공통 로직 (전역 위임 또는 DOMContentLoaded 이후 바인딩)
     const searchOverlay = document.getElementById('search-overlay');
     if (searchOverlay) {
+        const searchInput = searchOverlay.querySelector('.search-overlay-input');
+        const searchIcon = searchOverlay.querySelector('.search-overlay-input-icon');
+
         // btn-search-open은 메인(index.html)에서는 정적, 서브페이지에서는 동적 삽입됨
         // 동적 삽입 이후에 바인딩하기 위해 문서 전체에 위임(이벤트 버블링) 사용
         document.addEventListener('click', (e) => {
@@ -223,7 +331,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (openBtn) {
                 e.preventDefault();
                 searchOverlay.classList.add('open');
-                const searchInput = searchOverlay.querySelector('.search-overlay-input');
                 if (searchInput) {
                     setTimeout(() => searchInput.focus(), 50);
                 }
@@ -237,6 +344,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchOverlay.classList.remove('open');
                 updateActiveStates(); // 검색 오버레이 닫기 시 active 상태 복구
             });
+        }
+
+        // 검색어 제출(Enter 입력 또는 검색 아이콘 클릭) 시 검색 결과 페이지로 이동
+        function submitSearch() {
+            if (!searchInput) return;
+            navigateToSearch(searchInput.value);
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitSearch();
+                }
+            });
+        }
+
+        if (searchIcon) {
+            searchIcon.addEventListener('click', submitSearch);
         }
     }
 
@@ -365,9 +491,12 @@ async function ensureWishlistLoaded() {
         if (!window._wishlistFetchPromise) {
             window._wishlistFetchPromise = (async () => {
                 try {
-                    const result = await requestJson('/api/wishlists');
+                    // silent401: 비로그인 상태에서도 홈 화면 등에서 조용히 빈 찜 목록으로 처리해야 하므로
+                    // 전역 401 리다이렉트를 건너뛴다.
+                    const result = await requestJson('/api/wishlists', { silent401: true });
                     if (result && result.data) {
-                        return result.data.map(item => item.product.id.toString());
+                        // 찜한 상품이 카탈로그에서 삭제되면 서버가 product: null을 내려줄 수 있어 걸러낸다.
+                        return result.data.filter(item => item.product).map(item => item.product.id.toString());
                     }
                     return [];
                 } catch (error) {
@@ -452,4 +581,299 @@ window.updateWishlistIcon = function(icon, isSaved) {
         icon.classList.add('fa-regular');
         icon.classList.remove('wished-icon');
     }
+};
+
+// 카테고리 이름별 아이콘 이미지. API 응답(id, name)에는 아이콘이 없으므로 FE에서 이름으로 매핑한다.
+// 매핑에 없는 이름(백엔드에 새 카테고리가 추가된 경우 등)은 CATEGORY_DEFAULT_ICON_URL을 사용한다.
+const CATEGORY_ICON_MAP = {
+    '음료': 'https://em-content.zobj.net/source/apple/453/hot-beverage_2615.png',
+    '베이커리·간식': 'https://em-content.zobj.net/source/apple/453/ice-cream_1f368.png',
+    '축산·농산물': 'https://em-content.zobj.net/source/apple/453/cooked-rice_1f35a.png',
+    '외식·상품권': 'https://em-content.zobj.net/source/apple/453/fork-and-knife-with-plate_1f37d-fe0f.png',
+    '체험·관광이용권': 'https://em-content.zobj.net/source/apple/453/bow-and-arrow_1f3f9.png',
+    '지역특산 선물세트': 'https://em-content.zobj.net/source/apple/453/carp-streamer_1f38f.png'
+};
+const CATEGORY_DEFAULT_ICON_URL = 'https://em-content.zobj.net/source/apple/453/shopping-bags_1f6cd-fe0f.png';
+
+// 공통 카테고리 카드 마크업 생성 유틸리티 (home.js 등 여러 화면에서 재사용)
+// 클릭 시 category.html?categoryId=ID(category.js)로 이동해 해당 카테고리의 상품 목록을 보여준다.
+window.createCategoryCard = function(category) {
+    const card = document.createElement('a');
+    card.className = 'category-card';
+    card.href = `category.html?categoryId=${category.id}`;
+    card.dataset.categoryId = category.id;
+
+    const name = category.name || '';
+    const iconUrl = CATEGORY_ICON_MAP[name] || CATEGORY_DEFAULT_ICON_URL;
+
+    card.innerHTML = `
+      <div class="category-icon-wrapper">
+        <img class="category-img" src="${iconUrl}" alt="">
+      </div>
+      <span class="category-name"></span>
+    `;
+
+    const imgEl = card.querySelector('.category-img');
+    if (imgEl) imgEl.alt = name;
+    const nameEl = card.querySelector('.category-name');
+    if (nameEl) nameEl.textContent = name;
+
+    return card;
+};
+
+// 공통 상품 카드 마크업 생성 유틸리티 (home.js, search.js 등 여러 화면에서 재사용)
+window.createProductCard = function(product, options = {}) {
+    const card = document.createElement('article');
+    card.className = 'product-card';
+
+    const price = Number(product.price || 0);
+    const discountRate = product.discountRate || 0;
+    const thumbnailUrl = product.thumbnailUrl || '';
+    const name = product.name || '';
+    const brand = product.brand || '';
+
+    const formattedPrice = price.toLocaleString() + '원';
+    const discountHtml = discountRate ? `<span class="discount-rate">${discountRate}%</span>` : '';
+    const rankHtml = options.showRank && options.rankIndex ? `<span class="rank-badge">${options.rankIndex}</span>` : '';
+
+    card.innerHTML = `
+      <div class="card-img-wrapper skeleton">
+        ${rankHtml}
+        <img class="product-img" alt="" onload="this.parentElement.classList.remove('skeleton'); this.classList.add('loaded');" onerror="this.parentElement.classList.remove('skeleton'); this.style.opacity=1;">
+      </div>
+      <div class="card-body">
+        <span class="brand-name"></span>
+        <h4 class="product-title"></h4>
+        <div class="price-info" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            ${discountHtml}
+            <span class="price">${formattedPrice}</span>
+          </div>
+          <button class="btn-save-bookmark" data-product-id="${product.id}" title="저장" style="background:none; border:none; padding:4px; cursor:pointer;">
+            <i class="fa-regular fa-bookmark" style="font-size: 20px; color: #999;"></i>
+          </button>
+        </div>
+        <div class="stats-row">
+          <span class="interest-count">관심 0</span> · 리뷰 0
+        </div>
+      </div>
+    `;
+
+    // 랭킹 화면(GET /api/products/ranking)처럼 응답에 wishlistCount가 포함된 경우에만 실제 찜 개수로 대체.
+    // 검색/카테고리 등 이 필드가 없는 화면은 기존과 동일하게 "관심 0"으로 표시된다.
+    if (product.wishlistCount !== undefined) {
+        const interestCountEl = card.querySelector('.interest-count');
+        if (interestCountEl) interestCountEl.textContent = `관심 ${product.wishlistCount}`;
+    }
+
+    const imgEl = card.querySelector('.product-img');
+    if (imgEl) {
+        imgEl.src = thumbnailUrl;
+        imgEl.alt = name;
+    }
+    const brandEl = card.querySelector('.brand-name');
+    if (brandEl) brandEl.textContent = brand;
+    const titleEl = card.querySelector('.product-title');
+    if (titleEl) titleEl.textContent = name;
+
+    // Initialize save button state asynchronously
+    const saveBtn = card.querySelector('.btn-save-bookmark');
+    if (saveBtn) {
+        const icon = saveBtn.querySelector('i');
+        (async () => {
+            try {
+                const isSaved = await window.isProductSaved(product);
+                window.updateWishlistIcon(icon, isSaved);
+            } catch (error) {
+                console.error('찜 상태 초기화 실패:', error);
+            }
+        })();
+
+        saveBtn.addEventListener('click', async (e) => {
+            e.stopPropagation(); // prevent card click
+            try {
+                const isNowSaved = await window.toggleSavedProduct(product.id);
+                const icon = saveBtn.querySelector('i');
+                window.updateWishlistIcon(icon, isNowSaved);
+            } catch (error) {
+                // 실패하면 기존 아이콘 유지
+                console.error('찜 토글 에러:', error);
+            }
+        });
+    }
+
+    // Card click handler to navigate to product.html?id=ID
+    card.addEventListener('click', () => {
+        window.location.href = `product.html?id=${product.id}`;
+    });
+
+    return card;
+};
+
+// 공통 스켈레톤 상품 카드 마크업 생성 유틸리티 (.product-card 레이아웃과 동일한 자리표시자)
+window.createSkeletonCard = function() {
+    const card = document.createElement('div');
+    card.className = 'product-card skeleton-card';
+    card.innerHTML = `
+      <div class="card-img-wrapper"><div class="skeleton skeleton-card-img"></div></div>
+      <div class="card-body">
+        <div class="skeleton skeleton-line" style="width:35%;height:11px;"></div>
+        <div class="skeleton skeleton-line" style="width:90%;height:13px;"></div>
+        <div class="skeleton skeleton-line" style="width:45%;height:15px;"></div>
+      </div>
+    `;
+    return card;
+};
+
+// GET /api/products 기반 상품 목록 화면(검색 결과, 카테고리 상품 목록, 위시리스트 등)이 공통으로 쓰는 컨트롤러.
+// listEl에 스켈레톤/결과/빈 상태/에러 상태를 그려주고, 빠른 재요청 시 오래된 응답이 최신 결과를
+// 덮어쓰지 않도록 이전 요청을 취소하는 레이스 컨디션 방지 로직까지 포함한다. (search.js의 기존 로직을 일반화)
+// buildRequestPath(query): query(검색어·categoryId 등)를 받아 '/api/products?...' 경로 문자열을 반환.
+// emptyMessage / errorMessage: 결과 0건 / 요청 실패 시 노출할 안내 문구.
+//   emptyMessage는 문자열 대신 (rawItems, products) => 문자열 함수로도 줄 수 있다.
+//   (예: 위시리스트에서 mapResults가 걸러낸 항목이 있으면 "찜한 상품 없음"과 다른 문구로 안내)
+// mapResults(data): 응답의 data 배열을 상품 배열로 변환하는 훅. 생략 시 data를 그대로 상품 배열로 사용한다.
+//   (예: 위시리스트 API의 data는 [{product: {...}}] 형태라 item => item.product로 매핑해야 함)
+// unauthorizedMessage: 지정하면 401 응답 시 errorMessage 대신 이 메시지로 안내(로그인 필요 등). 미지정 시 기존처럼 일반 에러로 처리.
+// removeUnsavedCards: true면 saved-products-updated에서 찜 해제된 카드를 아이콘 동기화 대신 목록에서 완전히 제거한다.
+//   (위시리스트처럼 "찜한 상품만 보여주는" 화면 전용. 미지정 시 기존처럼 아이콘만 동기화)
+// showRank: true면 각 카드에 순위 배지를 표시한다. GET /api/products/ranking처럼 응답 항목에 이미
+//   rank가 매겨져 있는 화면(ranking.html) 전용. 미지정 시 기존처럼 배지 없이 렌더링.
+// request: 기본 requestJson 대신 캐시 등을 적용한 요청 함수를 화면별로 주입할 때 사용한다.
+window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessage, errorMessage, blankMessage, mapResults, unauthorizedMessage, removeUnsavedCards, showRank, request = window.requestJson }) {
+    function renderSkeletonState() {
+        if (!listEl) return;
+        listEl.classList.remove('is-empty');
+        listEl.innerHTML = '';
+        for (let i = 0; i < 6; i++) listEl.appendChild(createSkeletonCard());
+    }
+
+    // is-empty: 결과가 없거나 실패했을 때, 리스트 영역을 남은 화면 높이만큼 늘려
+    // 안내 문구가 화면 세로 중앙에 오도록 하는 CSS 훅(style.css의 .page-search 규칙 참고)
+    function renderFallbackState(message) {
+        if (!listEl) return;
+        listEl.classList.add('is-empty');
+        listEl.innerHTML = `
+          <div class="empty-state">
+            <i class="fa-solid fa-box-open"></i>
+            <p>${message}</p>
+          </div>
+        `;
+    }
+
+    function renderResults(products) {
+        if (!listEl) return;
+        listEl.classList.remove('is-empty');
+        listEl.innerHTML = '';
+        products.forEach(product => {
+            const cardOptions = showRank ? { showRank: true, rankIndex: product.rank } : undefined;
+            listEl.appendChild(createProductCard(product, cardOptions));
+        });
+    }
+
+    // removeUnsavedCards가 켜진 화면(위시리스트)에서 찜 해제된 상품의 카드를 목록에서 제거하고,
+    // 마지막 카드가 사라지면 빈 목록 안내로 전환한다.
+    function removeUnsavedCard(productId) {
+        const btn = listEl.querySelector(`.btn-save-bookmark[data-product-id="${productId}"]`);
+        const card = btn ? btn.closest('.product-card') : null;
+        if (!card) return;
+        card.remove();
+        if (!listEl.querySelector('.product-card')) {
+            // 남은 카드가 없는 것은 실제로 목록이 빈 상태이지, mapResults가 걸러낸 상황이 아니므로
+            // 함수형 emptyMessage에는 빈 배열을 넘겨 "진짜 빈 목록" 문구가 나오도록 한다.
+            const message = typeof emptyMessage === 'function' ? emptyMessage([], []) : emptyMessage;
+            renderFallbackState(message);
+        }
+    }
+
+    async function syncSaveButtons(e) {
+        if (!listEl) return;
+
+        // removeUnsavedCards 화면(위시리스트)의 카드는 전부 이미 찜한 상품이고, saved-products-updated는
+        // window.dispatchEvent로 같은 페이지 내에서만 전달되므로 이 화면에서 isSaved: true 이벤트가
+        // 발생할 일은 없다. 찜 해제 시 이벤트로 전달된 productId만 제거하면 된다.
+        if (removeUnsavedCards) {
+            const { productId, isSaved } = (e && e.detail) || {};
+            if (productId === undefined) return;
+            if (!isSaved) {
+                removeUnsavedCard(productId);
+            }
+            return;
+        }
+
+        const btns = listEl.querySelectorAll('.btn-save-bookmark');
+        for (const btn of btns) {
+            const pid = btn.getAttribute('data-product-id');
+            if (!pid) continue;
+            const icon = btn.querySelector('i');
+            try {
+                const isSaved = await window.isProductSaved(pid);
+                window.updateWishlistIcon(icon, isSaved);
+            } catch (error) {
+                console.error('찜 상태 동기화 실패:', error);
+            }
+        }
+    }
+
+    window.addEventListener('saved-products-updated', syncSaveButtons);
+
+    // 빠르게 재요청할 때 응답이 요청 순서와 다르게 도착해 이전(오래된) 결과가
+    // 최신 결과를 덮어쓰는 것을 막기 위해, 새 요청을 시작할 때마다 진행 중인 이전 요청을 취소한다.
+    let current = null;
+
+    // showSkeleton=false: 이미 결과가 떠 있는 상태에서의 재요청은 기존 카드를 그대로 유지하다가
+    // 응답이 오면 바로 새 카드로 교체한다(스켈레톤 왕복으로 인한 깜빡임 방지).
+    async function load(query, { showSkeleton = true } = {}) {
+        if (current) {
+            current.controller.abort();
+            current.settle();
+            current = null;
+        }
+
+        const path = buildRequestPath(query);
+        if (!path) {
+            const message = blankMessage || (typeof emptyMessage === 'function' ? emptyMessage([], []) : emptyMessage);
+            renderFallbackState(message);
+            return;
+        }
+
+        const controller = new AbortController();
+
+        if (showSkeleton) {
+            renderSkeletonState();
+        }
+        const settle = createSkeletonGuard(() => {
+            renderFallbackState(errorMessage);
+        }, 5000);
+
+        current = { controller, settle };
+
+        try {
+            // silent401: unauthorizedMessage가 지정된 화면(예: 위시리스트)은 전역 401 리다이렉트 대신
+            // 이 컨트롤러의 catch 블록에서 안내 문구로 직접 처리한다.
+            const result = await request(path, { signal: controller.signal, silent401: !!unauthorizedMessage });
+            settle();
+            if (controller.signal.aborted) return;
+            const rawItems = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+            const products = mapResults ? mapResults(rawItems) : rawItems;
+            if (products.length === 0) {
+                const message = typeof emptyMessage === 'function' ? emptyMessage(rawItems, products) : emptyMessage;
+                renderFallbackState(message);
+            } else {
+                renderResults(products);
+            }
+            return result;
+        } catch (error) {
+            settle();
+            if (controller.signal.aborted || error.name === 'AbortError') return;
+            if (error.status === 401 && unauthorizedMessage) {
+                renderFallbackState(unauthorizedMessage);
+                return;
+            }
+            console.error('상품 목록 조회에 실패했습니다:', error);
+            renderFallbackState(errorMessage);
+        }
+    }
+
+    return { load, renderMessage: renderFallbackState };
 };

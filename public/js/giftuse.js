@@ -1,4 +1,34 @@
+// 로그인 여부 확인 (화면을 그리기 전에 먼저 검증 - Route Guard)
+// 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류만 다룬다.
+async function checkGiftuseAuth() {
+    try {
+        const authResult = await requestJson('/api/auth/me');
+        if (!authResult || !authResult.data) {
+            return false;
+        }
+    } catch (error) {
+        console.error("인증 확인 실패:", error);
+        alert("사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+        return false;
+    }
+
+    document.body.style.visibility = "visible";
+    document.body.style.opacity = "1";
+    return true;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+    const isAuthenticated = await checkGiftuseAuth();
+    if (!isAuthenticated) {
+        return;
+    }
+
+    window.addEventListener('pageshow', async (event) => {
+        if (event.persisted) {
+            await checkGiftuseAuth();
+        }
+    });
+
     const urlParams = new URLSearchParams(window.location.search);
     const giftId = urlParams.get('giftId');
 
@@ -71,7 +101,7 @@ function renderGift(gift) {
     if (barcodeCard) barcodeCard.style.display = '';
 
     // 닉네임 / 나 배지 처리
-    document.getElementById('receiver-nickname').textContent = gift.isSelfGift ? "나" : (gift.senderNickname || "친구");
+    document.getElementById('receiver-nickname').textContent = gift.isSelfGift ? "나" : (gift.sender?.nickname ?? gift.senderNickname ?? "친구");
     if (gift.isSelfGift) {
         document.getElementById('self-badge').style.display = 'block';
     } else {

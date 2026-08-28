@@ -1,43 +1,47 @@
 document.addEventListener('DOMContentLoaded', async () => {
     let cachedUserData = null;
 
+    // 인증 확인 및 사용자 정보 로드. 성공 시 true, 실패(리다이렉트 처리됨) 시 false를 반환한다.
+    // 렌더링 차단을 보장하기 위해 이 함수가 true를 반환하기 전까지 화면 표시/데이터 조회 로직은 실행되지 않아야 한다.
     async function checkAuthAndLoadUserData() {
         try {
             const resData = await requestJson('/api/auth/me');
-            
-            if (resData && resData.data) {
-                const user = resData.data;
-                cachedUserData = user;
-                const nicknameEl = document.getElementById('display-nickname');
-                const useridEl = document.getElementById('display-userid');
-                
-                if (nicknameEl) nicknameEl.textContent = user.nickname || 'Unknown';
-                if (useridEl) useridEl.textContent = user.userId;
-                
-                // 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
-                document.body.style.visibility = 'visible';
-                document.body.style.opacity = '1';
-            } else {
-                console.error('No user data in response');
-                document.body.style.visibility = 'visible';
-                document.body.style.opacity = '1';
+
+            // requestJson은 401 발생 시 전역 인터셉터가 로그인 페이지로 이동시키고 undefined를 반환한다.
+            if (!resData || !resData.data) {
+                return false;
             }
-        } catch (error) {
-            if (error.status === 401) {
-                localStorage.removeItem('isLoggedIn');
-                window.location.replace('login.html');
-                return;
-            }
-            console.error('Error fetching user data:', error);
+
+            const user = resData.data;
+            cachedUserData = user;
+            const nicknameEl = document.getElementById('display-nickname');
+            const useridEl = document.getElementById('display-userid');
+
+            if (nicknameEl) nicknameEl.textContent = user.nickname || 'Unknown';
+            if (useridEl) useridEl.textContent = user.userId;
+
+            // 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
             document.body.style.visibility = 'visible';
             document.body.style.opacity = '1';
+            return true;
+        } catch (error) {
+            // 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류(네트워크 장애 등)만 다룬다.
+            // 데이터 없는 화면이 노출되지 않도록 hidden 상태를 유지한 채 렌더링을 중단하고 사용자에게 안내한다.
+            console.error('Error fetching user data:', error);
+            alert('사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+            return false;
         }
     }
 
-    await checkAuthAndLoadUserData();
+    const isAuthenticated = await checkAuthAndLoadUserData();
+    if (!isAuthenticated) {
+        return;
+    }
 
     window.addEventListener('pageshow', async (event) => {
         if (event.persisted) {
+            document.body.style.visibility = 'hidden';
+            document.body.style.opacity = '0';
             await checkAuthAndLoadUserData();
         }
     });
@@ -214,16 +218,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function ensureUserData() {
         if (!cachedUserData) {
-            try {
-                const result = await window.requestJson('/api/auth/me');
-                cachedUserData = result.data;
-            } catch (error) {
-                if (error.status === 401 || error.code === 'UNAUTHORIZED') {
-                    console.warn('마이페이지 오버레이: 비로그인 상태입니다.');
-                    return null;
-                }
-                throw error;
-            }
+            // 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류만 호출부로 전달한다.
+            const result = await window.requestJson('/api/auth/me');
+            cachedUserData = result.data;
         }
         return cachedUserData;
     }

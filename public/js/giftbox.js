@@ -1,6 +1,34 @@
-document.addEventListener("header:ready", () => {
+// 로그인 여부 확인 (화면을 그리기 전에 먼저 검증 - Route Guard)
+// 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류만 다룬다.
+async function checkGiftboxAuth() {
+  try {
+    const authResult = await requestJson('/api/auth/me');
+    if (!authResult || !authResult.data) {
+      return false;
+    }
+  } catch (error) {
+    console.error("인증 확인 실패:", error);
+    alert("사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    return false;
+  }
 
+  document.body.style.visibility = "visible";
+  document.body.style.opacity = "1";
+  return true;
+}
 
+document.addEventListener("header:ready", async () => {
+
+  const isAuthenticated = await checkGiftboxAuth();
+  if (!isAuthenticated) {
+    return;
+  }
+
+  window.addEventListener('pageshow', async (event) => {
+    if (event.persisted) {
+      await checkGiftboxAuth();
+    }
+  });
 
   const tabUnused = document.getElementById("tab-unused");
   const tabUsed = document.getElementById("tab-used");
@@ -43,8 +71,9 @@ document.addEventListener("header:ready", () => {
       renderGiftList(result.data || []);
     } catch (error) {
       settle();
-      if (error.status === 401 || error.status === 403) {
-        alert("로그인이 필요합니다.");
+      // 401은 api.js 전역 인터셉터가 처리하므로 여기선 403 등 나머지 오류만 다룬다.
+      if (error.status === 403) {
+        alert("접근 권한이 없습니다.");
         location.href = "login.html";
         return;
       }
