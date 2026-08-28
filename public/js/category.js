@@ -40,7 +40,7 @@ function syncFromUrl() {
 }
 
 // 좌측 1열 카테고리 텍스트 리스트 로딩
-// 클릭 시 페이지 이동 없이 URL만 갱신(history.pushState)하고 우측 상품 목록을 즉시 로드한다.
+// 클릭 시 페이지 이동 없이 URL만 갱신(history.replaceState)하고 우측 상품 목록을 즉시 로드한다.
 (async function loadCategoryList() {
     const listEl = document.getElementById('category-list');
     if (!listEl) return;
@@ -67,7 +67,8 @@ function syncFromUrl() {
             e.preventDefault();
             const categoryId = link.dataset.categoryId;
             if (new URLSearchParams(window.location.search).get('categoryId') === categoryId) return;
-            history.pushState({}, '', link.href);
+            // 카테고리 전환은 같은 화면 안에서의 상태 변경이므로 히스토리를 새로 쌓지 않고 현재 엔트리를 갱신한다.
+            history.replaceState({}, '', link.href);
             syncFromUrl();
         });
         li.appendChild(link);
