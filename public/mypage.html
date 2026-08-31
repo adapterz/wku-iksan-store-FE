@@ -45,10 +45,6 @@
                 </h2>
             </div>
         </div>
-        <div class="profile-actions">
-            <button class="action-btn" id="btn-profile-manage">프로필 관리</button>
-            <button class="action-btn" id="btn-profile-share">프로필 공유</button>
-        </div>
     </section>
 
     <!-- Divider -->
@@ -71,15 +67,15 @@
     <section class="history-section">
         <h3 class="section-title">구매 내역</h3>
         <div class="history-box">
-            <a href="#" class="history-item">
+            <a href="giftbox.html?tab=unused" class="history-item">
                 <span class="history-label">전체</span>
                 <span id="history-count-all" class="history-count highlight-count">0</span>
             </a>
-            <a href="#" class="history-item">
+            <a href="giftbox.html?tab=unused" class="history-item">
                 <span class="history-label">나에게 선물</span>
                 <span id="history-count-self" class="history-count">0</span>
             </a>
-            <a href="#" class="history-item">
+            <a href="giftbox.html?tab=unused" class="history-item">
                 <span class="history-label">받은 선물</span>
                 <span id="history-count-received" class="history-count">0</span>
             </a>
@@ -140,37 +136,6 @@
             <div class="settings-group">
                 <button class="settings-item settings-logout" id="btn-settings-logout">로그아웃</button>
             </div>
-        </div>
-    </div>
-
-    <!-- 프로필 관리 Overlay -->
-    <div id="profile-manage-overlay" class="search-overlay">
-        <div class="search-overlay-header">
-            <button id="btn-close-profile-manage" class="btn-search-back" aria-label="뒤로가기">
-                <i class="fa-solid fa-arrow-left"></i>
-            </button>
-            <div style="font-size: 16px; font-weight: 700; flex: 1; padding-left: 10px;">프로필 관리</div>
-        </div>
-        <div class="search-overlay-body overlay-content-area">
-            
-            <!-- Profile Image Area -->
-            <div class="overlay-profile-img-container">
-                <div class="overlay-profile-img-wrapper">
-                    <img id="manage-profile-img" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQceBIRP2B6FYeMIsQBNlnzHnjd6HxqMzoQWiYvOMb0hQ&s=10" alt="프로필 이미지" style="width: 100%; height: 100%; object-fit: cover;">
-                </div>
-            </div>
-
-            <!-- Profile Info Area -->
-            <h3 class="overlay-section-title">프로필 정보</h3>
-            
-            <label class="overlay-input-label">프로필 이름</label>
-            <div class="overlay-input-group">
-                <div class="overlay-input-box overlay-input-box-margin" id="manage-profile-nickname">
-                    <!-- nickname here -->
-                </div>
-                <button class="overlay-btn-change">변경</button>
-            </div>
-            
         </div>
     </div>
 

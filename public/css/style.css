@@ -2438,18 +2438,17 @@ body {
 /* Profile Area */
 .profile-section {
     background-color: #fff;
-    padding: 20px;
+    padding: 16px 20px;
     margin-bottom: 10px;
 }
 .profile-info-row {
     display: flex;
     align-items: center;
-    gap: 20px;
-    margin-bottom: 20px;
+    gap: 16px;
 }
 .profile-img-container {
-    width: 80px;
-    height: 80px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
     background-color: #f0f0f0;
     display: flex;
@@ -2469,7 +2468,7 @@ body {
     gap: 5px;
 }
 .profile-nickname {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 600;
     margin: 0;
     display: flex;
@@ -2489,22 +2488,6 @@ body {
 
 .profile-userid:not(:empty)::after {
     content: ")";
-}
-
-.profile-actions {
-    display: flex;
-    gap: 10px;
-}
-.profile-actions .action-btn {
-    flex: 1;
-    padding: 10px;
-    border: 1px solid #EAEAEA;
-    background-color: #fff;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    color: #333;
 }
 
 /* Thick Divider */
@@ -2809,7 +2792,7 @@ body {
 
 /* Styles from mypage.html */
 .page-mypage /* 마이페이지 ui 글꼴 bold체 없애기 */
-        .tab-btn.active, .page-mypage .profile-nickname, .page-mypage strong, .page-mypage .action-btn, .page-mypage .grid-text, .page-mypage text, .page-mypage .section-title, .page-mypage .history-count, .page-mypage .cs-title, .page-mypage .cs-btn, .page-mypage .nav-text, .page-mypage .history-label {
+        .tab-btn.active, .page-mypage .profile-nickname, .page-mypage strong, .page-mypage .grid-text, .page-mypage text, .page-mypage .section-title, .page-mypage .history-count, .page-mypage .cs-title, .page-mypage .cs-btn, .page-mypage .nav-text, .page-mypage .history-label {
             font-weight: 400 !important;
         }
 
@@ -3299,28 +3282,6 @@ body.page-complete {
             padding-bottom: 40px;
         }
 
-/* Toast Notification */
-.toast-notification {
-    position: fixed;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: rgba(25, 25, 25, 0.85);
-    color: #FFFFFF;
-    padding: 12px 24px;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: 500;
-    z-index: 9999;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
-    white-space: nowrap;
-}
-.toast-notification.show {
-    opacity: 1;
-    visibility: visible;
-}
 
 /* Overlay Shared UI (Profile & Login Info) */
 .overlay-content-area {
@@ -3369,21 +3330,6 @@ body.page-complete {
     height: 32px;
     flex-shrink: 0;
 }
-.overlay-profile-img-container {
-    display: flex;
-    justify-content: center;
-    margin-top: 20px;
-    margin-bottom: 40px;
-}
-.overlay-profile-img-wrapper {
-    position: relative;
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    overflow: hidden;
-    background-color: #F0F0F0;
-}
-
 /* ==========================================================================
    Policy Overlays Container Styles (Terms, Penalty, Privacy)
    ========================================================================== */

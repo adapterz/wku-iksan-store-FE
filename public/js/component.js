@@ -173,10 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="nav-text">HOME</span>
         </a>
         <a href="#" class="nav-item">
-            <i class="fa-solid fa-receipt"></i>
-            <span class="nav-text">RECEIPT</span>
-        </a>
-        <a href="#" class="nav-item">
             <i class="fa-solid fa-magnifying-glass"></i>
             <span class="nav-text">SHOP</span>
         </a>
