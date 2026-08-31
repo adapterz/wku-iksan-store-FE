@@ -250,6 +250,15 @@ input.header-search-text::placeholder {
   padding: 0 16px;
 }
 
+.nav-container--center {
+  justify-content: center;
+}
+
+.nav-container--center .nav-item {
+  flex: 1;
+  text-align: center;
+}
+
 .nav-item {
   display: inline-block;
   padding: 12px 12px;
