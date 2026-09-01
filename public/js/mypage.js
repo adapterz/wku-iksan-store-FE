@@ -1,6 +1,4 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    let cachedUserData = null;
-
     // 인증 확인 및 사용자 정보 로드. 성공 시 true, 실패(리다이렉트 처리됨) 시 false를 반환한다.
     // 렌더링 차단을 보장하기 위해 이 함수가 true를 반환하기 전까지 화면 표시/데이터 조회 로직은 실행되지 않아야 한다.
     async function checkAuthAndLoadUserData() {
@@ -13,7 +11,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const user = resData.data;
-            cachedUserData = user;
             const nicknameEl = document.getElementById('display-nickname');
             const useridEl = document.getElementById('display-userid');
 
@@ -69,10 +66,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async (e) => {
             e.preventDefault();
-            
-            // 캐시 데이터 초기화 (보안 및 상태 일관성)
-            cachedUserData = null;
-            
+
             try {
                 await requestJson('/api/auth/logout', { method: 'POST' });
             } catch (error) {
@@ -214,129 +208,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // User Data Caching and Overlay Logic (Login Info & Profile Manage)
-
-    async function ensureUserData() {
-        if (!cachedUserData) {
-            // 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류만 호출부로 전달한다.
-            const result = await window.requestJson('/api/auth/me');
-            cachedUserData = result.data;
-        }
-        return cachedUserData;
-    }
-
-    function setupUserOverlay(btnId, overlayId, closeBtnId, onOpenCallback, redirectOnFail = false) {
-        const btn = document.getElementById(btnId);
-        const overlay = document.getElementById(overlayId);
-        const closeBtn = document.getElementById(closeBtnId);
-        
-        if (btn && overlay && closeBtn) {
-            btn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                
-                let userData = null;
-                try {
-                    userData = await ensureUserData();
-                } catch (err) {
-                    console.error('Failed to fetch user data:', err);
-                }
-                
-                if (!userData) {
-                    if (redirectOnFail) {
-                        alert('로그인이 필요한 서비스입니다.');
-                        location.href = 'login.html';
-                    }
-                    return; // 비로그인 시 오버레이 열지 않거나 조용히 리턴
-                }
-                
-                if (onOpenCallback) onOpenCallback(userData);
-                overlay.classList.add('open');
-            });
-
-            closeBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                overlay.classList.remove('open');
-            });
-        }
-    }
-
-    // Bind Login Info Overlay (redirect on fail)
-    setupUserOverlay('btn-settings-login-info', 'login-info-overlay', 'btn-close-login-info', (userData) => {
-        const emailEl = document.getElementById('login-info-email');
-        const nicknameEl = document.getElementById('login-info-nickname');
-        if (emailEl) emailEl.textContent = userData.email || '';
-        if (nicknameEl) nicknameEl.textContent = userData.nickname || '';
-        // 패스워드는 HTML 상에 하드코딩된 ******** 그대로 사용
-    }, true);
-
-    // Bind Profile Manage Overlay (silent return on fail)
-    setupUserOverlay('btn-profile-manage', 'profile-manage-overlay', 'btn-close-profile-manage', (userData) => {
-        const manageNicknameEl = document.getElementById('manage-profile-nickname');
-        if (manageNicknameEl) manageNicknameEl.textContent = userData.nickname || '이름 없음';
-    }, false);
-
-    // Profile Share Button Logic
-    const btnProfileShare = document.getElementById('btn-profile-share');
-    let toastTimer = null;
-
-    if (btnProfileShare) {
-        btnProfileShare.addEventListener('click', async (e) => {
-            e.preventDefault();
-            const urlToCopy = window.location.href;
-
-            // 1. URL Copy Logic (with fallback)
-            try {
-                if (navigator.clipboard && window.isSecureContext) {
-                    await navigator.clipboard.writeText(urlToCopy);
-                } else {
-                    // Fallback for older browsers or non-secure contexts
-                    const textArea = document.createElement('textarea');
-                    textArea.value = urlToCopy;
-                    // Move textarea out of viewport
-                    textArea.style.position = 'fixed';
-                    textArea.style.left = '-999999px';
-                    textArea.style.top = '-999999px';
-                    document.body.appendChild(textArea);
-                    textArea.focus();
-                    textArea.select();
-                    
-                    const successful = document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                    
-                    if (!successful) {
-                        throw new Error('Fallback copy failed');
-                    }
-                }
-            } catch (err) {
-                console.error('Failed to copy URL:', err);
-                alert('URL 복사에 실패했습니다.');
-                return;
-            }
-
-            // 2. Toast Notification Logic
-            let toastEl = document.getElementById('share-toast-notification');
-            if (!toastEl) {
-                toastEl = document.createElement('div');
-                toastEl.id = 'share-toast-notification';
-                toastEl.className = 'toast-notification';
-                toastEl.textContent = '클립보드에 복사되었습니다!';
-                document.body.appendChild(toastEl);
-            }
-
-            // Reset animation state
-            toastEl.classList.remove('show');
-            // Force reflow to restart transition
-            void toastEl.offsetWidth;
-            
-            toastEl.classList.add('show');
-
-            if (toastTimer) {
-                clearTimeout(toastTimer);
-            }
-
-            toastTimer = setTimeout(() => {
-                toastEl.classList.remove('show');
-            }, 2000);
-        });
-    }
 });
