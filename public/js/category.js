@@ -28,7 +28,7 @@ async function requestWithCategoryProductsCache(path, options = {}) {
     if (cached) return cached;
 
     const result = await window.requestJson(path, options);
-    if (window.sessionCache) {
+    if (window.sessionCache && result) {
         window.sessionCache.set(cacheKey, result);
     }
     return result;
