@@ -9,6 +9,33 @@ class ApiError extends Error {
   }
 }
 
+// 401 발생 시 로그인 화면으로 이동한다는 안내를 화면 하단에 잠깐 띄운다.
+// alert()과 달리 확인 클릭을 요구하지 않으므로, 리다이렉트 전에 사용자가 메시지를
+// 읽을 시간(UNAUTHORIZED_REDIRECT_DELAY_MS)을 직접 확보해줘야 한다.
+const UNAUTHORIZED_REDIRECT_DELAY_MS = 800;
+
+function showUnauthorizedToast(message) {
+  let toastEl = document.getElementById('global-401-toast');
+  if (!toastEl) {
+    toastEl = document.createElement('div');
+    toastEl.id = 'global-401-toast';
+    toastEl.setAttribute('role', 'alert');
+    toastEl.setAttribute('aria-live', 'assertive');
+    toastEl.style.cssText = [
+      'position:fixed', 'left:50%', 'bottom:32px', 'transform:translateX(-50%)',
+      'max-width:calc(100vw - 32px)', 'padding:12px 20px', 'border-radius:8px',
+      'background:rgba(0,0,0,0.85)', 'color:#fff', 'font-size:14px', 'line-height:1.5',
+      'text-align:center', 'word-break:keep-all', 'z-index:9999',
+      'opacity:0', 'transition:opacity 0.2s ease', 'pointer-events:none'
+    ].join(';');
+    document.body.appendChild(toastEl);
+  }
+  toastEl.textContent = message;
+  // 이미 열려있는 토스트의 텍스트만 바뀐 경우에도 opacity 전환이 다시 재생되도록 리플로우를 강제한다.
+  void toastEl.offsetWidth;
+  toastEl.style.opacity = '1';
+}
+
 // 세션 쿠키, JSON 변환, HTTP·네트워크 오류 처리를 공통으로 수행한다.
 async function requestJson(path, options = {}) {
   const { body, headers = {}, silent401 = false, ...requestOptions } = options;
@@ -20,6 +47,10 @@ async function requestJson(path, options = {}) {
       ...headers
     }
   };
+
+  // 로그인 요청(POST /api/auth/login)의 401은 인증 만료가 아니라 이메일/비밀번호 불일치이므로
+  // 전역 리다이렉트 대상에서 제외하고, login.js가 INVALID_EMAIL_OR_PASSWORD를 직접 처리하게 한다.
+  const isLoginRequest = path === '/api/auth/login' && (config.method || 'GET').toUpperCase() === 'POST';
 
   // 요청 데이터가 있을 때만 JSON 문자열로 변환하여 본문에 담는다.
   if (body !== undefined) {
@@ -51,10 +82,12 @@ async function requestJson(path, options = {}) {
   if (!response.ok) {
     // silent401: 로그인 여부만 조용히 확인하는 배경 호출(예: 전역 네비게이션 상태 갱신)은
     // 인증이 필수인 페이지가 아니므로 전역 리다이렉트를 건너뛰고 호출부에서 직접 처리하게 한다.
-    if (response.status === 401 && !silent401) {
-      alert('로그인이 필요한 서비스입니다.');
+    if (response.status === 401 && !silent401 && !isLoginRequest) {
+      showUnauthorizedToast('로그인이 필요한 서비스입니다.');
       const redirectTarget = encodeURIComponent(window.location.href);
-      window.location.href = `/login.html?redirect=${redirectTarget}`;
+      setTimeout(() => {
+        window.location.href = `/login.html?redirect=${redirectTarget}`;
+      }, UNAUTHORIZED_REDIRECT_DELAY_MS);
       return;
     }
 
