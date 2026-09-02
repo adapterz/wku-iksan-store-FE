@@ -1,13 +1,8 @@
-// 공통 서브 헤더를 브랜드 페이지용 제목·위시리스트 헤더로 변경한다.
+// 공통 서브 헤더에 브랜드 페이지 제목을 추가하고, 기본 검색·홈 아이콘은 제거한다.
 document.addEventListener('header:ready', () => {
     const headerContainer = document.querySelector('header.main-header .header-container');
     const rightIcons = document.querySelector('header.main-header .header-right-icons');
-    if (!rightIcons) return;
-
-    rightIcons.innerHTML = `
-        <a href="wishlist.html" class="header-icon" title="위시리스트">
-            <i class="fa-solid fa-bookmark"></i>
-        </a>`;
+    if (rightIcons) rightIcons.remove();
 
     if (headerContainer) {
         const title = document.createElement('h1');
