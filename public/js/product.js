@@ -79,11 +79,29 @@ function showProductLoadingDelayed() {
   if (timeoutStateElement) timeoutStateElement.style.display = 'flex';
 }
 
+// 브랜드 페이지(brand.js)와 동일하게 sessionCache를 직접 감싸 상품 상세를 상품 id별로 캐싱한다.
+const PRODUCT_DETAIL_CACHE_TTL_MS = 5 * 60 * 1000;
+const PRODUCT_DETAIL_CACHE_KEY_PREFIX = 'iksanstore:product-detail:v1:';
+
+async function fetchProductDetailWithCache(id) {
+  const cacheKey = `${PRODUCT_DETAIL_CACHE_KEY_PREFIX}${encodeURIComponent(id)}`;
+  const cached = window.sessionCache
+    ? window.sessionCache.get(cacheKey, PRODUCT_DETAIL_CACHE_TTL_MS)
+    : null;
+  if (cached) return cached;
+
+  const result = await requestJson(`/api/products/${id}`);
+  if (window.sessionCache && result) {
+    window.sessionCache.set(cacheKey, result);
+  }
+  return result;
+}
+
 // API로부터 상품 상세 데이터 가져오기
 async function loadProductDetail(id) {
   const settle = createSkeletonGuard(showProductLoadingDelayed, 1500);
   try {
-    const result = await requestJson(`/api/products/${id}`);
+    const result = await fetchProductDetailWithCache(id);
     settle();
     if (result && result.data) {
       renderProduct(result.data);
