@@ -104,8 +104,16 @@ function syncFromUrl() {
         link.style.width = `${maxWidth}px`;
     });
 
-    // 카테고리 목록 로드가 끝난 뒤 초기 URL 상태를 반영 (categoryId를 들고 진입한 경우 강조 표시)
-    updateActiveCategoryLink(new URLSearchParams(window.location.search).get('categoryId'));
+    // 카테고리 목록 로드가 끝난 뒤 초기 URL 상태를 반영
+    // categoryId 없이 진입한 경우, 브랜드 페이지 초기 진입과 마찬가지로 가장 상단 카테고리를 자동 선택해 상품을 보여준다.
+    const currentCategoryId = new URLSearchParams(window.location.search).get('categoryId');
+    if (!currentCategoryId && categories.length > 0) {
+        const firstCategoryId = String(categories[0].id);
+        history.replaceState({}, '', `category.html?categoryId=${firstCategoryId}`);
+        syncFromUrl();
+    } else {
+        updateActiveCategoryLink(currentCategoryId);
+    }
 })();
 
 // 뒤로가기/앞으로가기 시 URL과 화면 상태 동기화
