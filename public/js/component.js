@@ -74,9 +74,6 @@ function getSearchHeaderHTML(keyword) {
             </div>
         </div>
         <div class="header-right-icons">
-            <a href="index.html" class="header-icon" title="홈">
-                <i class="fa-solid fa-house"></i>
-            </a>
             <a href="giftbox.html" class="header-icon" title="선물함">
                 <i class="fa-solid fa-gift"></i>
             </a>
@@ -164,21 +161,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const isPresumedLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
         const userIconClass = isPresumedLoggedIn ? "fa-solid fa-user logged-in" : "fa-regular fa-user";
         const dotHidden = isPresumedLoggedIn ? "" : "hidden";
-        const textStr = isPresumedLoggedIn ? "my" : "login";
+        const textStr = isPresumedLoggedIn ? "마이" : "로그인";
         const myHref = isPresumedLoggedIn ? "mypage.html" : "login.html";
 
         return `
         <a href="index.html" class="nav-item">
             <i class="fa-solid fa-house"></i>
-            <span class="nav-text">HOME</span>
+            <span class="nav-text">홈</span>
         </a>
         <a href="#" class="nav-item">
             <i class="fa-solid fa-magnifying-glass"></i>
-            <span class="nav-text">SHOP</span>
+            <span class="nav-text">검색</span>
         </a>
         <a href="wishlist.html" class="nav-item" data-icon-active="fa-solid fa-bookmark" data-icon-inactive="fa-regular fa-bookmark">
             <i class="fa-regular fa-bookmark"></i>
-            <span class="nav-text">SAVED</span>
+            <span class="nav-text">찜</span>
         </a>
         <a href="${myHref}" id="btn-bottom-my" class="nav-item">
             <div class="login-status-icon-wrapper">
@@ -224,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     myIcon.className = 'fa-solid fa-user logged-in';
                 }
                 if (myDot) myDot.hidden = false;
-                if (myText) myText.textContent = 'my';
+                if (myText) myText.textContent = '마이';
             } else {
                 localStorage.removeItem('isLoggedIn');
                 window._wishlistCache = null;
@@ -234,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     myIcon.className = 'fa-regular fa-user';
                 }
                 if (myDot) myDot.hidden = true;
-                if (myText) myText.textContent = 'login';
+                if (myText) myText.textContent = '로그인';
             }
             updateActiveStates();
         }
@@ -359,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // SHOP 버튼 검색 오버레이 연결
     const shopBtns = Array.from(document.querySelectorAll('.bottom-nav .nav-item')).filter(btn => {
         const textSpan = btn.querySelector('.nav-text');
-        return textSpan && textSpan.textContent.trim() === 'SHOP';
+        return textSpan && textSpan.textContent.trim() === '검색';
     });
     
     shopBtns.forEach(shopBtn => {

@@ -1,13 +1,8 @@
-// 공통 서브 헤더를 브랜드 페이지용 제목·위시리스트 헤더로 변경한다.
+// 공통 서브 헤더에 브랜드 페이지 제목을 추가하고, 기본 검색·홈 아이콘은 제거한다.
 document.addEventListener('header:ready', () => {
     const headerContainer = document.querySelector('header.main-header .header-container');
     const rightIcons = document.querySelector('header.main-header .header-right-icons');
-    if (!rightIcons) return;
-
-    rightIcons.innerHTML = `
-        <a href="wishlist.html" class="header-icon" title="위시리스트">
-            <i class="fa-solid fa-bookmark"></i>
-        </a>`;
+    if (rightIcons) rightIcons.remove();
 
     if (headerContainer) {
         const title = document.createElement('h1');
@@ -182,11 +177,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return item;
     }
 
-    function renderBrands(items, isSearchResult) {
+    function renderBrands(items) {
         brands = items;
         listEl.innerHTML = '';
         listStateEl.hidden = true;
-        listTitleEl.textContent = isSearchResult ? '검색 결과' : '대표 브랜드';
+        listTitleEl.textContent = '전체 브랜드';
         listCountEl.textContent = `${items.length}개`;
 
         if (items.length === 0) {
@@ -198,6 +193,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateActiveBrand(getBrandFromUrl());
     }
 
+    // 반환값은 호출부가 검색 결과에 따라 우측 상품 영역을 동기화할 수 있도록 브랜드 배열을 그대로 넘긴다.
+    // 요청이 중간에 취소되었거나 실패한 경우에는 undefined를 반환해 호출부가 기존 화면을 건드리지 않게 한다.
     async function loadBrands(keyword = '') {
         if (brandRequestController) brandRequestController.abort();
         brandRequestController = new AbortController();
@@ -212,14 +209,16 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // 대표 목록과 검색 결과 모두 같은 5분 캐시 규칙을 사용한다.
             const result = await requestWithBrandCache(path, { signal: controller.signal });
-            if (controller.signal.aborted) return;
+            if (controller.signal.aborted) return undefined;
             const items = result && Array.isArray(result.data) ? result.data : [];
-            renderBrands(items, Boolean(normalizedKeyword));
+            renderBrands(items);
+            return items;
         } catch (error) {
-            if (controller.signal.aborted || error.name === 'AbortError') return;
+            if (controller.signal.aborted || error.name === 'AbortError') return undefined;
             console.error('브랜드 목록 조회에 실패했습니다:', error);
-            listTitleEl.textContent = normalizedKeyword ? '검색 결과' : '대표 브랜드';
+            listTitleEl.textContent = '전체 브랜드';
             renderBrandListState('브랜드를 불러오지 못했습니다.');
+            return undefined;
         } finally {
             if (brandRequestController === controller) brandRequestController = null;
         }
@@ -249,14 +248,40 @@ document.addEventListener('DOMContentLoaded', () => {
         loadSelectedBrand(brand);
     }
 
-    searchForm.addEventListener('submit', event => {
+    // 검색 결과가 0건일 때 우측 상품 영역을 비우고, URL에 남아있던 이전 선택 브랜드도 함께 지운다.
+    function clearSelectedBrandProducts(message) {
+        history.replaceState({}, '', 'brand.html');
+        selectedBrandTitleEl.textContent = '';
+        productHeadingEl.hidden = true;
+        productListLoader.renderMessage(message);
+    }
+
+    // 검색 결과가 있으면 첫 번째 브랜드를 자동 선택해 좌측 목록과 우측 상품이 항상 같은 브랜드를
+    // 가리키도록 동기화하고, 결과가 없으면 우측 상품 영역도 함께 비운다.
+    searchForm.addEventListener('submit', async event => {
         event.preventDefault();
-        loadBrands(searchInput.value);
+        const items = await loadBrands(searchInput.value);
+        if (items === undefined) return;
+        if (items.length > 0) {
+            selectBrand(items[0].brand);
+        } else {
+            clearSelectedBrandProducts('검색 결과가 없습니다.');
+        }
     });
 
     // 검색창의 지우기 버튼으로 값이 비워지면 대표 브랜드 목록을 즉시 복원한다.
-    searchInput.addEventListener('search', () => {
-        if (!searchInput.value.trim()) loadBrands();
+    // 이때 우측에 선택된 브랜드가 없는 상태였다면(검색 결과 없음 등) 최초 진입 때와 동일하게
+    // 목록 맨 위 브랜드를 자동 선택해 우측 상품까지 함께 보여준다.
+    searchInput.addEventListener('search', async () => {
+        if (searchInput.value.trim()) return;
+        const items = await loadBrands();
+        if (items === undefined || getBrandFromUrl()) return;
+        const firstBrand = items[0]?.brand;
+        if (firstBrand) {
+            selectBrand(firstBrand);
+        } else {
+            loadSelectedBrand('');
+        }
     });
 
     window.addEventListener('popstate', () => {
@@ -273,6 +298,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // URL에 brand 값이 있어도(뒤로가기로 재진입 등) 검색 모드로 전환하지 않고,
     // 항상 대표 브랜드 목록을 불러온 뒤 해당 브랜드를 활성화 상태로 복원한다.
     const initialBrand = getBrandFromUrl();
-    loadBrands();
-    loadSelectedBrand(initialBrand);
+    if (initialBrand) {
+        loadBrands();
+        loadSelectedBrand(initialBrand);
+    } else {
+        // URL에 brand가 없으면(최초 진입) 우측 영역을 비워두는 대신,
+        // 목록 로드 후 가나다순 첫 번째 브랜드를 자동으로 선택한다.
+        loadBrands().then(() => {
+            const firstBrand = brands[0]?.brand;
+            if (firstBrand) {
+                selectBrand(firstBrand);
+            } else {
+                loadSelectedBrand('');
+            }
+        });
+    }
 });
