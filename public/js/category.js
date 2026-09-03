@@ -52,10 +52,13 @@ function updateActiveCategoryLink(categoryId) {
 }
 
 // URL의 categoryId를 읽어 우측 상품 목록을 로드하고 좌측 강조 상태를 갱신
+// 최초 자동 선택·카테고리 클릭·뒤로가기/앞으로가기 모두 이 함수를 거치므로,
+// 로그인 버튼의 redirect 주소도 여기서 함께 갱신해 이전 카테고리 주소로 남지 않게 한다.
 function syncFromUrl() {
     const categoryId = new URLSearchParams(window.location.search).get('categoryId');
     updateActiveCategoryLink(categoryId);
     productListLoader.load(categoryId);
+    window.refreshBottomNavLoginLink();
 }
 
 // 좌측 1열 카테고리 텍스트 리스트 로딩
