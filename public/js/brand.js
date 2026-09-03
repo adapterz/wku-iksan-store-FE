@@ -177,11 +177,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return item;
     }
 
-    function renderBrands(items, isSearchResult) {
+    function renderBrands(items) {
         brands = items;
         listEl.innerHTML = '';
         listStateEl.hidden = true;
-        listTitleEl.textContent = isSearchResult ? '검색 결과' : '대표 브랜드';
+        listTitleEl.textContent = '전체 브랜드';
         listCountEl.textContent = `${items.length}개`;
 
         if (items.length === 0) {
@@ -209,11 +209,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await requestWithBrandCache(path, { signal: controller.signal });
             if (controller.signal.aborted) return;
             const items = result && Array.isArray(result.data) ? result.data : [];
-            renderBrands(items, Boolean(normalizedKeyword));
+            renderBrands(items);
         } catch (error) {
             if (controller.signal.aborted || error.name === 'AbortError') return;
             console.error('브랜드 목록 조회에 실패했습니다:', error);
-            listTitleEl.textContent = normalizedKeyword ? '검색 결과' : '대표 브랜드';
+            listTitleEl.textContent = '전체 브랜드';
             renderBrandListState('브랜드를 불러오지 못했습니다.');
         } finally {
             if (brandRequestController === controller) brandRequestController = null;
