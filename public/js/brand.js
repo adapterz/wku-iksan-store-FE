@@ -251,8 +251,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 검색 결과가 0건일 때 우측 상품 영역을 비우고, URL에 남아있던 이전 선택 브랜드도 함께 지운다.
     function clearSelectedBrandProducts(message) {
         history.replaceState({}, '', 'brand.html');
-        selectedBrandTitleEl.textContent = '';
-        productHeadingEl.hidden = true;
+        window.refreshBottomNavLoginLink();
+
+        // 이전 브랜드의 상품 요청이 늦게 완료되어 결과 없음 화면을 다시 덮어쓰지 않도록
+        // 빈 브랜드를 로드해 진행 중인 요청을 먼저 취소한 뒤 검색 결과 없음 상태를 표시한다.
+        loadSelectedBrand('');
         productListLoader.renderMessage(message);
     }
 
