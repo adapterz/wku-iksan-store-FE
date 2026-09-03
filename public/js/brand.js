@@ -270,8 +270,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 검색창의 지우기 버튼으로 값이 비워지면 대표 브랜드 목록을 즉시 복원한다.
-    searchInput.addEventListener('search', () => {
-        if (!searchInput.value.trim()) loadBrands();
+    // 이때 우측에 선택된 브랜드가 없는 상태였다면(검색 결과 없음 등) 최초 진입 때와 동일하게
+    // 목록 맨 위 브랜드를 자동 선택해 우측 상품까지 함께 보여준다.
+    searchInput.addEventListener('search', async () => {
+        if (searchInput.value.trim()) return;
+        const items = await loadBrands();
+        if (items === undefined || getBrandFromUrl()) return;
+        const firstBrand = items[0]?.brand;
+        if (firstBrand) {
+            selectBrand(firstBrand);
+        } else {
+            loadSelectedBrand('');
+        }
     });
 
     window.addEventListener('popstate', () => {
