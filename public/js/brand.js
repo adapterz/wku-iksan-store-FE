@@ -193,6 +193,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateActiveBrand(getBrandFromUrl());
     }
 
+    // 반환값은 호출부가 검색 결과에 따라 우측 상품 영역을 동기화할 수 있도록 브랜드 배열을 그대로 넘긴다.
+    // 요청이 중간에 취소되었거나 실패한 경우에는 undefined를 반환해 호출부가 기존 화면을 건드리지 않게 한다.
     async function loadBrands(keyword = '') {
         if (brandRequestController) brandRequestController.abort();
         brandRequestController = new AbortController();
@@ -207,14 +209,16 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // 대표 목록과 검색 결과 모두 같은 5분 캐시 규칙을 사용한다.
             const result = await requestWithBrandCache(path, { signal: controller.signal });
-            if (controller.signal.aborted) return;
+            if (controller.signal.aborted) return undefined;
             const items = result && Array.isArray(result.data) ? result.data : [];
             renderBrands(items);
+            return items;
         } catch (error) {
-            if (controller.signal.aborted || error.name === 'AbortError') return;
+            if (controller.signal.aborted || error.name === 'AbortError') return undefined;
             console.error('브랜드 목록 조회에 실패했습니다:', error);
             listTitleEl.textContent = '전체 브랜드';
             renderBrandListState('브랜드를 불러오지 못했습니다.');
+            return undefined;
         } finally {
             if (brandRequestController === controller) brandRequestController = null;
         }
@@ -244,9 +248,25 @@ document.addEventListener('DOMContentLoaded', () => {
         loadSelectedBrand(brand);
     }
 
-    searchForm.addEventListener('submit', event => {
+    // 검색 결과가 0건일 때 우측 상품 영역을 비우고, URL에 남아있던 이전 선택 브랜드도 함께 지운다.
+    function clearSelectedBrandProducts(message) {
+        history.replaceState({}, '', 'brand.html');
+        selectedBrandTitleEl.textContent = '';
+        productHeadingEl.hidden = true;
+        productListLoader.renderMessage(message);
+    }
+
+    // 검색 결과가 있으면 첫 번째 브랜드를 자동 선택해 좌측 목록과 우측 상품이 항상 같은 브랜드를
+    // 가리키도록 동기화하고, 결과가 없으면 우측 상품 영역도 함께 비운다.
+    searchForm.addEventListener('submit', async event => {
         event.preventDefault();
-        loadBrands(searchInput.value);
+        const items = await loadBrands(searchInput.value);
+        if (items === undefined) return;
+        if (items.length > 0) {
+            selectBrand(items[0].brand);
+        } else {
+            clearSelectedBrandProducts('검색 결과가 없습니다.');
+        }
     });
 
     // 검색창의 지우기 버튼으로 값이 비워지면 대표 브랜드 목록을 즉시 복원한다.
