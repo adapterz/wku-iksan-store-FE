@@ -268,6 +268,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // URL에 brand 값이 있어도(뒤로가기로 재진입 등) 검색 모드로 전환하지 않고,
     // 항상 대표 브랜드 목록을 불러온 뒤 해당 브랜드를 활성화 상태로 복원한다.
     const initialBrand = getBrandFromUrl();
-    loadBrands();
-    loadSelectedBrand(initialBrand);
+    if (initialBrand) {
+        loadBrands();
+        loadSelectedBrand(initialBrand);
+    } else {
+        // URL에 brand가 없으면(최초 진입) 우측 영역을 비워두는 대신,
+        // 목록 로드 후 가나다순 첫 번째 브랜드를 자동으로 선택한다.
+        loadBrands().then(() => {
+            const firstBrand = brands[0]?.brand;
+            if (firstBrand) {
+                selectBrand(firstBrand);
+            } else {
+                loadSelectedBrand('');
+            }
+        });
+    }
 });
