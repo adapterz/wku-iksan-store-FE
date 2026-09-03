@@ -243,8 +243,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function selectBrand(brand) {
         if (getBrandFromUrl() === brand) return;
         const url = `brand.html?brand=${encodeURIComponent(brand)}`;
-        // 브랜드 전환은 같은 화면 안에서의 상태 변경이므로 히스토리를 새로 쌓지 않고 현재 엔트리를 갱신한다.
-        history.replaceState({}, '', url);
+        // 브랜드 전환마다 히스토리 엔트리를 쌓아, 헤더 뒤로가기 버튼(history.back())이 이전에 보던 브랜드로 돌아가게 한다.
+        history.pushState({}, '', url);
         window.refreshBottomNavLoginLink();
         loadSelectedBrand(brand);
     }
