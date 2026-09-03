@@ -11,6 +11,7 @@ function renderProduct(product) {
   const brandElement = document.getElementById("product-brand");
   const nameElement = document.getElementById("product-name");
   const priceElement = document.getElementById("product-price");
+  const descImgElement = document.getElementById("product-description-img");
   const descElement = document.getElementById("product-description");
   const validPeriodElement = document.getElementById("product-valid-period");
   const usageMethodElement = document.getElementById("product-usage-method");
@@ -39,6 +40,17 @@ function renderProduct(product) {
   if (brandElement) brandElement.textContent = product.brand;
   if (nameElement) nameElement.textContent = product.name;
   if (priceElement) priceElement.textContent = `${product.price.toLocaleString()}원`;
+  // descriptionImageUrl이 있는 상품만 이미지를 보여주고, 없으면 영역 자체를 숨긴다
+  // (아직 대부분 상품이 이 값을 안 채운 상태라 빈 이미지 아이콘이 뜨는 걸 방지).
+  if (descImgElement) {
+    if (product.descriptionImageUrl) {
+      descImgElement.src = product.descriptionImageUrl;
+      descImgElement.alt = `${product.name} 상품 이미지`;
+      descImgElement.hidden = false;
+    } else {
+      descImgElement.hidden = true;
+    }
+  }
   if (descElement) descElement.textContent = product.description || '등록된 상품설명이 없습니다.';
   if (validPeriodElement) validPeriodElement.textContent = formatDetailValue(product.validPeriod);
   if (usageMethodElement) usageMethodElement.textContent = formatDetailValue(product.usageMethod);

@@ -2002,6 +2002,13 @@ body {
   border-bottom: 8px solid #F5F5F5;
 }
 
+.tab-panel-description-img {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
 .tab-panel-description-text {
   font-size: 14px;
   line-height: 1.6;
