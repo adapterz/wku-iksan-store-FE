@@ -1,3 +1,9 @@
+// 공통 서브 헤더가 기본 제공하는 검색·홈 아이콘을 선물함 페이지에서는 제거한다.
+document.addEventListener('header:ready', () => {
+  const rightIcons = document.querySelector('header.main-header .header-right-icons');
+  if (rightIcons) rightIcons.remove();
+});
+
 // 로그인 여부 확인 (화면을 그리기 전에 먼저 검증 - Route Guard)
 // 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류만 다룬다.
 async function checkGiftboxAuth() {

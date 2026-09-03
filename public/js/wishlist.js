@@ -1,3 +1,9 @@
+// 공통 서브 헤더가 기본 제공하는 검색·홈 아이콘을 찜 페이지에서는 제거한다.
+document.addEventListener('header:ready', () => {
+  const rightIcons = document.querySelector('header.main-header .header-right-icons');
+  if (rightIcons) rightIcons.remove();
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   const listEl = document.getElementById('wishlist-product-list');
   if (!listEl) return;
