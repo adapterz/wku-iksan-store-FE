@@ -85,9 +85,43 @@
 
             <!-- Tabs Section -->
             <div class="product-tabs-container">
-                <div class="product-tab active">상품설명</div>
-                <div class="product-tab">선물후기 (0)</div>
-                <div class="product-tab">상세정보</div>
+                <div class="product-tab active" data-tab="description">상품설명</div>
+                <div class="product-tab" data-tab="review">선물후기 (0)</div>
+                <div class="product-tab" data-tab="detail">상세정보</div>
+            </div>
+
+            <!-- Tab Panel: 상품설명 -->
+            <div class="product-tab-panel" id="tab-panel-description" data-panel="description">
+                <p id="product-description" class="tab-panel-description-text"></p>
+            </div>
+
+            <!-- Tab Panel: 선물후기 (리뷰 기능은 별도 작업 범위, 준비 중 안내만 표시) -->
+            <div class="product-tab-panel" id="tab-panel-review" data-panel="review" hidden>
+                <div class="tab-panel-empty">
+                    <p>아직 등록된 선물후기가 없습니다.</p>
+                </div>
+            </div>
+
+            <!-- Tab Panel: 상세정보 -->
+            <div class="product-tab-panel" id="tab-panel-detail" data-panel="detail" hidden>
+                <dl class="product-detail-info-list">
+                    <div class="detail-info-row">
+                        <dt>유효기간</dt>
+                        <dd id="product-valid-period">-</dd>
+                    </div>
+                    <div class="detail-info-row">
+                        <dt>사용방법</dt>
+                        <dd id="product-usage-method">-</dd>
+                    </div>
+                    <div class="detail-info-row">
+                        <dt>교환처</dt>
+                        <dd id="product-exchange-location">-</dd>
+                    </div>
+                    <div class="detail-info-row">
+                        <dt>주의사항</dt>
+                        <dd id="product-caution">-</dd>
+                    </div>
+                </dl>
             </div>
         </div>
     </main>
