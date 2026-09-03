@@ -842,26 +842,15 @@ input.header-search-text::placeholder {
   background-color: #e0e0e0;
 }
 
-/* Category Quick Links (8 Columns Horizontal Scroll Layout) */
+/* Category Quick Links (5 Columns, No Horizontal Scroll) */
 .category-section {
   margin-bottom: 32px;
 }
 
 .category-grid {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-  scrollbar-width: none;
-}
-
-.category-grid .category-card {
-  flex: 0 0 auto;
-  width: calc((100% - 48px) / 5);
-}
-
-.category-grid::-webkit-scrollbar {
-  display: none;
 }
 
 .category-card {
