@@ -17,7 +17,6 @@ function renderProduct(product) {
   const usageMethodElement = document.getElementById("product-usage-method");
   const exchangeLocationElement = document.getElementById("product-exchange-location");
   const cautionElement = document.getElementById("product-caution");
-  const brandNavElement = document.getElementById("product-brand-nav");
 
   // 타임아웃으로 임시 안내가 떠 있었다면 해제하고 실제 카드를 다시 노출
   if (timeoutStateElement) timeoutStateElement.style.display = 'none';
@@ -37,7 +36,12 @@ function renderProduct(product) {
     el.style.minHeight = 'unset';
   });
 
-  if (brandElement) brandElement.textContent = product.brand;
+  if (brandElement) {
+    brandElement.textContent = product.brand;
+    brandElement.addEventListener('click', () => {
+      window.location.href = `brand.html?brand=${encodeURIComponent(product.brand)}`;
+    });
+  }
   if (nameElement) nameElement.textContent = product.name;
   if (priceElement) priceElement.textContent = `${product.price.toLocaleString()}원`;
   // descriptionImageUrl이 있는 상품만 이미지를 보여주고, 없으면 영역 자체를 숨긴다
@@ -56,7 +60,6 @@ function renderProduct(product) {
   if (usageMethodElement) usageMethodElement.textContent = formatDetailValue(product.usageMethod);
   if (exchangeLocationElement) exchangeLocationElement.textContent = formatDetailValue(product.exchangeLocation);
   if (cautionElement) cautionElement.textContent = formatDetailValue(product.caution);
-  if (brandNavElement) brandNavElement.textContent = product.brand;
 
   // Store product price globally and trigger bottom sheet price update
   const cardElementForData = document.querySelector('.product-detail-card');
