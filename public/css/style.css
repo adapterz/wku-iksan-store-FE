@@ -1840,54 +1840,16 @@ body {
   background-color: var(--primary-hover);
 }
 
-/* Brand Navigation Row */
-.brand-nav-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  background-color: #FFFFFF;
-  border-top: 8px solid #F5F5F5;
-  border-bottom: 8px solid #F5F5F5;
-  cursor: pointer;
-}
-
-.brand-nav-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.brand-nav-logo-container {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background-color: #F5F5F5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #767676;
-  font-size: 18px;
-  overflow: hidden;
-  border: 1px solid #EAEAEA;
-}
-
-.brand-nav-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: #191919;
-}
-
-.brand-nav-arrow {
-  color: #CCCCCC;
-  font-size: 14px;
-}
-
 /* Product Detail Sections */
 .product-detail-section {
   padding: 20px 16px;
   background-color: #FFFFFF;
   border-bottom: 8px solid #F5F5F5;
+}
+
+/* 매장 이동 행 삭제로 사라진 상단 구분선을 상품정보 섹션 앞에 복원 */
+.product-info-container + .product-detail-section {
+  border-top: 8px solid #F5F5F5;
 }
 
 .detail-section-title {
