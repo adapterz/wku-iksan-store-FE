@@ -1,3 +1,8 @@
+// 상세정보 탭 값이 없을 때(주로 아직 콘텐츠가 채워지지 않은 상품) 빈 칸 대신 "-"로 표시
+function formatDetailValue(value) {
+  return value ? value : '-';
+}
+
 // 상품 데이터를 화면에 렌더링하는 함수
 function renderProduct(product) {
   const timeoutStateElement = document.getElementById("product-error-state");
@@ -6,8 +11,12 @@ function renderProduct(product) {
   const brandElement = document.getElementById("product-brand");
   const nameElement = document.getElementById("product-name");
   const priceElement = document.getElementById("product-price");
+  const descImgElement = document.getElementById("product-description-img");
   const descElement = document.getElementById("product-description");
-  const usageElement = document.getElementById("product-usage");
+  const validPeriodElement = document.getElementById("product-valid-period");
+  const usageMethodElement = document.getElementById("product-usage-method");
+  const exchangeLocationElement = document.getElementById("product-exchange-location");
+  const cautionElement = document.getElementById("product-caution");
   const brandNavElement = document.getElementById("product-brand-nav");
 
   // 타임아웃으로 임시 안내가 떠 있었다면 해제하고 실제 카드를 다시 노출
@@ -31,8 +40,22 @@ function renderProduct(product) {
   if (brandElement) brandElement.textContent = product.brand;
   if (nameElement) nameElement.textContent = product.name;
   if (priceElement) priceElement.textContent = `${product.price.toLocaleString()}원`;
-  if (descElement) descElement.textContent = product.description;
-  if (usageElement) usageElement.textContent = product.usageInfo;
+  // descriptionImageUrl이 있는 상품만 이미지를 보여주고, 없으면 영역 자체를 숨긴다
+  // (아직 대부분 상품이 이 값을 안 채운 상태라 빈 이미지 아이콘이 뜨는 걸 방지).
+  if (descImgElement) {
+    if (product.descriptionImageUrl) {
+      descImgElement.src = product.descriptionImageUrl;
+      descImgElement.alt = `${product.name} 상품 이미지`;
+      descImgElement.hidden = false;
+    } else {
+      descImgElement.hidden = true;
+    }
+  }
+  if (descElement) descElement.textContent = product.description || '등록된 상품설명이 없습니다.';
+  if (validPeriodElement) validPeriodElement.textContent = formatDetailValue(product.validPeriod);
+  if (usageMethodElement) usageMethodElement.textContent = formatDetailValue(product.usageMethod);
+  if (exchangeLocationElement) exchangeLocationElement.textContent = formatDetailValue(product.exchangeLocation);
+  if (cautionElement) cautionElement.textContent = formatDetailValue(product.caution);
   if (brandNavElement) brandNavElement.textContent = product.brand;
 
   // Store product price globally and trigger bottom sheet price update
@@ -139,8 +162,28 @@ async function goToOrder(productId, type) {
   }
 }
 
+// 상품설명/선물후기/상세정보 탭 전환. 탭·패널을 data-tab/data-panel 값으로 매칭해서
+// 클릭한 탭만 active 처리하고, 같은 값의 패널만 보이도록 나머지는 hidden 처리한다.
+function initProductTabs() {
+  const tabs = document.querySelectorAll('.product-tab');
+  const panels = document.querySelectorAll('.product-tab-panel');
+  if (!tabs.length || !panels.length) return;
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tab;
+      tabs.forEach(t => t.classList.toggle('active', t === tab));
+      panels.forEach(panel => {
+        panel.hidden = panel.dataset.panel !== target;
+      });
+    });
+  });
+}
+
 // DOM이 로드된 후 데이터 로드 실행
 document.addEventListener("DOMContentLoaded", () => {
+  initProductTabs();
+
   // URL 쿼리 파라미터에서 상품 ID 추출 (기본값 1)
   const urlParams = new URLSearchParams(window.location.search);
   const productId = urlParams.get('id') || 1;

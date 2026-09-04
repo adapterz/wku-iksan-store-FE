@@ -1994,6 +1994,65 @@ body {
   background-color: #191919;
 }
 
+/* Tab Panels (상품설명/선물후기/상세정보) — .product-tabs-container 바로 아래,
+   .product-detail-section과 동일한 톤(흰 배경 + 8px 회색 구분선)을 재사용 */
+.product-tab-panel {
+  padding: 20px 16px;
+  background-color: #FFFFFF;
+  border-bottom: 8px solid #F5F5F5;
+}
+
+.tab-panel-description-img {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.tab-panel-description-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #191919;
+  white-space: pre-line;
+}
+
+.tab-panel-empty {
+  padding: 40px 0;
+  text-align: center;
+  font-size: 14px;
+  color: #999999;
+}
+
+.product-detail-info-list {
+  margin: 0;
+}
+
+.detail-info-row {
+  display: flex;
+  gap: 16px;
+  padding: 10px 0;
+}
+
+.detail-info-row + .detail-info-row {
+  border-top: 1px solid #F2F2F2;
+}
+
+.detail-info-row dt {
+  flex: 0 0 72px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #767676;
+}
+
+.detail-info-row dd {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  color: #191919;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
 /* ===== Auth (로그인/회원가입) ===== */
 .auth-container {
   max-width: 400px;
