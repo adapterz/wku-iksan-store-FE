@@ -479,9 +479,18 @@ input.header-search-text::placeholder {
   background-color: #191919;
 }
 
+/* 좌측 브랜드 목록과 우측 상품 목록을 각자 독립적으로 스크롤시키려면
+   body 높이를 뷰포트에 고정해야 한다 (mypage 설정 오버레이와 동일한 패턴). */
+body.page-brand-body {
+  height: 100vh;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
 .main-content.page-brand {
   padding: 0;
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -549,6 +558,13 @@ input.header-search-text::placeholder {
 .brand-list-panel {
   flex: 0 0 148px;
   border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.brand-list-panel::-webkit-scrollbar,
+.brand-product-panel::-webkit-scrollbar {
+  display: none;
 }
 
 .brand-list-heading {
@@ -689,6 +705,8 @@ input.header-search-text::placeholder {
   display: flex;
   flex-direction: column;
   padding: 16px 12px 24px;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 
 .brand-product-heading {
