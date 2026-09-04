@@ -104,6 +104,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const isActive = button.dataset.brand === brand;
             button.classList.toggle('active', isActive);
             button.setAttribute('aria-pressed', String(isActive));
+            // 상품 상세 등 다른 화면에서 하단에 있는 브랜드로 바로 진입해도
+            // 좌측 목록에서 선택된 브랜드가 스크롤 없이 바로 보이도록 한다.
+            if (isActive) button.scrollIntoView({ block: 'nearest' });
         });
     }
 
