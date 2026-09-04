@@ -1543,6 +1543,8 @@ body {
   font-size: 13px;
   font-weight: 700;
   color: var(--text-sub);
+  cursor: pointer;
+  width: fit-content;
 }
 
 .product-detail-title {

@@ -36,7 +36,12 @@ function renderProduct(product) {
     el.style.minHeight = 'unset';
   });
 
-  if (brandElement) brandElement.textContent = product.brand;
+  if (brandElement) {
+    brandElement.textContent = product.brand;
+    brandElement.addEventListener('click', () => {
+      window.location.href = `brand.html?brand=${encodeURIComponent(product.brand)}`;
+    });
+  }
   if (nameElement) nameElement.textContent = product.name;
   if (priceElement) priceElement.textContent = `${product.price.toLocaleString()}원`;
   // descriptionImageUrl이 있는 상품만 이미지를 보여주고, 없으면 영역 자체를 숨긴다
