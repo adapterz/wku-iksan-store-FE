@@ -1,12 +1,8 @@
-// 공통 서브 헤더를 카테고리 페이지용 제목·위시리스트 헤더로 변경한다.
+// 공통 서브 헤더에 카테고리 페이지 제목을 추가하고, 기본 검색·홈 아이콘은 제거한다.
 document.addEventListener('header:ready', () => {
     const headerContainer = document.querySelector('header.main-header .header-container');
     const rightIcons = document.querySelector('header.main-header .header-right-icons');
-    if (!rightIcons) return;
-    rightIcons.innerHTML = `
-        <a href="wishlist.html" class="header-icon" title="위시리스트">
-            <i class="fa-solid fa-bookmark"></i>
-        </a>`;
+    if (rightIcons) rightIcons.remove();
 
     if (headerContainer) {
         const title = document.createElement('h1');
@@ -16,13 +12,32 @@ document.addEventListener('header:ready', () => {
     }
 });
 
+// brand.js의 requestWithBrandCache와 동일한 방식으로, 카테고리별 상품 목록을 sessionCache에 담아둔다.
+const CATEGORY_PRODUCTS_CACHE_TTL_MS = 5 * 60 * 1000;
+const CATEGORY_PRODUCTS_CACHE_KEY_PREFIX = 'iksanstore:category-products-api:v1:';
+
+async function requestWithCategoryProductsCache(path, options = {}) {
+    const cacheKey = `${CATEGORY_PRODUCTS_CACHE_KEY_PREFIX}${encodeURIComponent(path)}`;
+    const cached = window.sessionCache
+        ? window.sessionCache.get(cacheKey, CATEGORY_PRODUCTS_CACHE_TTL_MS)
+        : null;
+    if (cached) return cached;
+
+    const result = await window.requestJson(path, options);
+    if (window.sessionCache && result) {
+        window.sessionCache.set(cacheKey, result);
+    }
+    return result;
+}
+
 // 우측 상품 목록 로더: component.js의 공통 컨트롤러(스켈레톤/빈 상태/에러 상태/레이스 컨디션 방지) 재사용
 const productListEl = document.getElementById('category-product-list');
 const productListLoader = window.createProductListLoader(productListEl, {
     buildRequestPath: (categoryId) => categoryId ? `/api/products?categoryId=${encodeURIComponent(categoryId)}` : null,
     blankMessage: '왼쪽에서 카테고리를 선택해주세요.',
     emptyMessage: '해당 카테고리에 상품이 없습니다.',
-    errorMessage: '상품을 불러오지 못했습니다.'
+    errorMessage: '상품을 불러오지 못했습니다.',
+    request: requestWithCategoryProductsCache
 });
 
 // 좌측 리스트에서 선택된 카테고리를 active로 강조 표시
