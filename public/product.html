@@ -56,19 +56,20 @@
                 <i class="fa-solid fa-chevron-right brand-nav-arrow"></i>
             </div>
 
-            <!-- Product/Delivery Info Section -->
+            <!-- Product Info Section: 전 상품이 매장 교환형 교환권으로 통일되어(BE #88),
+                 배송 전제 문구 대신 교환권 공통 안내로 변경. 매장명·유효기간 등 상품별 세부는
+                 상세정보 탭이 담당하므로 여기는 모든 상품에 동일하게 적용되는 문구만 둔다. -->
             <div class="product-detail-section">
                 <h3 class="detail-section-title">상품정보</h3>
                 <div class="info-list-item">
-                    <i class="fa-solid fa-truck info-icon-blue"></i>
+                    <i class="fa-solid fa-ticket info-icon-blue"></i>
                     <span class="info-text">
-                        <strong>배송비 포함</strong> <span class="info-subtext">도서산간 추가 배송비 안내 <i
-                                class="fa-solid fa-circle-info"></i></span>
+                        <strong>교환권 발급</strong> <span class="info-subtext">결제 후 즉시 발급됩니다</span>
                     </span>
                 </div>
                 <div class="info-list-item">
-                    <i class="fa-regular fa-square info-icon-blue"></i>
-                    <span class="info-text">도서산간 배송 가능</span>
+                    <i class="fa-solid fa-store info-icon-blue"></i>
+                    <span class="info-text">매장에서 바코드로 교환·사용</span>
                 </div>
             </div>
 
@@ -77,17 +78,52 @@
                 <h3 class="detail-section-title">사용방법</h3>
                 <div class="usage-box">
                     <div class="usage-icon-container">
-                        <i class="fa-solid fa-location-dot"></i>
+                        <i class="fa-solid fa-barcode"></i>
                     </div>
-                    <span class="usage-text">원하는 배송지로 상품을 배송받아요.</span>
+                    <span class="usage-text">매장에서 바코드를 제시하고 교환·사용하세요.</span>
                 </div>
             </div>
 
             <!-- Tabs Section -->
             <div class="product-tabs-container">
-                <div class="product-tab active">상품설명</div>
-                <div class="product-tab">선물후기 (0)</div>
-                <div class="product-tab">상세정보</div>
+                <div class="product-tab active" data-tab="description">상품설명</div>
+                <div class="product-tab" data-tab="review">선물후기 (0)</div>
+                <div class="product-tab" data-tab="detail">상세정보</div>
+            </div>
+
+            <!-- Tab Panel: 상품설명 -->
+            <div class="product-tab-panel" id="tab-panel-description" data-panel="description">
+                <img id="product-description-img" class="tab-panel-description-img" src="" alt="" hidden>
+                <p id="product-description" class="tab-panel-description-text"></p>
+            </div>
+
+            <!-- Tab Panel: 선물후기 (리뷰 기능은 별도 작업 범위, 준비 중 안내만 표시) -->
+            <div class="product-tab-panel" id="tab-panel-review" data-panel="review" hidden>
+                <div class="tab-panel-empty">
+                    <p>아직 등록된 선물후기가 없습니다.</p>
+                </div>
+            </div>
+
+            <!-- Tab Panel: 상세정보 -->
+            <div class="product-tab-panel" id="tab-panel-detail" data-panel="detail" hidden>
+                <dl class="product-detail-info-list">
+                    <div class="detail-info-row">
+                        <dt>유효기간</dt>
+                        <dd id="product-valid-period">-</dd>
+                    </div>
+                    <div class="detail-info-row">
+                        <dt>사용방법</dt>
+                        <dd id="product-usage-method">-</dd>
+                    </div>
+                    <div class="detail-info-row">
+                        <dt>교환처</dt>
+                        <dd id="product-exchange-location">-</dd>
+                    </div>
+                    <div class="detail-info-row">
+                        <dt>주의사항</dt>
+                        <dd id="product-caution">-</dd>
+                    </div>
+                </dl>
             </div>
         </div>
     </main>
