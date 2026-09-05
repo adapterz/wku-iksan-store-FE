@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>선물후기 · Iksan Gift 샘플</title>
+<link rel="icon" href="images/favicon.png"><link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/review-sample.css"><script src="js/review-sample.js" defer></script>
+</head>
+<body class="review-sample">
+<header class="rs-header"><a href="product.html?id=76" id="back" aria-label="상품 상세로 돌아가기">←</a><h1>선물후기</h1></header>
+<div class="rs-preview">LOCAL SAMPLE · 예시 상품·후기</div>
+<main>
+<section class="rs-intro"><p class="rs-eyebrow">마음을 전한 선물, 그 다음 이야기</p><h2>직접 사용해 본<br>이야기를 들려주세요.</h2><p>사용 완료한 선물에 후기를 남길 수 있어요.</p></section>
+<nav class="rs-tabs" aria-label="리뷰 화면"><button data-tab="public" aria-current="page">상품 후기</button><button data-tab="gifts">받은 선물</button><button data-tab="mine">내 후기</button></nav>
+<div id="public-controls">
+<label class="rs-product-select">후기를 볼 상품<select id="product-select"><option value="76">익산역 아메리카노 교환권</option><option value="77">익산 빵마을 베이커리 세트 교환권</option><option value="78">한우 불고기 세트 교환권</option></select></label>
+<div id="product-card" class="rs-product"></div>
+<section class="rs-summary" aria-label="후기 평점"><div><div class="rs-score"><strong id="average">—</strong><span>/ 5</span></div><div class="rs-stars" id="average-stars" aria-hidden="true">★★★★★</div></div><div><b id="review-count">후기를 불러오는 중</b><p>선물을 사용한 분들이 남긴 후기예요.</p></div></section>
+<button class="rs-primary rs-write" id="write-entry">사용한 선물에 후기 쓰기 <span>＋</span></button>
+</div>
+<div class="rs-list-heading"><h2 id="list-title">전체 후기</h2><select id="sort" aria-label="후기 정렬"><option value="latest">최신순</option><option value="rating_desc">별점 높은순</option><option value="rating_asc">별점 낮은순</option></select></div>
+<p class="rs-guide" id="list-guide" hidden></p>
+<div id="list" aria-live="polite"></div><button id="more" class="rs-secondary rs-more" hidden>후기 더 보기</button>
+<p id="page-error" role="alert" hidden></p><button id="retry" class="rs-secondary rs-more" hidden>다시 불러오기</button>
+</main>
+<footer class="rs-footer">익산의 선물이 일상의 좋은 기억이 되도록.<br><span>리뷰 기능 검토용 · 운영 서비스에는 반영되지 않습니다.</span></footer>
+<dialog id="editor" aria-labelledby="editor-title">
+<form id="review-form">
+<header class="rs-dialog-header"><h2 id="editor-title">후기 작성</h2><button type="button" id="close-editor" aria-label="후기 작성 닫기">×</button></header>
+<div id="editor-product" class="rs-product"></div>
+<fieldset class="rs-rating"><legend>선물은 마음에 드셨나요?</legend><div id="rating-inputs"></div><p id="rating-label">별점을 선택해주세요</p></fieldset>
+<label for="content" class="rs-label">어떤 점이 좋았나요?</label>
+<textarea id="content" rows="6" placeholder="맛, 구성, 이용 경험 등 직접 느낀 점을 남겨주세요." required></textarea>
+<div class="rs-counter"><span>1~1,000자</span><span id="counter">0 / 1,000</span></div>
+<p class="rs-policy">개인정보나 주문번호는 적지 말아주세요.<br>후기는 공개되며, 계정을 탈퇴해도 작성 당시 닉네임과 함께 남습니다.</p>
+<p id="form-error" role="alert"></p>
+<button type="submit" id="save-review" class="rs-primary">후기 등록하기</button>
+<button type="button" id="delete-review" class="rs-delete" hidden>후기 삭제</button>
+</form>
+</dialog>
+<div id="toast" role="status" hidden></div>
+</body></html>
