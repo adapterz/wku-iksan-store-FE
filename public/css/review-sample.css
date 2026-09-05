@@ -38,7 +38,7 @@
 .rs-more{width:calc(100% - 44px);margin:20px 22px}.rs-footer{margin-top:auto;padding:35px 20px 28px;text-align:center;color:#aaa;font-size:10px;background:#fafafa;line-height:2}.rs-footer span{font-size:9px}
 #page-error{color:#b64535;padding:15px 22px;font-size:12px}
 #editor{margin:auto;border:0;border-radius:18px;width:min(406px,calc(100% - 24px));max-height:92dvh;padding:0;box-shadow:0 20px 80px #0003;color:#191919}
-#editor::backdrop{background:#0006}.rs-dialog-header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #eee;padding:18px 22px}
+#editor::backdrop,#delete-confirm::backdrop{background:#0006}.rs-dialog-header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #eee;padding:18px 22px}
 .rs-dialog-header h2{font-size:17px}.rs-dialog-header button{font-size:25px;line-height:1}
 #review-form{padding-bottom:22px}#editor .rs-product{background:#fafafa;margin:16px 22px;padding:12px;border-radius:8px}#editor .rs-product img{width:58px;height:58px}#editor .rs-product h3{font-size:12px}
 .rs-rating{border:0;text-align:center;padding:18px 0}.rs-rating legend{font-weight:700;font-size:15px;float:left;width:100%;margin-bottom:8px}#rating-inputs{clear:both;display:flex;justify-content:center;gap:8px}
@@ -53,5 +53,9 @@
 #form-error{color:#b64535;font-size:12px;margin:10px 22px}
 #save-review{width:calc(100% - 44px);margin:0 22px}
 .rs-delete{display:block;margin:15px auto 0;font-size:11px!important;color:#999;text-decoration:underline}
+#delete-confirm{margin:auto;border:0;border-radius:16px;width:min(350px,calc(100% - 40px));padding:0;box-shadow:0 20px 80px #0003;color:#191919}
+.rs-confirm{padding:25px 22px 20px;text-align:center}.rs-confirm h2{font-size:17px}.rs-confirm>p{margin-top:9px;color:#777;font-size:12px;line-height:1.6}
+#delete-error{color:#b64535!important;min-height:19px}.rs-confirm-actions{display:flex;gap:9px;margin-top:12px}.rs-confirm-actions button{flex:1;padding:12px;border-radius:7px;font-size:12px;font-weight:600}
+.rs-confirm-actions .rs-secondary{width:auto}.rs-confirm-actions #confirm-delete{background:#2c2c2c;color:#fff}.rs-confirm-actions button:disabled{opacity:.45}
 #toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);width:max-content;max-width:90%;padding:12px 20px;background:#222;color:white;border-radius:8px;font-size:12px;z-index:20}
-@media(prefers-reduced-motion:no-preference){#editor[open]{animation:rs-open .15s ease-out}@keyframes rs-open{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}}
+@media(prefers-reduced-motion:no-preference){#editor[open],#delete-confirm[open]{animation:rs-open .15s ease-out}@keyframes rs-open{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}}

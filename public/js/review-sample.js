@@ -139,11 +139,26 @@
       $('editor').close(); toast(target.reviewId?'후기가 수정되었어요.':'후기가 등록되었어요.'); await load();
     } catch(e) { $('form-error').textContent=e.message; } finally { busy(false); }
   }
+  function openDeleteConfirm() {
+    if (state.busy || !state.edit?.reviewId) return;
+    $('delete-error').textContent = '';
+    $('delete-confirm').showModal();
+    $('cancel-delete').focus();
+  }
+  function closeDeleteConfirm() {
+    if (!state.busy) $('delete-confirm').close();
+  }
   async function remove() {
-    if (state.busy || !confirm('후기를 삭제할까요? 삭제한 내용은 되돌릴 수 없어요.')) return;
+    if (state.busy || !state.edit?.reviewId) return;
+    $('delete-error').textContent = '';
     busy(true);
-    try { await api('/api/reviews/' + state.edit.reviewId,'DELETE'); $('editor').close(); toast('후기가 삭제되었어요.'); await load(); }
-    catch(e) { $('form-error').textContent=e.message; } finally { busy(false); }
+    $('cancel-delete').disabled = true; $('confirm-delete').disabled = true;
+    try {
+      await api('/api/reviews/' + state.edit.reviewId,'DELETE');
+      $('delete-confirm').close(); $('editor').close(); toast('후기가 삭제되었어요.'); await load();
+    }
+    catch(e) { $('delete-error').textContent=e.message; }
+    finally { busy(false); $('cancel-delete').disabled = false; $('confirm-delete').disabled = false; }
   }
   for (let i=1;i<=5;i++) {
     const label=node('label'), input=node('input'); input.type='radio';input.name='rating';input.value=i;input.required=true;input.setAttribute('aria-label',i+'점');input.onchange=updateForm;
@@ -155,9 +170,11 @@
   $('write-entry').onclick=()=>{state.tab='gifts';load();};
   $('more').onclick=()=>{if(!state.loading){state.page++;load(true);}};
   $('review-form').onsubmit=save;
-  $('content').oninput=updateForm; $('delete-review').onclick=remove;
+  $('content').oninput=updateForm; $('delete-review').onclick=openDeleteConfirm;
+  $('cancel-delete').onclick=closeDeleteConfirm; $('confirm-delete').onclick=remove;
   $('close-editor').onclick=()=>{if(!state.busy)$('editor').close();};
   $('editor').addEventListener('cancel',e=>{if(state.busy)e.preventDefault();});
+  $('delete-confirm').addEventListener('cancel',e=>{if(state.busy)e.preventDefault();});
   (async()=> {
     try { const preview=await fetch('/__preview/status'); state.preview=preview.ok && (await preview.json()).localPreview === true; } catch {}
     try { await auth(); } catch(e) { toast(e.message); }
