@@ -242,11 +242,19 @@ document.addEventListener('DOMContentLoaded', () => {
         productListLoader.load(normalizedBrand, options);
     }
 
-    function selectBrand(brand) {
+    function selectBrand(brand, options = {}) {
         if (getBrandFromUrl() === brand) return;
         const url = `brand.html?brand=${encodeURIComponent(brand)}`;
-        // 브랜드 전환은 같은 화면 안에서의 상태 변경이므로 히스토리를 새로 쌓지 않고 현재 엔트리를 갱신한다.
-        history.replaceState({}, '', url);
+        if (options.isAutoSelect) {
+            // 최초 진입 시 자동 선택되는 첫 브랜드는 카테고리 페이지의 자동 선택과 마찬가지로
+            // 여분의 히스토리 엔트리를 만들지 않도록 replaceState를 사용한다.
+            // (pushState를 쓰면 뒤로가기 시 이전 페이지로 바로 가지 않고 브랜드 미선택 빈 화면을 한 번 거치게 된다.)
+            history.replaceState({}, '', url);
+        } else {
+            // 사용자가 직접 선택한 브랜드 전환은 히스토리 엔트리를 쌓아, 헤더 뒤로가기 버튼(history.back())이
+            // 이전에 보던 브랜드로 돌아가게 한다.
+            history.pushState({}, '', url);
+        }
         window.refreshBottomNavLoginLink();
         loadSelectedBrand(brand);
     }
@@ -304,19 +312,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // URL에 brand 값이 있어도(뒤로가기로 재진입 등) 검색 모드로 전환하지 않고,
     // 항상 대표 브랜드 목록을 불러온 뒤 해당 브랜드를 활성화 상태로 복원한다.
     const initialBrand = getBrandFromUrl();
-    if (initialBrand) {
-        loadBrands();
-        loadSelectedBrand(initialBrand);
-    } else {
-        // URL에 brand가 없으면(최초 진입) 우측 영역을 비워두는 대신,
-        // 목록 로드 후 가나다순 첫 번째 브랜드를 자동으로 선택한다.
-        loadBrands().then(() => {
-            const firstBrand = brands[0]?.brand;
-            if (firstBrand) {
-                selectBrand(firstBrand);
-            } else {
-                loadSelectedBrand('');
-            }
-        });
-    }
+    loadBrands().then(() => {
+        // brand 파라미터 없이 진입한 경우, 카테고리 페이지 초기 진입과 마찬가지로
+        // 대표 브랜드 목록의 첫 번째 브랜드를 자동 선택해 상품을 보여준다.
+        if (!initialBrand && brands.length > 0) {
+            selectBrand(brands[0].brand, { isAutoSelect: true });
+        }
+    });
+    loadSelectedBrand(initialBrand);
 });

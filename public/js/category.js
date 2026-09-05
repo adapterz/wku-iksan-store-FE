@@ -48,14 +48,17 @@ function updateActiveCategoryLink(categoryId) {
 }
 
 // URL의 categoryId를 읽어 우측 상품 목록을 로드하고 좌측 강조 상태를 갱신
+// 최초 자동 선택·카테고리 클릭·뒤로가기/앞으로가기 모두 이 함수를 거치므로,
+// 로그인 버튼의 redirect 주소도 여기서 함께 갱신해 이전 카테고리 주소로 남지 않게 한다.
 function syncFromUrl() {
     const categoryId = new URLSearchParams(window.location.search).get('categoryId');
     updateActiveCategoryLink(categoryId);
     productListLoader.load(categoryId);
+    window.refreshBottomNavLoginLink();
 }
 
 // 좌측 1열 카테고리 텍스트 리스트 로딩
-// 클릭 시 페이지 이동 없이 URL만 갱신(history.replaceState)하고 우측 상품 목록을 즉시 로드한다.
+// 클릭 시 페이지 이동 없이 URL만 갱신하고 우측 상품 목록을 즉시 로드한다.
 (async function loadCategoryList() {
     const listEl = document.getElementById('category-list');
     if (!listEl) return;
@@ -82,8 +85,8 @@ function syncFromUrl() {
             e.preventDefault();
             const categoryId = link.dataset.categoryId;
             if (new URLSearchParams(window.location.search).get('categoryId') === categoryId) return;
-            // 카테고리 전환은 같은 화면 안에서의 상태 변경이므로 히스토리를 새로 쌓지 않고 현재 엔트리를 갱신한다.
-            history.replaceState({}, '', link.href);
+            // 카테고리 전환마다 히스토리 엔트리를 쌓아, 뒤로가기 시 홈이 아니라 이전에 보던 카테고리로 돌아가게 한다.
+            history.pushState({}, '', link.href);
             syncFromUrl();
         });
         li.appendChild(link);
@@ -100,8 +103,16 @@ function syncFromUrl() {
         link.style.width = `${maxWidth}px`;
     });
 
-    // 카테고리 목록 로드가 끝난 뒤 초기 URL 상태를 반영 (categoryId를 들고 진입한 경우 강조 표시)
-    updateActiveCategoryLink(new URLSearchParams(window.location.search).get('categoryId'));
+    // 카테고리 목록 로드가 끝난 뒤 초기 URL 상태를 반영
+    // categoryId 없이 진입한 경우, 브랜드 페이지 초기 진입과 마찬가지로 가장 상단 카테고리를 자동 선택해 상품을 보여준다.
+    const currentCategoryId = new URLSearchParams(window.location.search).get('categoryId');
+    if (!currentCategoryId && categories.length > 0) {
+        const firstCategoryId = String(categories[0].id);
+        history.replaceState({}, '', `category.html?categoryId=${firstCategoryId}`);
+        syncFromUrl();
+    } else {
+        updateActiveCategoryLink(currentCategoryId);
+    }
 })();
 
 // 뒤로가기/앞으로가기 시 URL과 화면 상태 동기화
