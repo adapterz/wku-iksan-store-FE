@@ -1,7 +1,15 @@
-// 공통 서브 헤더가 기본 제공하는 검색·홈 아이콘을 랭킹 페이지에서는 제거한다.
+// 공통 서브 헤더에 랭킹 페이지 제목을 추가하고, 기본 검색·홈 아이콘은 제거한다.
 document.addEventListener('header:ready', () => {
+  const headerContainer = document.querySelector('header.main-header .header-container');
   const rightIcons = document.querySelector('header.main-header .header-right-icons');
   if (rightIcons) rightIcons.remove();
+
+  if (headerContainer) {
+    const title = document.createElement('h1');
+    title.className = 'header-title';
+    title.textContent = '찜 랭킹';
+    headerContainer.appendChild(title);
+  }
 });
 
 document.addEventListener('DOMContentLoaded', () => {
