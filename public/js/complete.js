@@ -45,6 +45,24 @@ document.addEventListener("header:ready", async () => {
 
 });
 
+// "N일" 같은 기간 표기를 볼드로 강조해서 넣는다 (예: "발급일로부터 365일 이내에 사용 가능").
+function renderValidPeriodText(el, text) {
+  const match = text.match(/\d+\s*일/);
+  if (!match) {
+    el.textContent = text;
+    return;
+  }
+
+  const start = match.index;
+  const end = start + match[0].length;
+  el.textContent = "";
+  el.appendChild(document.createTextNode(text.slice(0, start)));
+  const strong = document.createElement("strong");
+  strong.textContent = match[0];
+  el.appendChild(strong);
+  el.appendChild(document.createTextNode(text.slice(end)));
+}
+
 function renderCompletePage(order) {
   const { isSelfGift, receiver, product } = order;
 
@@ -65,11 +83,16 @@ function renderCompletePage(order) {
   const giftThumbnail = document.getElementById("gift-thumbnail");
   const giftBrand = document.getElementById("gift-brand");
   const giftName = document.getElementById("gift-name");
+  const giftValidPeriod = document.getElementById("gift-valid-period");
 
   if (product) {
     if (giftThumbnail) giftThumbnail.src = product.thumbnailUrl || "";
     if (giftBrand) giftBrand.textContent = product.brand || "";
     if (giftName) giftName.textContent = product.name || "";
+    if (giftValidPeriod) {
+      const validPeriodText = product.validPeriod || "발급일로부터 365일 이내에 사용 가능";
+      renderValidPeriodText(giftValidPeriod, validPeriodText);
+    }
   }
 }
 

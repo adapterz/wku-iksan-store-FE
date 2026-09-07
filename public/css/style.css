@@ -3280,6 +3280,10 @@ body.page-complete {
             font-size: 13px;
             color: var(--text-sub);
         }
+.page-complete .valid-period-text {
+            font-size: 14px;
+            color: #191919;
+        }
 .page-complete .bottom-actions {
             display: flex;
             gap: 8px;
