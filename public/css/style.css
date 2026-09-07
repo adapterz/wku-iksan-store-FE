@@ -3201,6 +3201,10 @@ body.page-complete {
 .page-complete .section-container {
             padding: 24px 20px;
         }
+.page-complete .section-divider {
+            border-top: 1px solid #f0f0f0;
+            margin-bottom: 16px;
+        }
 .page-complete .section-header {
             display: flex;
             justify-content: space-between;
