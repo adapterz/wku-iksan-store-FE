@@ -10,6 +10,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const updatedAtEl = document.getElementById('ranking-updated-at');
 
+  // 찜 랭킹 노출 기준 안내 툴팁: 마우스 오버 시 자동으로 열리고(데스크톱),
+  // 터치 기기에서는 버튼 클릭으로 토글하며 바깥을 클릭하면 닫는다.
+  const infoBtn = document.getElementById('ranking-info-btn');
+  const infoTooltip = document.getElementById('ranking-info-tooltip');
+  const infoWrap = infoBtn ? infoBtn.closest('.ranking-info-wrap') : null;
+  if (infoBtn && infoTooltip && infoWrap) {
+    infoWrap.addEventListener('mouseenter', () => { infoTooltip.hidden = false; });
+    infoWrap.addEventListener('mouseleave', () => { infoTooltip.hidden = true; });
+    infoBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      infoTooltip.hidden = !infoTooltip.hidden;
+    });
+    document.addEventListener('click', (e) => {
+      if (!infoTooltip.hidden && !infoTooltip.contains(e.target) && e.target !== infoBtn) {
+        infoTooltip.hidden = true;
+      }
+    });
+  }
+
   // 스켈레톤/빈 상태/에러 상태 렌더링, 요청 취소(레이스 컨디션 방지)는 component.js의 공통 컨트롤러를 재사용한다.
   // GET /api/products/ranking은 찜 개수 기준으로 이미 정렬·rank가 매겨져서 내려오므로 별도 파라미터 없이 그대로 호출하고,
   // showRank로 카드에 순위 배지(응답의 rank 값)를 표시한다.
