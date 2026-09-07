@@ -61,22 +61,6 @@ function renderCompletePage(order) {
     if (selfBadge) selfBadge.style.display = 'none';
   }
 
-  // Delivery Section (Show with dummy data to match the UI screenshot, or hide if not needed)
-  // Since the screenshot shows a delivery address, we'll show it with some placeholder info
-  // In a real app, this would be based on order.shippingAddress or similar
-  const deliverySection = document.getElementById("delivery-section");
-  if (deliverySection) {
-    deliverySection.style.display = 'block'; // Show it to match screenshot
-    const deliveryName = document.getElementById("delivery-name");
-    const deliveryPhone = document.getElementById("delivery-phone");
-    const deliveryAddress = document.getElementById("delivery-address");
-    
-    // Fallback dummy data if no real data
-    if (deliveryName) deliveryName.textContent = isSelfGift ? "나 (본인)" : (receiver ? receiver.nickname : "수령인");
-    if (deliveryPhone) deliveryPhone.textContent = "010-1234-5678";
-    if (deliveryAddress) deliveryAddress.textContent = "서울 동대문구 경희대로 26 (회기동, 경희대학교) 삼의원센터 310호";
-  }
-
   // Product Info
   const giftThumbnail = document.getElementById("gift-thumbnail");
   const giftBrand = document.getElementById("gift-brand");
