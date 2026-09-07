@@ -3243,9 +3243,11 @@ body.page-complete {
             color: var(--text-muted);
             margin-bottom: 4px;
         }
-.page-complete .gift-name {
+.page-complete .text-body-14 {
             font-size: 14px;
             color: #191919;
+        }
+.page-complete .gift-name {
             line-height: 1.4;
             margin-bottom: 8px;
             display: -webkit-box;
@@ -3256,10 +3258,6 @@ body.page-complete {
 .page-complete .gift-qty {
             font-size: 13px;
             color: var(--text-sub);
-        }
-.page-complete .valid-period-text {
-            font-size: 14px;
-            color: #191919;
         }
 .page-complete .bottom-actions {
             display: flex;
