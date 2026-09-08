@@ -562,6 +562,65 @@ window.updateWishlistIcon = function(icon, isSaved) {
     }
 };
 
+// 정보 아이콘 옆 안내 툴팁을 여닫는 공용 유틸리티.
+// 호버 가능한 기기(데스크톱)에서는 마우스 오버 시 열리고, 클릭은 무시해 깜빡임 없이 유지된다.
+// 호버가 불가능한 터치 기기에서는 mouseenter가 발생하지 않으므로 버튼 클릭으로 토글하고,
+// 바깥을 클릭하면 닫는다. .info-tooltip-wrap/.info-tooltip-btn/.info-tooltip 마크업 조합을
+// 페이지마다 그대로 재사용하면 되고, 여닫힘 로직은 이 함수 하나로 통일된다.
+window.initInfoTooltip = function(triggerEl, tooltipEl) {
+    if (!triggerEl || !tooltipEl) return;
+    const wrap = triggerEl.closest('.info-tooltip-wrap');
+    if (!wrap) return;
+
+    // 호버가 안 되는 터치 기기(iOS Safari 등)는 탭 시 mouseenter를 합성 이벤트로 쏘지만
+    // mouseleave는 없어서, mouseenter/mouseleave 리스너를 붙이면 openedByHover가 계속 true로
+    // 남아 두 번째 탭부터 열리지 않는 버그가 생긴다. 그래서 호버 가능한 기기에서만 호버 로직을 붙인다.
+    const supportsHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+    if (supportsHover) {
+        let openedByHover = false;
+        let closeTimer = null;
+
+        const open = () => {
+            clearTimeout(closeTimer);
+            openedByHover = true;
+            tooltipEl.hidden = false;
+        };
+        // 버튼(wrap)과 툴팁 사이의 여백을 가로지르는 동안 바로 닫히지 않도록 약간의 지연을 두고,
+        // 그 사이 툴팁에 마우스가 들어오면(아래 tooltipEl 리스너) 닫힘을 취소한다.
+        const scheduleClose = () => {
+            clearTimeout(closeTimer);
+            closeTimer = setTimeout(() => {
+                openedByHover = false;
+                tooltipEl.hidden = true;
+            }, 150);
+        };
+
+        wrap.addEventListener('mouseenter', open);
+        wrap.addEventListener('mouseleave', scheduleClose);
+        tooltipEl.addEventListener('mouseenter', open);
+        tooltipEl.addEventListener('mouseleave', scheduleClose);
+
+        triggerEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // 호버로 이미 열려 있는 상태(데스크톱)에서는 클릭을 무시해, 열자마자 다시 닫히는 것을 방지한다.
+            if (openedByHover) return;
+            tooltipEl.hidden = !tooltipEl.hidden;
+        });
+    } else {
+        triggerEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            tooltipEl.hidden = !tooltipEl.hidden;
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        if (!tooltipEl.hidden && !tooltipEl.contains(e.target)) {
+            tooltipEl.hidden = true;
+        }
+    });
+};
+
 // 카테고리 이름별 아이콘 이미지. API 응답(id, name)에는 아이콘이 없으므로 FE에서 이름으로 매핑한다.
 // 매핑에 없는 이름(백엔드에 새 카테고리가 추가된 경우 등)은 CATEGORY_DEFAULT_ICON_URL을 사용한다.
 const CATEGORY_ICON_MAP = {
