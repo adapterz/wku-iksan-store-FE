@@ -11,6 +11,7 @@ function renderProduct(product) {
   const brandElement = document.getElementById("product-brand");
   const nameElement = document.getElementById("product-name");
   const priceElement = document.getElementById("product-price");
+  const descImgWrapperElement = document.getElementById("product-description-img-wrapper");
   const descImgElement = document.getElementById("product-description-img");
   const descElement = document.getElementById("product-description");
   const validPeriodElement = document.getElementById("product-valid-period");
@@ -46,13 +47,17 @@ function renderProduct(product) {
   if (priceElement) priceElement.textContent = `${product.price.toLocaleString()}원`;
   // descriptionImageUrl이 있는 상품만 이미지를 보여주고, 없으면 영역 자체를 숨긴다
   // (아직 대부분 상품이 이 값을 안 채운 상태라 빈 이미지 아이콘이 뜨는 걸 방지).
-  if (descImgElement) {
+  // wrapper를 다시 보일 때는 skeleton 클래스를 매번 새로 걸어줘야 한다 — 이전에 로드된
+  // 이미지가 남아있던 상태(loaded)로 다음 상품(캐시 히트 등)을 그리기 시작할 수 있어서다.
+  if (descImgWrapperElement && descImgElement) {
     if (product.descriptionImageUrl) {
+      descImgWrapperElement.hidden = false;
+      descImgWrapperElement.classList.add('skeleton');
+      descImgElement.classList.remove('loaded');
       descImgElement.src = product.descriptionImageUrl;
       descImgElement.alt = `${product.name} 상품 이미지`;
-      descImgElement.hidden = false;
     } else {
-      descImgElement.hidden = true;
+      descImgWrapperElement.hidden = true;
     }
   }
   if (descElement) descElement.textContent = product.description || '등록된 상품설명이 없습니다.';

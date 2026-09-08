@@ -82,7 +82,11 @@
 
             <!-- Tab Panel: 상품설명 -->
             <div class="product-tab-panel" id="tab-panel-description" data-panel="description">
-                <img id="product-description-img" class="tab-panel-description-img" src="" alt="" hidden>
+                <div class="tab-panel-description-img-wrapper skeleton" id="product-description-img-wrapper" hidden>
+                    <img id="product-description-img" class="tab-panel-description-img" src="" alt=""
+                         onload="this.parentElement.classList.remove('skeleton'); this.classList.add('loaded');"
+                         onerror="this.parentElement.classList.remove('skeleton'); this.style.opacity=1;">
+                </div>
                 <p id="product-description" class="tab-panel-description-text"></p>
             </div>
 

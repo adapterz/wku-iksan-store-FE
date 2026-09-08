@@ -2028,11 +2028,29 @@ body {
   border-bottom: 8px solid #F5F5F5;
 }
 
+/* 다른 이미지들(.card-img-wrapper.skeleton + .product-img.loaded)과 동일한 스켈레톤·
+   페이드인 패턴. wrapper에 aspect-ratio로 자리를 미리 잡아둬야 로딩 중에도 레이아웃이
+   안 튀고 스켈레톤 shimmer가 정상적인 크기로 보인다. */
+.tab-panel-description-img-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
 .tab-panel-description-img {
   display: block;
   width: 100%;
-  border-radius: 8px;
-  margin-bottom: 16px;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.tab-panel-description-img.loaded {
+  opacity: 1;
 }
 
 .tab-panel-description-text {
