@@ -580,35 +580,48 @@ window.initInfoTooltip = function(triggerEl, tooltipEl) {
     const wrap = triggerEl.closest('.info-tooltip-wrap');
     if (!wrap) return;
 
-    let openedByHover = false;
-    let closeTimer = null;
+    // 호버가 안 되는 터치 기기(iOS Safari 등)는 탭 시 mouseenter를 합성 이벤트로 쏘지만
+    // mouseleave는 없어서, mouseenter/mouseleave 리스너를 붙이면 openedByHover가 계속 true로
+    // 남아 두 번째 탭부터 열리지 않는 버그가 생긴다. 그래서 호버 가능한 기기에서만 호버 로직을 붙인다.
+    const supportsHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-    const open = () => {
-        clearTimeout(closeTimer);
-        openedByHover = true;
-        tooltipEl.hidden = false;
-    };
-    // 버튼(wrap)과 툴팁 사이의 여백을 가로지르는 동안 바로 닫히지 않도록 약간의 지연을 두고,
-    // 그 사이 툴팁에 마우스가 들어오면(아래 tooltipEl 리스너) 닫힘을 취소한다.
-    const scheduleClose = () => {
-        clearTimeout(closeTimer);
-        closeTimer = setTimeout(() => {
-            openedByHover = false;
-            tooltipEl.hidden = true;
-        }, 150);
-    };
+    if (supportsHover) {
+        let openedByHover = false;
+        let closeTimer = null;
 
-    wrap.addEventListener('mouseenter', open);
-    wrap.addEventListener('mouseleave', scheduleClose);
-    tooltipEl.addEventListener('mouseenter', open);
-    tooltipEl.addEventListener('mouseleave', scheduleClose);
+        const open = () => {
+            clearTimeout(closeTimer);
+            openedByHover = true;
+            tooltipEl.hidden = false;
+        };
+        // 버튼(wrap)과 툴팁 사이의 여백을 가로지르는 동안 바로 닫히지 않도록 약간의 지연을 두고,
+        // 그 사이 툴팁에 마우스가 들어오면(아래 tooltipEl 리스너) 닫힘을 취소한다.
+        const scheduleClose = () => {
+            clearTimeout(closeTimer);
+            closeTimer = setTimeout(() => {
+                openedByHover = false;
+                tooltipEl.hidden = true;
+            }, 150);
+        };
 
-    triggerEl.addEventListener('click', (e) => {
-        e.stopPropagation();
-        // 호버로 이미 열려 있는 상태(데스크톱)에서는 클릭을 무시해, 열자마자 다시 닫히는 것을 방지한다.
-        if (openedByHover) return;
-        tooltipEl.hidden = !tooltipEl.hidden;
-    });
+        wrap.addEventListener('mouseenter', open);
+        wrap.addEventListener('mouseleave', scheduleClose);
+        tooltipEl.addEventListener('mouseenter', open);
+        tooltipEl.addEventListener('mouseleave', scheduleClose);
+
+        triggerEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // 호버로 이미 열려 있는 상태(데스크톱)에서는 클릭을 무시해, 열자마자 다시 닫히는 것을 방지한다.
+            if (openedByHover) return;
+            tooltipEl.hidden = !tooltipEl.hidden;
+        });
+    } else {
+        triggerEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            tooltipEl.hidden = !tooltipEl.hidden;
+        });
+    }
+
     document.addEventListener('click', (e) => {
         if (!tooltipEl.hidden && !tooltipEl.contains(e.target)) {
             tooltipEl.hidden = true;
