@@ -244,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function selectBrand(brand, options = {}) {
         if (getBrandFromUrl() === brand) return;
-        const url = `brand.html?brand=${encodeURIComponent(brand)}`;
+        const url = `brand?brand=${encodeURIComponent(brand)}`;
         if (options.isAutoSelect) {
             // 최초 진입 시 자동 선택되는 첫 브랜드는 카테고리 페이지의 자동 선택과 마찬가지로
             // 여분의 히스토리 엔트리를 만들지 않도록 replaceState를 사용한다.
@@ -261,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 검색 결과가 0건일 때 우측 상품 영역을 비우고, URL에 남아있던 이전 선택 브랜드도 함께 지운다.
     function clearSelectedBrandProducts(message) {
-        history.replaceState({}, '', 'brand.html');
+        history.replaceState({}, '', 'brand');
         window.refreshBottomNavLoginLink();
 
         // 이전 브랜드의 상품 요청이 늦게 완료되어 결과 없음 화면을 다시 덮어쓰지 않도록
