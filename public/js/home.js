@@ -142,13 +142,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 카테고리 카드 마크업은 component.js가 전역에 노출한 createCategoryCard를 재사용한다.
   // 그리드 마지막에 정적으로 남아있는 '더보기' 항목(.category-more)은 그대로 두고,
-  // API로 받아온 카테고리 카드만 그 앞(1행 가로 스크롤)에 채워 넣는다.
+  // 가로 스크롤 없이 한 화면(카테고리 4개 + 더보기)에 담기도록 앞 4개 카테고리만 그 앞에 채워 넣는다.
+  const HOME_CATEGORY_DISPLAY_COUNT = 4;
+
   function renderCategoriesData(categories) {
     const grid = document.querySelector('.category-grid');
     if (!grid) return;
     const moreLink = grid.querySelector('.category-more');
     grid.querySelectorAll('.category-card:not(.category-more)').forEach(card => card.remove());
-    categories.forEach(category => {
+    categories.slice(0, HOME_CATEGORY_DISPLAY_COUNT).forEach(category => {
       grid.insertBefore(createCategoryCard(category), moreLink);
     });
   }
@@ -219,57 +221,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }, { passive: false });
   });
-
-  // Mouse wheel & drag scrolling for .category-grid
-  const categoryGrid = document.querySelector('.category-grid');
-  if (categoryGrid) {
-    // Wheel scroll
-    categoryGrid.addEventListener('wheel', (e) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        categoryGrid.scrollLeft += e.deltaY;
-      }
-    }, { passive: false });
-
-    // Drag to scroll
-    let isDown = false;
-    let startX;
-    let scrollLeft;
-    let didDrag = false;
-    const DRAG_THRESHOLD_PX = 5; // 이보다 적게 움직인 클릭은 드래그가 아닌 카드 클릭으로 간주
-
-    categoryGrid.addEventListener('mousedown', (e) => {
-      isDown = true;
-      didDrag = false;
-      categoryGrid.style.cursor = 'grabbing';
-      startX = e.pageX - categoryGrid.offsetLeft;
-      scrollLeft = categoryGrid.scrollLeft;
-    });
-    categoryGrid.addEventListener('mouseleave', () => {
-      isDown = false;
-      categoryGrid.style.cursor = 'pointer';
-    });
-    categoryGrid.addEventListener('mouseup', () => {
-      isDown = false;
-      categoryGrid.style.cursor = 'pointer';
-    });
-    categoryGrid.addEventListener('mousemove', (e) => {
-      if (!isDown) return;
-      e.preventDefault();
-      const x = e.pageX - categoryGrid.offsetLeft;
-      const walk = (x - startX) * 2;
-      if (Math.abs(walk) > DRAG_THRESHOLD_PX) didDrag = true;
-      categoryGrid.scrollLeft = scrollLeft - walk;
-    });
-
-    // 드래그로 스크롤하다 마우스를 뗀 클릭은 카드 이동으로 이어지지 않게 막는다.
-    // API 응답으로 동적 삽입되는 카드까지 포함해야 하므로 이벤트 위임으로 처리한다.
-    categoryGrid.addEventListener('click', (e) => {
-      if (didDrag && e.target.closest('.category-card')) {
-        e.preventDefault();
-      }
-    });
-  }
 
   // Sub Tab Segmented Control (선물 테마, 카테고리, 추천 브랜드) Click Logic
   const pillBtns = document.querySelectorAll('.pill-btn');
