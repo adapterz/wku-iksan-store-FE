@@ -1078,28 +1078,28 @@ body.page-brand-body {
   color: #191919;
 }
 
-.ranking-info-btn {
+/* 정보 아이콘 + 안내 툴팁 공용 컴포넌트. 마크업 조합(.info-tooltip-wrap > .info-tooltip-btn + .info-tooltip)을
+   그대로 재사용하고 여닫힘 로직은 component.js의 window.initInfoTooltip()에 위임한다. */
+.info-tooltip-btn {
   font-size: 14px;
   color: #D3D3D3;
   display: flex;
   align-items: center;
-  background: none;
-  border: none;
   padding: 0;
-  cursor: pointer;
 }
 
-.ranking-info-wrap {
+.info-tooltip-wrap {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.ranking-info-tooltip {
+.info-tooltip {
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  z-index: 20;
+  /* .main-header가 z-index: 100(sticky)이므로, 스크롤 중 헤더에 가려지지 않도록 그보다 높게 둔다. */
+  z-index: 110;
   width: 200px;
   padding: 12px 14px;
   background: #fff;
@@ -1111,11 +1111,11 @@ body.page-brand-body {
   line-height: 1.5;
 }
 
-.ranking-info-tooltip[hidden] {
+.info-tooltip[hidden] {
   display: none;
 }
 
-.ranking-info-tooltip::before {
+.info-tooltip::before {
   content: '';
   position: absolute;
   top: -5px;
@@ -1128,14 +1128,14 @@ body.page-brand-body {
   transform: rotate(45deg);
 }
 
-.ranking-info-tooltip strong {
+.info-tooltip strong {
   display: block;
   margin-bottom: 4px;
   font-size: 13px;
   font-weight: 700;
 }
 
-.ranking-info-tooltip p {
+.info-tooltip p {
   margin: 0;
   color: #191919;
 }
