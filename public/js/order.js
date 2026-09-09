@@ -19,9 +19,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const backConfirmBtn = document.getElementById('btn-order-back-confirm');
 
   if (backBtn && backOverlay) {
+    const openBackOverlay = () => {
+      backOverlay.classList.add('show');
+    };
+
     backBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      backOverlay.classList.add('show');
+      openBackOverlay();
     });
 
     backCancelBtn.addEventListener('click', () => {
@@ -29,10 +33,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     backConfirmBtn.addEventListener('click', () => {
-      // 로그인을 경유해 들어온 경우 등 히스토리 스택이 뒤틀려 있어도
-      // 항상 원래 보던 상품 페이지로 돌아가도록 productId 기반으로 명시적 이동한다.
-      // (이 버튼은 productId 검증을 통과해 화면이 보이는 상태에서만 클릭 가능하므로 productId는 항상 존재한다.)
-      window.location.href = `product.html?id=${encodeURIComponent(productId)}`;
+      const fallbackUrl = `product.html?id=${encodeURIComponent(productId)}`;
+
+      // product.js의 goToOrder가 정상적으로 이 상품 페이지를 거쳐 진입시켰다면
+      // sessionStorage에 그 표시를 남겨둔다. 이 표시가 있을 때만 history.go(-2)를 쓴다:
+      // 실제 order.html 진입 항목(-1)과 위의 pushState 가드가 쌓아둔 중복 항목(-1)을 건너뛰어
+      // order.html 진입 전에 있던 그 상품 페이지 항목을 그대로 재사용하는 것이다.
+      // (product.html?id=...로 새 항목을 push하면, 이 상품 페이지 바로 뒤에 order.html이 그대로
+      //  남아있게 되어 "상품 페이지에서 또 뒤로가기"를 누르면 order.html로 돌아가버리기 때문이다.)
+      //
+      // 표시가 없다면(order.html에 직접 URL로 진입한 경우 등) 히스토리에 그 상품 페이지 항목이
+      // 아예 없을 수 있어 history.go(-2)가 엉뚱한 곳(about:blank 등)으로 가버릴 수 있으므로,
+      // 이 경우엔 곧바로 명시적 이동으로 처리한다.
+      const cameFromProductPage = sessionStorage.getItem('orderEntryProductId') === productId;
+      if (cameFromProductPage) {
+        sessionStorage.removeItem('orderEntryProductId');
+        history.go(-2);
+      } else {
+        window.location.href = fallbackUrl;
+      }
     });
 
     // 배경 클릭 시 닫기
@@ -40,6 +59,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (e.target === backOverlay) {
         backOverlay.classList.remove('show');
       }
+    });
+
+    // 헤더의 뒤로가기 아이콘뿐 아니라, 브라우저/기기의 실제 뒤로가기(제스처·버튼)를 눌러도
+    // 동일하게 확인 오버레이가 뜨도록 처리한다. 진입 시 히스토리를 한 칸 더 쌓아두고,
+    // popstate(실제 뒤로가기)가 발생하면 같은 자리로 다시 밀어넣은 뒤 오버레이를 띄운다.
+    // 이렇게 하지 않으면 실제 뒤로가기는 이 확인 절차를 거치지 않고 브라우저 히스토리를 그대로 따라가버려서,
+    // 로그인을 경유해 들어온 경우 로그인 페이지 등 엉뚱한 곳으로 이동하는 문제가 있었다.
+    history.pushState({ orderBackGuard: true }, '', location.href);
+    window.addEventListener('popstate', () => {
+      history.pushState({ orderBackGuard: true }, '', location.href);
+      openBackOverlay();
     });
   }
 

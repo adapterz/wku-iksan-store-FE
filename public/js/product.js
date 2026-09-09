@@ -152,6 +152,9 @@ async function goToOrder(productId, type) {
       return;
     }
 
+    // order.html이 뒤로가기 시 history.go()로 이 상품 페이지 항목을 재사용해도 되는지
+    // 판단할 수 있도록, 정상적으로 상품 페이지를 거쳐 진입했다는 표시를 남긴다.
+    sessionStorage.setItem('orderEntryProductId', String(productId));
     let url = `order.html?productId=${productId}&type=${type}`;
     window.location.href = url;
   } catch (error) {
