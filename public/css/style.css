@@ -2625,6 +2625,16 @@ body {
     align-items: center;
     gap: 16px;
 }
+.profile-logout-btn {
+    margin-left: auto;
+    font-size: 13px;
+    color: #999;
+    background: none;
+    border: 1px solid #e5e5e5;
+    border-radius: 20px;
+    padding: 6px 14px;
+    cursor: pointer;
+}
 .profile-img-container {
     width: 56px;
     height: 56px;

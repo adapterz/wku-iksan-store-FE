@@ -56,21 +56,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
     // Logout Logic
+    async function handleLogout(e) {
+        e.preventDefault();
+
+        try {
+            await requestJson('/api/auth/logout', { method: 'POST' });
+        } catch (error) {
+            console.error('로그아웃 요청 실패:', error);
+        }
+        localStorage.removeItem('isLoggedIn');
+        window._wishlistCache = null;
+        window._wishlistFetchPromise = null;
+        window.location.href = 'login.html';
+    }
+
     const logoutBtn = document.getElementById('btn-settings-logout');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
+        logoutBtn.addEventListener('click', handleLogout);
+    }
 
-            try {
-                await requestJson('/api/auth/logout', { method: 'POST' });
-            } catch (error) {
-                console.error('로그아웃 요청 실패:', error);
-            }
-            localStorage.removeItem('isLoggedIn');
-            window._wishlistCache = null;
-            window._wishlistFetchPromise = null;
-            window.location.href = 'login.html';
-        });
+    const profileLogoutBtn = document.getElementById('btn-profile-logout');
+    if (profileLogoutBtn) {
+        profileLogoutBtn.addEventListener('click', handleLogout);
     }
 
     // Unused Gifts Logic
