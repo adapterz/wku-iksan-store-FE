@@ -85,20 +85,29 @@ document.addEventListener('auth:updated', (e) => {
 });
 
 // 확인 처리 API 호출. pendingGiftArrivalIds(모달에 실제로 안내됐던 ID)만 넘긴다.
-// 실패 시 조용히 넘어가지 않고 호출부가 재시도를 안내할 수 있도록 성공 여부를 반환한다.
+// 반환값을 boolean이 아니라 3가지 상태로 구분한다(PR #75 리뷰 반영).
+// - 'success': 실제로 서버에 반영됨
+// - 'auth-required': 세션 만료(401). requestJson이 silent401 미지정 시 예외를 던지지
+//   않고 로그인 페이지 이동만 예약한 뒤 undefined를 반환하므로, 이 경우를 성공으로
+//   오인해 pendingGiftArrivalIds를 비우면 안 된다(서버엔 반영된 적이 없음).
+// - 'failed': 그 외 실패(네트워크 오류 등). 재시도 가능하도록 상태를 그대로 유지한다.
 async function notifyGiftArrivalSeen() {
-    if (!pendingGiftArrivalIds.length) return true;
+    if (!pendingGiftArrivalIds.length) return 'success';
+    let result;
     try {
-        await requestJson('/api/gifts/notify', {
+        result = await requestJson('/api/gifts/notify', {
             method: 'PATCH',
             body: { giftIds: pendingGiftArrivalIds }
         });
-        pendingGiftArrivalIds = [];
-        return true;
     } catch (error) {
         console.error('선물 도착 확인 처리 실패:', error);
-        return false;
+        return 'failed';
     }
+    if (result === undefined) {
+        return 'auth-required';
+    }
+    pendingGiftArrivalIds = [];
+    return 'success';
 }
 
 (function bindGiftArrivalModalButtons() {
@@ -106,14 +115,16 @@ async function notifyGiftArrivalSeen() {
     const confirmBtn = document.getElementById('btn-gift-arrival-confirm');
     const giftboxBtn = document.getElementById('btn-gift-arrival-giftbox');
 
+    // 'auth-required'는 requestJson이 이미 로그인 페이지로 이동을 예약해둔 상태라
+    // 여기서 별도로 alert를 띄우거나 모달을 건드리지 않는다(중복 안내 방지).
     if (confirmBtn) {
         confirmBtn.addEventListener('click', async () => {
             confirmBtn.disabled = true;
-            const ok = await notifyGiftArrivalSeen();
+            const status = await notifyGiftArrivalSeen();
             confirmBtn.disabled = false;
-            if (ok) {
+            if (status === 'success') {
                 if (modal) modal.classList.remove('open');
-            } else {
+            } else if (status === 'failed') {
                 alert('확인 처리에 실패했습니다. 다시 시도해주세요.');
             }
         });
@@ -122,11 +133,11 @@ async function notifyGiftArrivalSeen() {
     if (giftboxBtn) {
         giftboxBtn.addEventListener('click', async () => {
             giftboxBtn.disabled = true;
-            const ok = await notifyGiftArrivalSeen();
+            const status = await notifyGiftArrivalSeen();
             giftboxBtn.disabled = false;
-            if (ok) {
+            if (status === 'success') {
                 window.location.href = 'giftbox.html';
-            } else {
+            } else if (status === 'failed') {
                 alert('확인 처리에 실패했습니다. 다시 시도해주세요.');
             }
         });
