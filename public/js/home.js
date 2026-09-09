@@ -177,6 +177,16 @@ document.addEventListener('DOMContentLoaded', () => {
   loadProducts();
   loadCategories();
 
+  // 노출 기준 안내 툴팁: 여닫힘 로직은 component.js의 공용 유틸리티(찜 랭킹에서 사용한 것과 동일)를 재사용한다.
+  window.initInfoTooltip(
+    document.getElementById('browse1-info-btn'),
+    document.getElementById('browse1-info-tooltip')
+  );
+  window.initInfoTooltip(
+    document.getElementById('recommend-info-btn'),
+    document.getElementById('recommend-info-tooltip')
+  );
+
   // Sync save buttons state across the page
   async function syncSaveButtons() {
     const btns = document.querySelectorAll('.btn-save-bookmark');
