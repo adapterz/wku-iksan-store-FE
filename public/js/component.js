@@ -1,3 +1,10 @@
+// 확장자 없는 주소와 기존 .html 링크를 같은 페이지로 판별한다.
+function getPageFile(pathname) {
+    const filename = pathname.split(/[?#]/, 1)[0].split('/').pop();
+    if (!filename) return 'index.html';
+    return filename.endsWith('.html') ? filename : `${filename}.html`;
+}
+
 // 전체화면 검색 모달 공통 HTML 반환 함수
 function getSearchOverlayHTML() {
     return `
@@ -140,11 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 메인(index.html) 및 마이페이지(mypage.html) 제외 서브 페이지 헤더 동적 삽입
-    let currentPath = window.location.pathname;
-    let currentFile = currentPath.substring(currentPath.lastIndexOf('/') + 1);
-    if (currentFile === '' || currentFile === '/') {
-        currentFile = 'index.html';
-    }
+    const currentFile = getPageFile(window.location.pathname);
 
     // search.html은 검색 인라인 박스가 포함된 전용 헤더(window.renderSearchHeader)를 사용하므로 공통 헤더 자동 삽입에서 제외
     if (currentFile !== 'index.html' && currentFile !== 'mypage.html' && currentFile !== 'search.html') {
@@ -246,14 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const navItems = document.querySelectorAll('.bottom-nav .nav-item, .nav-bar .nav-item');
         if (navItems.length === 0) return;
 
-        let currentPath = window.location.pathname;
-        let currentFile = currentPath.substring(currentPath.lastIndexOf('/') + 1);
-        
-        // Default to index.html if root path
-        if (currentFile === '' || currentFile === '/') {
-            currentFile = 'index.html';
-        }
-
+        const currentFile = getPageFile(window.location.pathname);
 
         navItems.forEach(item => {
             let href = item.getAttribute('href');
@@ -262,11 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Parse href to get filename, ignoring query strings
-            let hrefFile = href;
-            const qIndex = href.indexOf('?');
-            if (qIndex !== -1) hrefFile = href.substring(0, qIndex);
-            hrefFile = hrefFile.substring(hrefFile.lastIndexOf('/') + 1);
+            const hrefFile = getPageFile(href);
 
             const isActive = currentFile === hrefFile;
             item.classList.toggle('active', isActive);

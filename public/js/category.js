@@ -78,7 +78,7 @@ function syncFromUrl() {
         li.className = 'category-list-item';
         const link = document.createElement('a');
         link.className = 'category-list-link';
-        link.href = `category.html?categoryId=${category.id}`;
+        link.href = `category?categoryId=${category.id}`;
         link.textContent = category.name || '';
         link.dataset.categoryId = String(category.id);
         link.addEventListener('click', (e) => {
@@ -108,7 +108,7 @@ function syncFromUrl() {
     const currentCategoryId = new URLSearchParams(window.location.search).get('categoryId');
     if (!currentCategoryId && categories.length > 0) {
         const firstCategoryId = String(categories[0].id);
-        history.replaceState({}, '', `category.html?categoryId=${firstCategoryId}`);
+        history.replaceState({}, '', `category?categoryId=${firstCategoryId}`);
         syncFromUrl();
     } else {
         updateActiveCategoryLink(currentCategoryId);
