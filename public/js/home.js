@@ -11,14 +11,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Helper to show skeleton placeholders before API data arrives
   function renderSkeletonState() {
     const list1 = document.getElementById('horizontal-list-1');
-    const list2 = document.getElementById('horizontal-list-2');
     const rankingRow = document.querySelector('.ranking-cards-row');
 
-    [list1, list2].forEach(list => {
-      if (!list) return;
-      list.innerHTML = '';
-      for (let i = 0; i < 4; i++) list.appendChild(createSkeletonCard());
-    });
+    if (list1) {
+      list1.innerHTML = '';
+      for (let i = 0; i < 4; i++) list1.appendChild(createSkeletonCard());
+    }
 
     if (rankingRow) {
       rankingRow.innerHTML = '';
@@ -29,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Helper to show a fallback message across every product section
   function renderFallbackState(message) {
     const list1 = document.getElementById('horizontal-list-1');
-    const list2 = document.getElementById('horizontal-list-2');
     const rankingRow = document.querySelector('.ranking-cards-row');
     const html = `
       <div class="empty-state">
@@ -37,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <p>${message}</p>
       </div>
     `;
-    [list1, list2, rankingRow].forEach(el => { if (el) el.innerHTML = html; });
+    [list1, rankingRow].forEach(el => { if (el) el.innerHTML = html; });
 
     const btnRankingMore = document.getElementById('btn-ranking-more');
     if (btnRankingMore) {
@@ -71,15 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
       list1.innerHTML = '';
       products.forEach(product => {
         list1.appendChild(createProductCard(product));
-      });
-    }
-
-    // Render horizontal list 2 (most noted)
-    const list2 = document.getElementById('horizontal-list-2');
-    if (list2) {
-      list2.innerHTML = '';
-      [...products].reverse().forEach(product => {
-        list2.appendChild(createProductCard(product));
       });
     }
 
