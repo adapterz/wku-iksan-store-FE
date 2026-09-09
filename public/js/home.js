@@ -57,12 +57,13 @@ document.addEventListener('DOMContentLoaded', () => {
   let cachedProducts = [];
   let activeFilteredProducts = [];
   let rankingVisibleCount = 6;
-  let productsVisibleCount = 6;
+  const RECOMMEND_INITIAL_COUNT = 6;
+  const RECOMMEND_PAGE_SIZE = 10;
 
   // Helper to render products into layout elements
   function renderProductsData(products) {
     activeFilteredProducts = products;
-    rankingVisibleCount = products.length; // Default to all products
+    rankingVisibleCount = Math.min(RECOMMEND_INITIAL_COUNT, products.length);
 
     // Render horizontal list 1 (today's top traded)
     const list1 = document.getElementById('horizontal-list-1');
@@ -82,19 +83,19 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // Render ranking products
+    // Render ranking products (초기에는 RECOMMEND_INITIAL_COUNT개까지만 노출)
     const rankingRow = document.querySelector('.ranking-cards-row');
     if (rankingRow) {
       rankingRow.innerHTML = '';
-      products.forEach((product, idx) => {
+      products.slice(0, rankingVisibleCount).forEach((product, idx) => {
         rankingRow.appendChild(createProductCard(product, { showRank: true, rankIndex: idx + 1 }));
       });
     }
 
-    // Hide the '더보기' button as we are rendering all by default
+    // 남은 상품이 있을 때만 '더보기' 버튼을 노출한다
     const btnRankingMore = document.getElementById('btn-ranking-more');
     if (btnRankingMore) {
-      btnRankingMore.style.display = 'none';
+      btnRankingMore.style.display = rankingVisibleCount < products.length ? '' : 'none';
     }
   }
 
@@ -243,17 +244,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const rankingRow = document.querySelector('.ranking-cards-row');
       if (!rankingRow) return;
 
-      if (rankingVisibleCount >= activeFilteredProducts.length) {
-        alert('더 이상 불러올 상품이 없습니다.');
-        return;
-      }
+      if (rankingVisibleCount >= activeFilteredProducts.length) return;
 
-      // Get the next 9 products
-      const nextProducts = activeFilteredProducts.slice(rankingVisibleCount, rankingVisibleCount + 9);
+      // Get the next RECOMMEND_PAGE_SIZE products (남은 상품이 더 적으면 남은 만큼만)
+      const nextProducts = activeFilteredProducts.slice(rankingVisibleCount, rankingVisibleCount + RECOMMEND_PAGE_SIZE);
       nextProducts.forEach((product, idx) => {
         rankingRow.appendChild(createProductCard(product, { showRank: true, rankIndex: rankingVisibleCount + idx + 1 }));
       });
       rankingVisibleCount += nextProducts.length;
+
+      // 더 이상 남은 상품이 없으면 버튼을 숨긴다
+      if (rankingVisibleCount >= activeFilteredProducts.length) {
+        btnRankingMore.style.display = 'none';
+      }
     });
   }
 
