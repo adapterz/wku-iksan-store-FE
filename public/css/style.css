@@ -1396,6 +1396,77 @@ body {
   display: flex;
 }
 
+/* 선물 도착 알림 모달 — 화면 중앙 팝업(검색 오버레이의 전체화면 방식과 달리 배경을 어둡게 덮는 방식) */
+.gift-arrival-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 2100;
+  align-items: center;
+  justify-content: center;
+}
+
+.gift-arrival-modal.open {
+  display: flex;
+}
+
+.gift-arrival-modal-content {
+  width: 85%;
+  max-width: 320px;
+  background-color: #FFFFFF;
+  border-radius: 16px;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.gift-arrival-modal-icon {
+  font-size: 40px;
+  color: #FEE500;
+  margin-bottom: 16px;
+}
+
+.gift-arrival-modal-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #191919;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.gift-arrival-modal-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-gift-arrival-confirm,
+.btn-gift-arrival-giftbox {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-gift-arrival-confirm:disabled,
+.btn-gift-arrival-giftbox:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn-gift-arrival-confirm {
+  background-color: #F5F5F5;
+  color: #191919;
+}
+
+.btn-gift-arrival-giftbox {
+  background-color: #FEE500;
+  color: #191919;
+}
+
 .search-overlay-header {
   display: flex;
   align-items: center;
