@@ -22,6 +22,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const openBackOverlay = () => {
       backOverlay.classList.add('show');
     };
+    // 나가기 확정 시 프로그램적으로 history.go()를 호출하는 동안, 아래 popstate 가드 핸들러가
+    // 끼어들어 방지용 기록을 되살리거나 오버레이를 다시 띄우지 않도록 막는 플래그.
+    let suppressBackGuard = false;
 
     backBtn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -50,7 +53,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         sessionStorage.removeItem('orderEntryProductId');
         history.go(-2);
       } else {
-        window.location.href = fallbackUrl;
+        // 그냥 location.href(또는 replace)로 이동하면 지금 서 있는 방지용 기록 자리만 바뀌거나
+        // 새로 쌓일 뿐, 그 아래 깔린 order.html 직접 진입 기록은 그대로 남는다. 그 상태에서
+        // 상품 페이지로 이동한 뒤 뒤로가기를 누르면 바로 그 order.html 기록으로 돌아가버린다.
+        // 방지용 기록을 한 칸 물러나(go(-1)) order.html 진입 기록 자리로 옮긴 뒤, 그 자리를
+        // location.replace로 상품 페이지로 교체해야 order.html 기록이 뒤에 남지 않는다.
+        suppressBackGuard = true;
+        window.addEventListener('popstate', () => {
+          location.replace(fallbackUrl);
+        }, { once: true });
+        history.go(-1);
       }
     });
 
@@ -74,6 +86,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       history.pushState({ orderBackGuard: true }, '', location.href);
     }
     window.addEventListener('popstate', () => {
+      if (suppressBackGuard) return;
       history.pushState({ orderBackGuard: true }, '', location.href);
       openBackOverlay();
     });
