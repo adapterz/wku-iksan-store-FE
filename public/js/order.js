@@ -1,14 +1,34 @@
 document.addEventListener("DOMContentLoaded", async () => {
+  // 2. URL 파라미터에서 productId 및 선물 유형(type) 추출
+  const urlParams = new URLSearchParams(window.location.search);
+  const productId = urlParams.get('productId');
+  const orderType = urlParams.get('type') || 'self'; // 'self' or 'gift'
+
   // 뒤로가기 버튼 로직 (확인 오버레이 띄우기)
-  const backBtn = document.getElementById('btn-back');
+  // component.js가 헤더에 기본으로 바인딩해둔 history.back() 리스너가 이 버튼에도 걸려 있어서,
+  // 그대로 두면 클릭 한 번에 오버레이 확인 없이 history.back()이 먼저 실행되어 버린다
+  // (로그인 경유로 들어온 경우 로그인 페이지로 되돌아가는 문제도 여기서 발생한다).
+  // 노드를 복제해 기존 리스너를 제거하고 이 페이지 전용 리스너만 남긴다.
+  const backBtnOriginal = document.getElementById('btn-back');
+  const backBtn = backBtnOriginal ? backBtnOriginal.cloneNode(true) : null;
+  if (backBtnOriginal && backBtn) {
+    backBtnOriginal.parentNode.replaceChild(backBtn, backBtnOriginal);
+  }
   const backOverlay = document.getElementById('order-back-overlay');
   const backCancelBtn = document.getElementById('btn-order-back-cancel');
   const backConfirmBtn = document.getElementById('btn-order-back-confirm');
 
   if (backBtn && backOverlay) {
+    const openBackOverlay = () => {
+      backOverlay.classList.add('show');
+    };
+    // 나가기 확정 시 프로그램적으로 history.go()를 호출하는 동안, 아래 popstate 가드 핸들러가
+    // 끼어들어 방지용 기록을 되살리거나 오버레이를 다시 띄우지 않도록 막는 플래그.
+    let suppressBackGuard = false;
+
     backBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      backOverlay.classList.add('show');
+      openBackOverlay();
     });
 
     backCancelBtn.addEventListener('click', () => {
@@ -16,7 +36,34 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     backConfirmBtn.addEventListener('click', () => {
-      window.location.href = 'index.html';
+      const fallbackUrl = `product.html?id=${encodeURIComponent(productId)}`;
+
+      // product.js의 goToOrder가 정상적으로 이 상품 페이지를 거쳐 진입시켰다면
+      // sessionStorage에 그 표시를 남겨둔다. 이 표시가 있을 때만 history.go(-2)를 쓴다:
+      // 실제 order.html 진입 항목(-1)과 위의 pushState 가드가 쌓아둔 중복 항목(-1)을 건너뛰어
+      // order.html 진입 전에 있던 그 상품 페이지 항목을 그대로 재사용하는 것이다.
+      // (product.html?id=...로 새 항목을 push하면, 이 상품 페이지 바로 뒤에 order.html이 그대로
+      //  남아있게 되어 "상품 페이지에서 또 뒤로가기"를 누르면 order.html로 돌아가버리기 때문이다.)
+      //
+      // 표시가 없다면(order.html에 직접 URL로 진입한 경우 등) 히스토리에 그 상품 페이지 항목이
+      // 아예 없을 수 있어 history.go(-2)가 엉뚱한 곳(about:blank 등)으로 가버릴 수 있으므로,
+      // 이 경우엔 곧바로 명시적 이동으로 처리한다.
+      const cameFromProductPage = sessionStorage.getItem('orderEntryProductId') === productId;
+      if (cameFromProductPage) {
+        sessionStorage.removeItem('orderEntryProductId');
+        history.go(-2);
+      } else {
+        // 그냥 location.href(또는 replace)로 이동하면 지금 서 있는 방지용 기록 자리만 바뀌거나
+        // 새로 쌓일 뿐, 그 아래 깔린 order.html 직접 진입 기록은 그대로 남는다. 그 상태에서
+        // 상품 페이지로 이동한 뒤 뒤로가기를 누르면 바로 그 order.html 기록으로 돌아가버린다.
+        // 방지용 기록을 한 칸 물러나(go(-1)) order.html 진입 기록 자리로 옮긴 뒤, 그 자리를
+        // location.replace로 상품 페이지로 교체해야 order.html 기록이 뒤에 남지 않는다.
+        suppressBackGuard = true;
+        window.addEventListener('popstate', () => {
+          location.replace(fallbackUrl);
+        }, { once: true });
+        history.go(-1);
+      }
     });
 
     // 배경 클릭 시 닫기
@@ -24,6 +71,24 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (e.target === backOverlay) {
         backOverlay.classList.remove('show');
       }
+    });
+
+    // 헤더의 뒤로가기 아이콘뿐 아니라, 브라우저/기기의 실제 뒤로가기(제스처·버튼)를 눌러도
+    // 동일하게 확인 오버레이가 뜨도록 처리한다. 진입 시 히스토리를 한 칸 더 쌓아두고,
+    // popstate(실제 뒤로가기)가 발생하면 같은 자리로 다시 밀어넣은 뒤 오버레이를 띄운다.
+    // 이렇게 하지 않으면 실제 뒤로가기는 이 확인 절차를 거치지 않고 브라우저 히스토리를 그대로 따라가버려서,
+    // 로그인을 경유해 들어온 경우 로그인 페이지 등 엉뚱한 곳으로 이동하는 문제가 있었다.
+    // 새로고침 시에는 브라우저가 기존 history.state를 그대로 유지한 채 페이지만 다시 로드하므로,
+    // 이미 방지용 기록이 쌓여있는 상태(orderBackGuard: true)라면 여기서 또 pushState하지 않는다.
+    // 그렇지 않으면 새로고침할 때마다 방지용 기록이 누적되어, 항상 두 칸만 이동하는
+    // "나가기"(history.go(-2))가 주문서 페이지를 벗어나지 못하게 된다.
+    if (!(history.state && history.state.orderBackGuard)) {
+      history.pushState({ orderBackGuard: true }, '', location.href);
+    }
+    window.addEventListener('popstate', () => {
+      if (suppressBackGuard) return;
+      history.pushState({ orderBackGuard: true }, '', location.href);
+      openBackOverlay();
     });
   }
 
@@ -35,69 +100,81 @@ document.addEventListener("DOMContentLoaded", async () => {
   let celebrationMessage = "나는 내가 챙긴다!\n소중한 나에게 주는 선물";
 
   // 1. 로그인 여부 확인 (화면을 그리기 전에 먼저 검증 - Route Guard)
-  // 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류만 다룬다.
-  try {
-    const authResult = await requestJson('/api/auth/me');
-    if (authResult && authResult.data) {
-      currentUser = authResult.data;
-    } else {
-      return;
-    }
-  } catch (error) {
-    console.error("인증 확인 실패:", error);
-    alert("사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
-    return;
-  }
-
-  // 2. URL 파라미터에서 productId 및 선물 유형(type) 추출
-  const urlParams = new URLSearchParams(window.location.search);
-  const productId = urlParams.get('productId');
-  const orderType = urlParams.get('type') || 'self'; // 'self' or 'gift'
-
-  if (!productId) {
-    alert("올바르지 않은 접근입니다.");
-    location.href = "index.html";
-    return;
-  }
-
   // 3. 주문서 조회 API (상품 상세 정보 조회 API 활용)를 사용하여 상품 정보 조회
-  try {
-    const productResult = await requestJson(`/api/products/${productId}`);
-    if (productResult && productResult.data) {
-      selectedProduct = productResult.data;
-      
-      // 상품 정보 화면 바인딩
-      document.getElementById("order-product-img").src = selectedProduct.thumbnailUrl;
-      document.getElementById("order-brand").textContent = selectedProduct.brand;
-      document.getElementById("order-name").textContent = selectedProduct.name;
-      
-      const totalPrice = selectedProduct.price;
-      const priceStr = `${totalPrice.toLocaleString()}원`;
-      
-      document.getElementById("order-unit-price").textContent = priceStr;
-      
-      const elTotalPrice = document.getElementById("order-total-price");
-      const elFinalPrice = document.getElementById("order-final-price");
-      const elSubmitPrice = document.getElementById("btn-submit-price");
-      
-      if (elTotalPrice) elTotalPrice.textContent = priceStr;
-      if (elFinalPrice) elFinalPrice.textContent = priceStr;
-      if (elSubmitPrice) elSubmitPrice.textContent = priceStr;
-    } else {
-      alert("상품 정보를 찾을 수 없습니다.");
-      location.href = "index.html";
-      return;
+  // bfcache로 페이지가 복원될 때(pageshow, persisted) 재검증할 수 있도록 함수로 분리한다.
+  async function checkOrderAuthAndLoadData() {
+    // 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류만 다룬다.
+    // productId 검사보다 먼저 실행해야, productId 없이 접근한 미인증 사용자도
+    // (index.html이 아니라) 원래대로 로그인 흐름을 타게 된다.
+    try {
+      const authResult = await requestJson('/api/auth/me');
+      if (authResult && authResult.data) {
+        currentUser = authResult.data;
+        // 나에게 선물하기는 받는 사람이 나 자신이므로, bfcache 재검증으로 currentUser가
+        // 다른 계정으로 바뀌어도 receiverId가 그 계정을 계속 따라가도록 매번 갱신한다.
+        if (orderType === 'self') {
+          receiverId = currentUser.userId;
+        }
+      } else {
+        return false;
+      }
+    } catch (error) {
+      console.error("인증 확인 실패:", error);
+      alert("사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+      return false;
     }
-  } catch (error) {
-    console.error("상품 정보 조회 실패:", error);
-    alert("상품 정보를 불러오는 데 실패했습니다.");
-    location.href = "index.html";
-    return;
+
+    if (!productId) {
+      alert("올바르지 않은 접근입니다.");
+      location.href = "index.html";
+      return false;
+    }
+
+    try {
+      const productResult = await requestJson(`/api/products/${productId}`);
+      if (productResult && productResult.data) {
+        selectedProduct = productResult.data;
+
+        // 상품 정보 화면 바인딩
+        document.getElementById("order-product-img").src = selectedProduct.thumbnailUrl;
+        document.getElementById("order-brand").textContent = selectedProduct.brand;
+        document.getElementById("order-name").textContent = selectedProduct.name;
+
+        const totalPrice = selectedProduct.price;
+        const priceStr = `${totalPrice.toLocaleString()}원`;
+
+        document.getElementById("order-unit-price").textContent = priceStr;
+
+        const elTotalPrice = document.getElementById("order-total-price");
+        const elFinalPrice = document.getElementById("order-final-price");
+        const elSubmitPrice = document.getElementById("btn-submit-price");
+
+        if (elTotalPrice) elTotalPrice.textContent = priceStr;
+        if (elFinalPrice) elFinalPrice.textContent = priceStr;
+        if (elSubmitPrice) elSubmitPrice.textContent = priceStr;
+      } else {
+        alert("상품 정보를 찾을 수 없습니다.");
+        location.href = "index.html";
+        return false;
+      }
+    } catch (error) {
+      console.error("상품 정보 조회 실패:", error);
+      alert("상품 정보를 불러오는 데 실패했습니다.");
+      location.href = "index.html";
+      return false;
+    }
+
+    // 인증 및 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
+    document.body.style.visibility = "visible";
+    document.body.style.opacity = "1";
+    return true;
   }
 
-  // 인증 및 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
-  document.body.style.visibility = "visible";
-  document.body.style.opacity = "1";
+  // component.js의 공통 헬퍼: 최초 실행 후 bfcache 복원 시 재검증까지 등록해준다.
+  const isReady = await window.registerBfcacheRevalidation(checkOrderAuthAndLoadData);
+  if (!isReady) {
+    return;
+  }
 
   // 4. 선물 유형에 따른 받는 사람 UI 제어
   const receiverSection = document.getElementById("receiver-section");
@@ -106,7 +183,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (isSelfGift) {
     selfReceiverSection.style.display = "block";
-    receiverId = currentUser.userId; // 나에게 선물하기는 받는 사람이 나 자신
+    // receiverId는 checkOrderAuthAndLoadData에서 currentUser 갱신과 함께 이미 설정된다.
   } else {
     receiverSection.style.display = "block";
     
@@ -163,7 +240,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 5. 결제 및 주문 생성 로직
   const submitOrderBtn = document.getElementById("btn-submit-order");
-  const messageInput = document.getElementById("message-input");
 
   submitOrderBtn.addEventListener("click", async () => {
     if (!receiverId) {

@@ -86,7 +86,10 @@ async function requestJson(path, options = {}) {
       showUnauthorizedToast('로그인이 필요한 서비스입니다.');
       const redirectTarget = encodeURIComponent(window.location.href);
       setTimeout(() => {
-        window.location.href = `/login.html?redirect=${redirectTarget}`;
+        // href(push)로 이동하면 현재 페이지가 히스토리에 그대로 남아, 로그인 후 돌아왔다가
+        // 다시 뒤로가기를 누를 때 이 미인증 방문 기록을 다시 거치게 된다. replace로 대체해
+        // 로그인 왕복 과정이 히스토리에 여분의 항목을 남기지 않도록 한다.
+        window.location.replace(`/login.html?redirect=${redirectTarget}`);
       }, UNAUTHORIZED_REDIRECT_DELAY_MS);
       return;
     }

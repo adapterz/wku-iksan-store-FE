@@ -18,16 +18,11 @@ async function checkGiftuseAuth() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const isAuthenticated = await checkGiftuseAuth();
+    // component.js의 공통 헬퍼: 최초 실행 후 bfcache 복원 시 재검증까지 등록해준다.
+    const isAuthenticated = await window.registerBfcacheRevalidation(checkGiftuseAuth);
     if (!isAuthenticated) {
         return;
     }
-
-    window.addEventListener('pageshow', async (event) => {
-        if (event.persisted) {
-            await checkGiftuseAuth();
-        }
-    });
 
     const urlParams = new URLSearchParams(window.location.search);
     const giftId = urlParams.get('giftId');

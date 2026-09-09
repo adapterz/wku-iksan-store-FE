@@ -111,7 +111,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
           
-          window.location.href = safeUrl;
+          // href(push) 대신 replace를 써서 login.html 항목을 히스토리에 남기지 않는다.
+          // (안 그러면 로그인 후 뒤로가기를 눌렀을 때 로그인 페이지를 다시 거치게 된다.)
+          window.location.replace(safeUrl);
           return;
         }
 
