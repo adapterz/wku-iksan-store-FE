@@ -38,5 +38,13 @@
 <button type="button" id="delete-review" class="rs-delete" hidden>후기 삭제</button>
 </form>
 </dialog>
+<dialog id="delete-confirm" aria-labelledby="delete-confirm-title" aria-describedby="delete-confirm-description">
+<div class="rs-confirm">
+<h2 id="delete-confirm-title">후기를 삭제할까요?</h2>
+<p id="delete-confirm-description">삭제한 후기는 되돌릴 수 없습니다.</p>
+<p id="delete-error" role="alert"></p>
+<div class="rs-confirm-actions"><button type="button" id="cancel-delete" class="rs-secondary">취소</button><button type="button" id="confirm-delete">삭제하기</button></div>
+</div>
+</dialog>
 <div id="toast" role="status" hidden></div>
 </body></html>

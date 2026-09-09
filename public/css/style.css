@@ -1083,11 +1083,66 @@ body.page-brand-body {
   color: #191919;
 }
 
-.ranking-info-btn {
+/* 정보 아이콘 + 안내 툴팁 공용 컴포넌트. 마크업 조합(.info-tooltip-wrap > .info-tooltip-btn + .info-tooltip)을
+   그대로 재사용하고 여닫힘 로직은 component.js의 window.initInfoTooltip()에 위임한다. */
+.info-tooltip-btn {
   font-size: 14px;
   color: #D3D3D3;
   display: flex;
   align-items: center;
+  padding: 0;
+}
+
+.info-tooltip-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.info-tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  /* .main-header가 z-index: 100(sticky)이므로, 스크롤 중 헤더에 가려지지 않도록 그보다 높게 둔다. */
+  z-index: 110;
+  width: 200px;
+  padding: 12px 14px;
+  background: #fff;
+  color: #191919;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.info-tooltip[hidden] {
+  display: none;
+}
+
+.info-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 10px;
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  border-top: 1px solid #eee;
+  border-left: 1px solid #eee;
+  transform: rotate(45deg);
+}
+
+.info-tooltip strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.info-tooltip p {
+  margin: 0;
+  color: #191919;
 }
 
 
@@ -1978,11 +2033,29 @@ body {
   border-bottom: 8px solid #F5F5F5;
 }
 
+/* 다른 이미지들(.card-img-wrapper.skeleton + .product-img.loaded)과 동일한 스켈레톤·
+   페이드인 패턴. wrapper에 aspect-ratio로 자리를 미리 잡아둬야 로딩 중에도 레이아웃이
+   안 튀고 스켈레톤 shimmer가 정상적인 크기로 보인다. */
+.tab-panel-description-img-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
 .tab-panel-description-img {
   display: block;
   width: 100%;
-  border-radius: 8px;
-  margin-bottom: 16px;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.tab-panel-description-img.loaded {
+  opacity: 1;
 }
 
 .tab-panel-description-text {
@@ -3206,6 +3279,10 @@ body.page-complete {
 .page-complete .section-container {
             padding: 24px 20px;
         }
+.page-complete .section-divider {
+            border-top: 1px solid #f0f0f0;
+            margin-bottom: 16px;
+        }
 .page-complete .section-header {
             display: flex;
             justify-content: space-between;
@@ -3216,33 +3293,6 @@ body.page-complete {
             font-size: 15px;
             font-weight: 700;
             color: #191919;
-        }
-.page-complete .btn-edit-address {
-            padding: 6px 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            background-color: #fff;
-            font-size: 12px;
-            color: var(--text-sub);
-            cursor: pointer;
-        }
-.page-complete .address-info {
-            font-size: 14px;
-            line-height: 1.5;
-            color: #191919;
-        }
-.page-complete .address-name {
-            font-weight: 700;
-        }
-.page-complete .address-phone {
-            color: var(--text-sub);
-            margin-left: 6px;
-            font-size: 13px;
-        }
-.page-complete .address-detail {
-            margin-top: 6px;
-            color: var(--text-sub);
-            font-size: 13px;
         }
 .page-complete .gift-item-card {
             display: flex;
@@ -3271,9 +3321,11 @@ body.page-complete {
             color: var(--text-muted);
             margin-bottom: 4px;
         }
-.page-complete .gift-name {
+.page-complete .text-body-14 {
             font-size: 14px;
             color: #191919;
+        }
+.page-complete .gift-name {
             line-height: 1.4;
             margin-bottom: 8px;
             display: -webkit-box;
