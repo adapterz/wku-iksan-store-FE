@@ -30,6 +30,120 @@ if (document.body && !document.getElementById('search-overlay')) {
     document.body.insertAdjacentHTML('beforeend', getSearchOverlayHTML());
 }
 
+// ===== 선물 도착 알림 모달 =====
+// 로그인 상태로 확인될 때마다(auth:updated) 확인 안 한 선물이 있는지 체크해서 모달로 안내한다.
+// BE 이슈 #101 계약 기준: GET /api/gifts/unnotified → { count, giftIds }, PATCH /api/gifts/notify.
+function getGiftArrivalModalHTML() {
+    return `
+<div id="gift-arrival-modal" class="gift-arrival-modal">
+    <div class="gift-arrival-modal-content">
+        <div class="gift-arrival-modal-icon"><i class="fa-solid fa-gift"></i></div>
+        <p class="gift-arrival-modal-text">새로운 선물이 <strong id="gift-arrival-count">0</strong>개 도착했어요!</p>
+        <div class="gift-arrival-modal-actions">
+            <button type="button" id="btn-gift-arrival-confirm" class="btn-gift-arrival-confirm">확인</button>
+            <button type="button" id="btn-gift-arrival-giftbox" class="btn-gift-arrival-giftbox">선물함으로 가기</button>
+        </div>
+    </div>
+</div>`;
+}
+
+if (document.body && !document.getElementById('gift-arrival-modal')) {
+    document.body.insertAdjacentHTML('beforeend', getGiftArrivalModalHTML());
+}
+
+// 모달에 안내했던 선물 ID를 확인 처리 시점까지 들고 있는다. 조회 응답에 포함된 ID만
+// 확인 처리 요청에 실어 보내므로, 모달이 열려있는 동안 새로 도착한 선물(이번 조회 대상이
+// 아니었던 것)이 실수로 함께 확인 처리되지 않는다.
+let pendingGiftArrivalIds = [];
+
+window.showGiftArrivalModal = function(count, giftIds) {
+    pendingGiftArrivalIds = giftIds;
+    const modal = document.getElementById('gift-arrival-modal');
+    const countEl = document.getElementById('gift-arrival-count');
+    if (countEl) countEl.textContent = count;
+    if (modal) modal.classList.add('open');
+};
+
+// 확인 안 한 선물이 있는지 조회. auth:updated에서 isLoggedIn일 때만 호출되므로 비로그인
+// 사용자에게는 이 요청 자체가 나가지 않는다. 알림은 페이지의 핵심 기능이 아니므로,
+// 조회 실패(BE 미구현 포함) 시에도 다른 기능을 막지 않도록 로그만 남기고 조용히 넘어간다.
+async function checkGiftArrival() {
+    try {
+        const result = await requestJson('/api/gifts/unnotified', { silent401: true });
+        const { count, giftIds } = result?.data || {};
+        if (count > 0 && Array.isArray(giftIds) && giftIds.length > 0) {
+            window.showGiftArrivalModal(count, giftIds);
+        }
+    } catch (error) {
+        console.error('선물 도착 알림 확인 실패:', error);
+    }
+}
+
+document.addEventListener('auth:updated', (e) => {
+    const { isLoggedIn } = e.detail || {};
+    if (isLoggedIn) checkGiftArrival();
+});
+
+// 확인 처리 API 호출. pendingGiftArrivalIds(모달에 실제로 안내됐던 ID)만 넘긴다.
+// 반환값을 boolean이 아니라 3가지 상태로 구분한다(PR #75 리뷰 반영).
+// - 'success': 실제로 서버에 반영됨
+// - 'auth-required': 세션 만료(401). requestJson이 silent401 미지정 시 예외를 던지지
+//   않고 로그인 페이지 이동만 예약한 뒤 undefined를 반환하므로, 이 경우를 성공으로
+//   오인해 pendingGiftArrivalIds를 비우면 안 된다(서버엔 반영된 적이 없음).
+// - 'failed': 그 외 실패(네트워크 오류 등). 재시도 가능하도록 상태를 그대로 유지한다.
+async function notifyGiftArrivalSeen() {
+    if (!pendingGiftArrivalIds.length) return 'success';
+    let result;
+    try {
+        result = await requestJson('/api/gifts/notify', {
+            method: 'PATCH',
+            body: { giftIds: pendingGiftArrivalIds }
+        });
+    } catch (error) {
+        console.error('선물 도착 확인 처리 실패:', error);
+        return 'failed';
+    }
+    if (result === undefined) {
+        return 'auth-required';
+    }
+    pendingGiftArrivalIds = [];
+    return 'success';
+}
+
+(function bindGiftArrivalModalButtons() {
+    const modal = document.getElementById('gift-arrival-modal');
+    const confirmBtn = document.getElementById('btn-gift-arrival-confirm');
+    const giftboxBtn = document.getElementById('btn-gift-arrival-giftbox');
+
+    // 'auth-required'는 requestJson이 이미 로그인 페이지로 이동을 예약해둔 상태라
+    // 여기서 별도로 alert를 띄우거나 모달을 건드리지 않는다(중복 안내 방지).
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', async () => {
+            confirmBtn.disabled = true;
+            const status = await notifyGiftArrivalSeen();
+            confirmBtn.disabled = false;
+            if (status === 'success') {
+                if (modal) modal.classList.remove('open');
+            } else if (status === 'failed') {
+                alert('확인 처리에 실패했습니다. 다시 시도해주세요.');
+            }
+        });
+    }
+
+    if (giftboxBtn) {
+        giftboxBtn.addEventListener('click', async () => {
+            giftboxBtn.disabled = true;
+            const status = await notifyGiftArrivalSeen();
+            giftboxBtn.disabled = false;
+            if (status === 'success') {
+                window.location.href = 'giftbox.html';
+            } else if (status === 'failed') {
+                alert('확인 처리에 실패했습니다. 다시 시도해주세요.');
+            }
+        });
+    }
+})();
+
 // 검색어를 받아 검색 결과 페이지로 이동하는 공통 유틸리티 (빈 값은 무시)
 function navigateToSearch(keyword) {
     const trimmed = (keyword || '').trim();
