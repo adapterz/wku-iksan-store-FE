@@ -1,7 +1,15 @@
-// 공통 서브 헤더가 기본 제공하는 검색·홈 아이콘을 랭킹 페이지에서는 제거한다.
+// 공통 서브 헤더에 랭킹 페이지 제목을 추가하고, 기본 검색·홈 아이콘은 제거한다.
 document.addEventListener('header:ready', () => {
+  const headerContainer = document.querySelector('header.main-header .header-container');
   const rightIcons = document.querySelector('header.main-header .header-right-icons');
   if (rightIcons) rightIcons.remove();
+
+  if (headerContainer) {
+    const title = document.createElement('h1');
+    title.className = 'header-title';
+    title.textContent = '찜 랭킹';
+    headerContainer.appendChild(title);
+  }
 });
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,6 +17,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!listEl) return;
 
   const updatedAtEl = document.getElementById('ranking-updated-at');
+
+  // 찜 랭킹 노출 기준 안내 툴팁: 여닫힘 로직은 component.js의 공용 유틸리티를 재사용한다.
+  window.initInfoTooltip(
+    document.getElementById('ranking-info-btn'),
+    document.getElementById('ranking-info-tooltip')
+  );
 
   // 스켈레톤/빈 상태/에러 상태 렌더링, 요청 취소(레이스 컨디션 방지)는 component.js의 공통 컨트롤러를 재사용한다.
   // GET /api/products/ranking은 찜 개수 기준으로 이미 정렬·rank가 매겨져서 내려오므로 별도 파라미터 없이 그대로 호출하고,

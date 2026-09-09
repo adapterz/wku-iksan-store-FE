@@ -52,6 +52,24 @@ document.addEventListener("header:ready", async () => {
 
 });
 
+// "N일" 같은 기간 표기를 볼드로 강조해서 넣는다 (예: "발급일로부터 365일 이내에 사용 가능").
+function renderValidPeriodText(el, text) {
+  const match = text.match(/\d+\s*일/);
+  if (!match) {
+    el.textContent = text;
+    return;
+  }
+
+  const start = match.index;
+  const end = start + match[0].length;
+  el.textContent = "";
+  el.appendChild(document.createTextNode(text.slice(0, start)));
+  const strong = document.createElement("strong");
+  strong.textContent = match[0];
+  el.appendChild(strong);
+  el.appendChild(document.createTextNode(text.slice(end)));
+}
+
 function renderCompletePage(order) {
   const { isSelfGift, receiver, product } = order;
 
@@ -68,31 +86,20 @@ function renderCompletePage(order) {
     if (selfBadge) selfBadge.style.display = 'none';
   }
 
-  // Delivery Section (Show with dummy data to match the UI screenshot, or hide if not needed)
-  // Since the screenshot shows a delivery address, we'll show it with some placeholder info
-  // In a real app, this would be based on order.shippingAddress or similar
-  const deliverySection = document.getElementById("delivery-section");
-  if (deliverySection) {
-    deliverySection.style.display = 'block'; // Show it to match screenshot
-    const deliveryName = document.getElementById("delivery-name");
-    const deliveryPhone = document.getElementById("delivery-phone");
-    const deliveryAddress = document.getElementById("delivery-address");
-    
-    // Fallback dummy data if no real data
-    if (deliveryName) deliveryName.textContent = isSelfGift ? "나 (본인)" : (receiver ? receiver.nickname : "수령인");
-    if (deliveryPhone) deliveryPhone.textContent = "010-1234-5678";
-    if (deliveryAddress) deliveryAddress.textContent = "서울 동대문구 경희대로 26 (회기동, 경희대학교) 삼의원센터 310호";
-  }
-
   // Product Info
   const giftThumbnail = document.getElementById("gift-thumbnail");
   const giftBrand = document.getElementById("gift-brand");
   const giftName = document.getElementById("gift-name");
+  const giftValidPeriod = document.getElementById("gift-valid-period");
 
   if (product) {
     if (giftThumbnail) giftThumbnail.src = product.thumbnailUrl || "";
     if (giftBrand) giftBrand.textContent = product.brand || "";
     if (giftName) giftName.textContent = product.name || "";
+    if (giftValidPeriod) {
+      const validPeriodText = product.validPeriod || "발급일로부터 365일 이내에 사용 가능";
+      renderValidPeriodText(giftValidPeriod, validPeriodText);
+    }
   }
 }
 
