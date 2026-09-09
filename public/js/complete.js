@@ -46,15 +46,9 @@ document.addEventListener("header:ready", async () => {
     }
   }
 
-  await checkCompleteAuthAndLoadOrder();
-
-  // 뒤로가기/앞으로가기 등으로 bfcache에서 페이지가 복원되면 head의 인라인 스크립트가 body를 다시 숨기므로,
-  // 여기서 재검증 후 다시 보여주지 않으면 흰 화면으로 남는다.
-  window.addEventListener('pageshow', async (event) => {
-    if (event.persisted) {
-      await checkCompleteAuthAndLoadOrder();
-    }
-  });
+  // component.js의 공통 헬퍼: 최초 실행 후 bfcache 복원 시 재검증까지 등록해준다.
+  // 최초 조회가 실패한 경우(이미 알림/리다이렉트 처리됨)에는 재검증 리스너를 등록하지 않는다.
+  await window.registerBfcacheRevalidation(checkCompleteAuthAndLoadOrder);
 
 });
 

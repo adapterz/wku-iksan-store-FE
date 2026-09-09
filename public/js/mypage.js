@@ -30,18 +30,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    const isAuthenticated = await checkAuthAndLoadUserData();
+    // component.js의 공통 헬퍼: 최초 실행 후 bfcache 복원 시 재검증까지 등록해준다.
+    // (bfcache 복원 시 body를 숨기는 것은 head의 인라인 스크립트가 이미 처리하므로 여기서 다시 할 필요는 없다.)
+    const isAuthenticated = await window.registerBfcacheRevalidation(checkAuthAndLoadUserData);
     if (!isAuthenticated) {
         return;
     }
-
-    window.addEventListener('pageshow', async (event) => {
-        if (event.persisted) {
-            document.body.style.visibility = 'hidden';
-            document.body.style.opacity = '0';
-            await checkAuthAndLoadUserData();
-        }
-    });
 
     // Settings Overlay Logic
     const settingsBtn = document.getElementById('btn-settings-open');

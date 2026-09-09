@@ -42,6 +42,27 @@ window.refreshBottomNavLoginLink = function() {
     }
 };
 
+// 뒤로가기/앞으로가기로 페이지가 bfcache에서 복원될 때(pageshow, persisted) 인증·데이터를
+// 재검증하는 공통 헬퍼. head의 인라인 스크립트가 bfcache 복원 시 body를 다시 숨겨두므로,
+// checkFn이 재실행되어 다시 보여주지 않으면 흰 화면으로 남는다.
+// checkFn은 성공 시 화면을 다시 보이게 하고 true를, 실패 시(알림/리다이렉트를 직접 처리하고) false를 반환해야 한다.
+// 최초 실행이 실패하면 재검증 리스너를 등록하지 않는다.
+async function registerBfcacheRevalidation(checkFn) {
+    const isReady = await checkFn();
+    if (!isReady) {
+        return false;
+    }
+
+    window.addEventListener('pageshow', async (event) => {
+        if (event.persisted) {
+            await checkFn();
+        }
+    });
+
+    return true;
+}
+window.registerBfcacheRevalidation = registerBfcacheRevalidation;
+
 // 헤더의 #btn-back 뒤로가기 버튼 공통 이벤트 바인딩 (히스토리가 없으면 홈으로 이동)
 function bindHeaderBackButton() {
     const btnBack = document.getElementById('btn-back');

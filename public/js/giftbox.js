@@ -25,16 +25,11 @@ async function checkGiftboxAuth() {
 
 document.addEventListener("header:ready", async () => {
 
-  const isAuthenticated = await checkGiftboxAuth();
+  // component.js의 공통 헬퍼: 최초 실행 후 bfcache 복원 시 재검증까지 등록해준다.
+  const isAuthenticated = await window.registerBfcacheRevalidation(checkGiftboxAuth);
   if (!isAuthenticated) {
     return;
   }
-
-  window.addEventListener('pageshow', async (event) => {
-    if (event.persisted) {
-      await checkGiftboxAuth();
-    }
-  });
 
   const tabUnused = document.getElementById("tab-unused");
   const tabUsed = document.getElementById("tab-used");

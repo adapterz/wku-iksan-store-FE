@@ -31,9 +31,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     backConfirmBtn.addEventListener('click', () => {
       // 로그인을 경유해 들어온 경우 등 히스토리 스택이 뒤틀려 있어도
       // 항상 원래 보던 상품 페이지로 돌아가도록 productId 기반으로 명시적 이동한다.
-      window.location.href = productId
-        ? `product.html?id=${encodeURIComponent(productId)}`
-        : 'index.html';
+      // (이 버튼은 productId 검증을 통과해 화면이 보이는 상태에서만 클릭 가능하므로 productId는 항상 존재한다.)
+      window.location.href = `product.html?id=${encodeURIComponent(productId)}`;
     });
 
     // 배경 클릭 시 닫기
@@ -51,27 +50,34 @@ document.addEventListener("DOMContentLoaded", async () => {
   let receiverId = null;
   let celebrationMessage = "나는 내가 챙긴다!\n소중한 나에게 주는 선물";
 
-  if (!productId) {
-    alert("올바르지 않은 접근입니다.");
-    location.href = "index.html";
-    return;
-  }
-
   // 1. 로그인 여부 확인 (화면을 그리기 전에 먼저 검증 - Route Guard)
   // 3. 주문서 조회 API (상품 상세 정보 조회 API 활용)를 사용하여 상품 정보 조회
   // bfcache로 페이지가 복원될 때(pageshow, persisted) 재검증할 수 있도록 함수로 분리한다.
   async function checkOrderAuthAndLoadData() {
     // 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류만 다룬다.
+    // productId 검사보다 먼저 실행해야, productId 없이 접근한 미인증 사용자도
+    // (index.html이 아니라) 원래대로 로그인 흐름을 타게 된다.
     try {
       const authResult = await requestJson('/api/auth/me');
       if (authResult && authResult.data) {
         currentUser = authResult.data;
+        // 나에게 선물하기는 받는 사람이 나 자신이므로, bfcache 재검증으로 currentUser가
+        // 다른 계정으로 바뀌어도 receiverId가 그 계정을 계속 따라가도록 매번 갱신한다.
+        if (orderType === 'self') {
+          receiverId = currentUser.userId;
+        }
       } else {
         return false;
       }
     } catch (error) {
       console.error("인증 확인 실패:", error);
       alert("사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+      return false;
+    }
+
+    if (!productId) {
+      alert("올바르지 않은 접근입니다.");
+      location.href = "index.html";
       return false;
     }
 
@@ -115,18 +121,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     return true;
   }
 
-  const isReady = await checkOrderAuthAndLoadData();
+  // component.js의 공통 헬퍼: 최초 실행 후 bfcache 복원 시 재검증까지 등록해준다.
+  const isReady = await window.registerBfcacheRevalidation(checkOrderAuthAndLoadData);
   if (!isReady) {
     return;
   }
-
-  // 뒤로가기 등으로 bfcache에서 페이지가 복원되면 head의 인라인 스크립트가 body를 다시 숨기므로,
-  // 여기서 재검증 후 다시 보여주지 않으면 흰 화면으로 남는다.
-  window.addEventListener('pageshow', async (event) => {
-    if (event.persisted) {
-      await checkOrderAuthAndLoadData();
-    }
-  });
 
   // 4. 선물 유형에 따른 받는 사람 UI 제어
   const receiverSection = document.getElementById("receiver-section");
@@ -135,7 +134,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (isSelfGift) {
     selfReceiverSection.style.display = "block";
-    receiverId = currentUser.userId; // 나에게 선물하기는 받는 사람이 나 자신
+    // receiverId는 checkOrderAuthAndLoadData에서 currentUser 갱신과 함께 이미 설정된다.
   } else {
     receiverSection.style.display = "block";
     
@@ -192,7 +191,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 5. 결제 및 주문 생성 로직
   const submitOrderBtn = document.getElementById("btn-submit-order");
-  const messageInput = document.getElementById("message-input");
 
   submitOrderBtn.addEventListener("click", async () => {
     if (!receiverId) {
