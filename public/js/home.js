@@ -10,13 +10,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Helper to show skeleton placeholders before API data arrives
   function renderSkeletonState() {
-    const list1 = document.getElementById('horizontal-list-1');
+    const list1Top = document.getElementById('horizontal-list-1-top');
+    const list1Bottom = document.getElementById('horizontal-list-1-bottom');
     const rankingRow = document.querySelector('.ranking-cards-row');
 
-    if (list1) {
-      list1.innerHTML = '';
-      for (let i = 0; i < 4; i++) list1.appendChild(createSkeletonCard());
-    }
+    [list1Top, list1Bottom].forEach(list => {
+      if (!list) return;
+      list.innerHTML = '';
+      for (let i = 0; i < 2; i++) list.appendChild(createSkeletonCard());
+    });
 
     if (rankingRow) {
       rankingRow.innerHTML = '';
@@ -26,7 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Helper to show a fallback message across every product section
   function renderFallbackState(message) {
-    const list1 = document.getElementById('horizontal-list-1');
+    const list1Top = document.getElementById('horizontal-list-1-top');
+    const list1Bottom = document.getElementById('horizontal-list-1-bottom');
     const rankingRow = document.querySelector('.ranking-cards-row');
     const html = `
       <div class="empty-state">
@@ -34,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <p>${message}</p>
       </div>
     `;
-    [list1, rankingRow].forEach(el => { if (el) el.innerHTML = html; });
+    [list1Top, list1Bottom, rankingRow].forEach(el => { if (el) el.innerHTML = html; });
 
     const btnRankingMore = document.getElementById('btn-ranking-more');
     if (btnRankingMore) {
@@ -62,14 +65,15 @@ document.addEventListener('DOMContentLoaded', () => {
     activeFilteredProducts = products;
     rankingVisibleCount = Math.min(RECOMMEND_INITIAL_COUNT, products.length);
 
-    // Render horizontal list 1 (today's top traded)
-    const list1 = document.getElementById('horizontal-list-1');
-    if (list1) {
-      list1.innerHTML = '';
-      products.forEach(product => {
-        list1.appendChild(createProductCard(product));
-      });
-    }
+    // Render horizontal list 1 (위/아래 줄이 각각 독립적으로 스크롤되도록 상품을 절반씩 나눠 담는다)
+    const list1Top = document.getElementById('horizontal-list-1-top');
+    const list1Bottom = document.getElementById('horizontal-list-1-bottom');
+    if (list1Top) list1Top.innerHTML = '';
+    if (list1Bottom) list1Bottom.innerHTML = '';
+    products.forEach((product, idx) => {
+      const target = idx % 2 === 0 ? list1Top : list1Bottom;
+      if (target) target.appendChild(createProductCard(product));
+    });
 
     // Render ranking products (초기에는 RECOMMEND_INITIAL_COUNT개까지만 노출)
     const rankingRow = document.querySelector('.ranking-cards-row');

@@ -1152,12 +1152,17 @@ body.page-brand-body {
   margin-bottom: 32px;
 }
 
+.horizontal-product-list-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .horizontal-product-list {
   display: grid;
-  grid-template-rows: repeat(2, auto);
   grid-auto-flow: column;
   grid-auto-columns: 28%;
-  gap: 16px 8px;
+  gap: 8px;
   overflow-x: auto;
   padding-bottom: 8px;
   scrollbar-width: none;
