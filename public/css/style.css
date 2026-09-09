@@ -1072,6 +1072,11 @@ body.page-brand-body {
   color: #999;
 }
 
+/* ranking.html: 타이틀이 헤더 탭으로 옮겨간 뒤 업데이트 시각만 남은 행을 오른쪽 정렬한다. */
+.ranking-title-container--meta-only {
+  justify-content: flex-end;
+}
+
 .ranking-title {
   font-size: 16px;
   font-weight: 700;
