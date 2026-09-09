@@ -66,7 +66,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     // popstate(실제 뒤로가기)가 발생하면 같은 자리로 다시 밀어넣은 뒤 오버레이를 띄운다.
     // 이렇게 하지 않으면 실제 뒤로가기는 이 확인 절차를 거치지 않고 브라우저 히스토리를 그대로 따라가버려서,
     // 로그인을 경유해 들어온 경우 로그인 페이지 등 엉뚱한 곳으로 이동하는 문제가 있었다.
-    history.pushState({ orderBackGuard: true }, '', location.href);
+    // 새로고침 시에는 브라우저가 기존 history.state를 그대로 유지한 채 페이지만 다시 로드하므로,
+    // 이미 방지용 기록이 쌓여있는 상태(orderBackGuard: true)라면 여기서 또 pushState하지 않는다.
+    // 그렇지 않으면 새로고침할 때마다 방지용 기록이 누적되어, 항상 두 칸만 이동하는
+    // "나가기"(history.go(-2))가 주문서 페이지를 벗어나지 못하게 된다.
+    if (!(history.state && history.state.orderBackGuard)) {
+      history.pushState({ orderBackGuard: true }, '', location.href);
+    }
     window.addEventListener('popstate', () => {
       history.pushState({ orderBackGuard: true }, '', location.href);
       openBackOverlay();
