@@ -1,6 +1,19 @@
 document.addEventListener("DOMContentLoaded", async () => {
+  // 2. URL 파라미터에서 productId 및 선물 유형(type) 추출
+  const urlParams = new URLSearchParams(window.location.search);
+  const productId = urlParams.get('productId');
+  const orderType = urlParams.get('type') || 'self'; // 'self' or 'gift'
+
   // 뒤로가기 버튼 로직 (확인 오버레이 띄우기)
-  const backBtn = document.getElementById('btn-back');
+  // component.js가 헤더에 기본으로 바인딩해둔 history.back() 리스너가 이 버튼에도 걸려 있어서,
+  // 그대로 두면 클릭 한 번에 오버레이 확인 없이 history.back()이 먼저 실행되어 버린다
+  // (로그인 경유로 들어온 경우 로그인 페이지로 되돌아가는 문제도 여기서 발생한다).
+  // 노드를 복제해 기존 리스너를 제거하고 이 페이지 전용 리스너만 남긴다.
+  const backBtnOriginal = document.getElementById('btn-back');
+  const backBtn = backBtnOriginal ? backBtnOriginal.cloneNode(true) : null;
+  if (backBtnOriginal && backBtn) {
+    backBtnOriginal.parentNode.replaceChild(backBtn, backBtnOriginal);
+  }
   const backOverlay = document.getElementById('order-back-overlay');
   const backCancelBtn = document.getElementById('btn-order-back-cancel');
   const backConfirmBtn = document.getElementById('btn-order-back-confirm');
@@ -16,7 +29,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     backConfirmBtn.addEventListener('click', () => {
-      window.location.href = 'index.html';
+      // 로그인을 경유해 들어온 경우 등 히스토리 스택이 뒤틀려 있어도
+      // 항상 원래 보던 상품 페이지로 돌아가도록 productId 기반으로 명시적 이동한다.
+      window.location.href = productId
+        ? `product.html?id=${encodeURIComponent(productId)}`
+        : 'index.html';
     });
 
     // 배경 클릭 시 닫기
@@ -34,70 +51,82 @@ document.addEventListener("DOMContentLoaded", async () => {
   let receiverId = null;
   let celebrationMessage = "나는 내가 챙긴다!\n소중한 나에게 주는 선물";
 
-  // 1. 로그인 여부 확인 (화면을 그리기 전에 먼저 검증 - Route Guard)
-  // 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류만 다룬다.
-  try {
-    const authResult = await requestJson('/api/auth/me');
-    if (authResult && authResult.data) {
-      currentUser = authResult.data;
-    } else {
-      return;
-    }
-  } catch (error) {
-    console.error("인증 확인 실패:", error);
-    alert("사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
-    return;
-  }
-
-  // 2. URL 파라미터에서 productId 및 선물 유형(type) 추출
-  const urlParams = new URLSearchParams(window.location.search);
-  const productId = urlParams.get('productId');
-  const orderType = urlParams.get('type') || 'self'; // 'self' or 'gift'
-
   if (!productId) {
     alert("올바르지 않은 접근입니다.");
     location.href = "index.html";
     return;
   }
 
+  // 1. 로그인 여부 확인 (화면을 그리기 전에 먼저 검증 - Route Guard)
   // 3. 주문서 조회 API (상품 상세 정보 조회 API 활용)를 사용하여 상품 정보 조회
-  try {
-    const productResult = await requestJson(`/api/products/${productId}`);
-    if (productResult && productResult.data) {
-      selectedProduct = productResult.data;
-      
-      // 상품 정보 화면 바인딩
-      document.getElementById("order-product-img").src = selectedProduct.thumbnailUrl;
-      document.getElementById("order-brand").textContent = selectedProduct.brand;
-      document.getElementById("order-name").textContent = selectedProduct.name;
-      
-      const totalPrice = selectedProduct.price;
-      const priceStr = `${totalPrice.toLocaleString()}원`;
-      
-      document.getElementById("order-unit-price").textContent = priceStr;
-      
-      const elTotalPrice = document.getElementById("order-total-price");
-      const elFinalPrice = document.getElementById("order-final-price");
-      const elSubmitPrice = document.getElementById("btn-submit-price");
-      
-      if (elTotalPrice) elTotalPrice.textContent = priceStr;
-      if (elFinalPrice) elFinalPrice.textContent = priceStr;
-      if (elSubmitPrice) elSubmitPrice.textContent = priceStr;
-    } else {
-      alert("상품 정보를 찾을 수 없습니다.");
-      location.href = "index.html";
-      return;
+  // bfcache로 페이지가 복원될 때(pageshow, persisted) 재검증할 수 있도록 함수로 분리한다.
+  async function checkOrderAuthAndLoadData() {
+    // 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류만 다룬다.
+    try {
+      const authResult = await requestJson('/api/auth/me');
+      if (authResult && authResult.data) {
+        currentUser = authResult.data;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      console.error("인증 확인 실패:", error);
+      alert("사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+      return false;
     }
-  } catch (error) {
-    console.error("상품 정보 조회 실패:", error);
-    alert("상품 정보를 불러오는 데 실패했습니다.");
-    location.href = "index.html";
+
+    try {
+      const productResult = await requestJson(`/api/products/${productId}`);
+      if (productResult && productResult.data) {
+        selectedProduct = productResult.data;
+
+        // 상품 정보 화면 바인딩
+        document.getElementById("order-product-img").src = selectedProduct.thumbnailUrl;
+        document.getElementById("order-brand").textContent = selectedProduct.brand;
+        document.getElementById("order-name").textContent = selectedProduct.name;
+
+        const totalPrice = selectedProduct.price;
+        const priceStr = `${totalPrice.toLocaleString()}원`;
+
+        document.getElementById("order-unit-price").textContent = priceStr;
+
+        const elTotalPrice = document.getElementById("order-total-price");
+        const elFinalPrice = document.getElementById("order-final-price");
+        const elSubmitPrice = document.getElementById("btn-submit-price");
+
+        if (elTotalPrice) elTotalPrice.textContent = priceStr;
+        if (elFinalPrice) elFinalPrice.textContent = priceStr;
+        if (elSubmitPrice) elSubmitPrice.textContent = priceStr;
+      } else {
+        alert("상품 정보를 찾을 수 없습니다.");
+        location.href = "index.html";
+        return false;
+      }
+    } catch (error) {
+      console.error("상품 정보 조회 실패:", error);
+      alert("상품 정보를 불러오는 데 실패했습니다.");
+      location.href = "index.html";
+      return false;
+    }
+
+    // 인증 및 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
+    document.body.style.visibility = "visible";
+    document.body.style.opacity = "1";
+    return true;
+  }
+
+  const isReady = await checkOrderAuthAndLoadData();
+  if (!isReady) {
     return;
   }
 
-  // 인증 및 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
-  document.body.style.visibility = "visible";
-  document.body.style.opacity = "1";
+  // 뒤로가기 등으로 bfcache에서 페이지가 복원되면 head의 인라인 스크립트가 body를 다시 숨기므로,
+  // 여기서 재검증 후 다시 보여주지 않으면 흰 화면으로 남는다.
+  window.addEventListener('pageshow', async (event) => {
+    if (event.persisted) {
+      await checkOrderAuthAndLoadData();
+    }
+  });
 
   // 4. 선물 유형에 따른 받는 사람 UI 제어
   const receiverSection = document.getElementById("receiver-section");

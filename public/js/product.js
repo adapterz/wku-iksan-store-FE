@@ -193,22 +193,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   loadProductDetail(productId);
 
-  // 뒤로가기 버튼 로직
-  const backBtn = document.getElementById('btn-back');
-  if (backBtn) {
-    backBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      // 브라우저 히스토리가 있거나 리퍼러가 있는 경우 이전 페이지로 이동
-      if (window.history.length > 1 && document.referrer) {
-        window.history.back();
-      } else {
-        // 직접 진입 등 이전 페이지가 없는 경우 홈으로 이동
-        window.location.href = 'index.html';
-      }
-    });
-  }
-
-
+  // 뒤로가기 버튼은 component.js의 bindHeaderBackButton()이 공통으로 처리한다.
+  // (여기서 별도로 또 바인딩하면 클릭 한 번에 history.back()이 두 번 호출되어
+  //  히스토리가 2칸 뒤로 이동하면서 홈을 건너뛰는 문제가 있었다.)
 
   // 위시리스트 토글 로직
   const wishBtn = document.getElementById('btn-wish');
