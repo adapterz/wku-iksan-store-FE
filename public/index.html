@@ -78,29 +78,50 @@
             </div>
         </section>
 
-        <!-- Section 1: 둘러보기 상품 1 -->
-        <section class="horizontal-product-section">
+        <!-- Section 1: 둘러보기 상품 (고정 2열x3행 그리드 + 하단 좌우 페이지네이션, https://github.com/adapterz/wku-iksan-store-FE/issues/77) -->
+        <section class="ranking-section" id="browse-section">
             <div class="ranking-title-container">
-                <h3 class="ranking-title">둘러보기 상품 1</h3>
+                <h3 class="ranking-title">둘러보기 상품</h3>
+                <div class="info-tooltip-wrap">
+                    <button type="button" class="info-tooltip-btn" id="browse-info-btn" aria-label="둘러보기 상품 노출 기준 안내">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </button>
+                    <div class="info-tooltip" id="browse-info-tooltip" role="tooltip" hidden>
+                        <p>추후에 상품 정렬 기준이 생기면 수정</p>
+                    </div>
+                </div>
             </div>
-            <div class="horizontal-product-list" id="horizontal-list-1">
-                <!-- Dynamically loaded -->
-            </div>
-        </section>
 
-        <!-- Section 2: 둘러보기 상품 2 -->
-        <section class="horizontal-product-section">
-            <div class="ranking-title-container">
-                <h3 class="ranking-title">둘러보기 상품 2</h3>
+            <!-- Browse Cards Row (한 페이지당 6개, 3열x2행 고정, 페이지 전환 시 슬라이딩 애니메이션) -->
+            <div class="browse-cards-viewport" id="browse-cards-viewport">
+                <div class="ranking-cards-row browse-cards-row" id="browse-product-list">
+                    <!-- Dynamically loaded -->
+                </div>
             </div>
-            <div class="horizontal-product-list" id="horizontal-list-2">
-                <!-- Dynamically loaded -->
+
+            <!-- Pagination Controls -->
+            <div class="browse-pagination" id="browse-pagination">
+                <button type="button" id="btn-browse-prev" class="browse-page-btn" aria-label="이전 페이지">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <span class="browse-page-indicator" id="browse-page-indicator">1 / 1</span>
+                <button type="button" id="btn-browse-next" class="browse-page-btn" aria-label="다음 페이지">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
             </div>
         </section>
 
         <section class="ranking-section">
             <div class="ranking-title-container">
                 <h3 class="ranking-title" id="recommendation-title">회원님을 위한 추천 상품</h3>
+                <div class="info-tooltip-wrap">
+                    <button type="button" class="info-tooltip-btn" id="recommend-info-btn" aria-label="추천 상품 노출 기준 안내">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </button>
+                    <div class="info-tooltip" id="recommend-info-tooltip" role="tooltip" hidden>
+                        <p>추후에 상품 정렬 기준이 생기면 수정</p>
+                    </div>
+                </div>
             </div>
 
             <!-- Segment Filter (Removed) -->
@@ -108,7 +129,7 @@
             <!-- Price Filter Pills (Removed) -->
 
             <!-- Ranking Cards Row -->
-            <div class="ranking-cards-row">
+            <div class="ranking-cards-row" id="recommend-product-list">
                 <!-- Dynamically loaded via API -->
             </div>
 
