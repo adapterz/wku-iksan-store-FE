@@ -1,3 +1,17 @@
+// category.js/brand.js와 동일한 패턴: 공통 서브 헤더에 페이지 제목을 추가하고, 기본 검색·홈 아이콘은 제거한다.
+document.addEventListener('header:ready', () => {
+  const headerContainer = document.querySelector('header.main-header .header-container');
+  const rightIcons = document.querySelector('header.main-header .header-right-icons');
+  if (rightIcons) rightIcons.remove();
+
+  if (headerContainer) {
+    const title = document.createElement('h1');
+    title.className = 'header-title';
+    title.textContent = '프로필 편집';
+    headerContainer.appendChild(title);
+  }
+});
+
 // signup.js/login.js와 동일한 컨벤션: 화면별로 필요한 에러 코드만 모아 둔다.
 const ERROR_MESSAGES = Object.freeze({
   // 닉네임 오류
