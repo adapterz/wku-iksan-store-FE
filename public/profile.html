@@ -106,6 +106,17 @@
         <!-- Dynamically injected by component.js -->
     </nav>
 
+    <!-- Confirm/Alert Popup (order.html의 order-back-overlay와 동일한 스타일을 재사용) -->
+    <div id="profile-popup-overlay" class="order-back-overlay">
+        <div class="order-back-card">
+            <p id="profile-popup-message"></p>
+            <div class="order-back-buttons">
+                <button type="button" id="profile-popup-cancel" class="order-back-btn order-back-btn-cancel">취소</button>
+                <button type="button" id="profile-popup-confirm" class="order-back-btn order-back-btn-confirm">확인</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Script -->
     <script src="js/api.js"></script>
     <script src="js/component.js" defer></script>

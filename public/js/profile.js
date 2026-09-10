@@ -81,6 +81,52 @@ function clearFormError(form, globalErrorEl) {
   });
 }
 
+// 브라우저 기본 alert()/confirm() 대신, order.html의 나가기 확인 오버레이와 동일한 스타일의
+// 커스텀 팝업(#profile-popup-overlay)을 재사용한다. showCancel이 false면 확인 버튼만 남는 알림 팝업이 된다.
+function showPopup(message, { showCancel = false } = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('profile-popup-overlay');
+    const messageEl = document.getElementById('profile-popup-message');
+    const cancelBtn = document.getElementById('profile-popup-cancel');
+    const confirmBtn = document.getElementById('profile-popup-confirm');
+
+    if (!overlay || !messageEl || !cancelBtn || !confirmBtn) {
+      // 팝업 마크업이 없는 페이지에서는 브라우저 기본 대화상자로 대체한다.
+      if (showCancel) {
+        resolve(window.confirm(message));
+      } else {
+        window.alert(message);
+        resolve(true);
+      }
+      return;
+    }
+
+    messageEl.textContent = message;
+    cancelBtn.hidden = !showCancel;
+
+    const cleanup = (result) => {
+      overlay.classList.remove('show');
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn.removeEventListener('click', onCancel);
+      resolve(result);
+    };
+    const onConfirm = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn.addEventListener('click', onCancel);
+    overlay.classList.add('show');
+  });
+}
+
+function showAlertPopup(message) {
+  return showPopup(message, { showCancel: false });
+}
+
+function showConfirmPopup(message) {
+  return showPopup(message, { showCancel: true });
+}
+
 function validateNicknameValue(nickname, nicknameInput) {
   if (!nickname) {
     return { isValid: false, message: ERROR_MESSAGES.REQUIRED_NICKNAME, element: nicknameInput };
@@ -333,7 +379,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 계정 삭제
+  // 계정 삭제 — 확인 절차가 이미 커스텀 팝업이므로, 결과 메시지도 같은 팝업으로 통일한다.
   const deleteForm = document.getElementById('delete-account-form');
   const deleteFormError = document.getElementById('delete-account-error');
   if (deleteForm) {
@@ -343,11 +389,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const password = deleteForm.password.value;
       if (!password) {
-        showFormError(deleteFormError, ERROR_MESSAGES.REQUIRED_PASSWORD, deleteForm.password);
+        await showAlertPopup(ERROR_MESSAGES.REQUIRED_PASSWORD);
+        deleteForm.password.focus();
         return;
       }
 
-      if (!window.confirm('정말 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      const confirmed = await showConfirmPopup('정말 계정을 삭제 하시겠습니까? 복구할 수 없습니다.');
+      if (!confirmed) {
         return;
       }
 
@@ -362,16 +410,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.removeItem('isLoggedIn');
         window._wishlistCache = null;
         window._wishlistFetchPromise = null;
-        window.showToast('계정이 삭제되었습니다.', 0);
-        // 토스트가 alert()과 달리 확인 클릭 없이 사라지므로, 리다이렉트 전에
-        // 사용자가 메시지를 읽을 시간을 api.js의 401 리다이렉트와 동일하게 확보한다.
-        setTimeout(() => {
-          window.location.href = 'login.html';
-        }, 800);
+        await showAlertPopup('계정이 삭제되었습니다.');
+        window.location.href = 'login.html';
       } catch (error) {
         console.error('계정 삭제 실패:', error);
-        const target = error.code === 'INVALID_PASSWORD' ? deleteForm.password : null;
-        showFormError(deleteFormError, ERROR_MESSAGES[error.code] || ERROR_MESSAGES.INTERNAL_SERVER_ERROR, target);
+
+        // BE 오류 응답에는 미사용 선물 개수가 담겨 있지 않아, 별도로 조회해 메시지에 채워 넣는다.
+        if (error.code === 'ACCOUNT_HAS_UNUSED_GIFTS') {
+          let message = ERROR_MESSAGES.ACCOUNT_HAS_UNUSED_GIFTS;
+          try {
+            const unusedResult = await requestJson('/api/gifts?status=unused');
+            if (unusedResult && Array.isArray(unusedResult.data)) {
+              message = `미사용 선물이 ${unusedResult.data.length}개 있습니다.`;
+            }
+          } catch (countError) {
+            console.error('미사용 선물 개수 조회 실패:', countError);
+          }
+          await showAlertPopup(message);
+          return;
+        }
+
+        await showAlertPopup(ERROR_MESSAGES[error.code] || ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
+        if (error.code === 'INVALID_PASSWORD') {
+          deleteForm.password.focus();
+        }
       } finally {
         if (submitBtn) submitBtn.disabled = false;
       }

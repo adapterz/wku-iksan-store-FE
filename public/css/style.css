@@ -2993,6 +2993,14 @@ body {
     background-color: #191919;
     color: #E0E0E0;
 }
+/* 계정 삭제 팝업의 확인 버튼은 "계정 삭제" 버튼(.btn-danger)과 색을 맞춘다 */
+#profile-popup-confirm {
+    background-color: #f15746;
+    color: #fff;
+}
+#profile-popup-confirm:hover {
+    background-color: #d8402f;
+}
 
 /* Styles from mypage.html */
 .page-mypage /* 마이페이지 ui 글꼴 bold체 없애기 */
