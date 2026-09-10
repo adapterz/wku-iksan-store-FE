@@ -1,16 +1,4 @@
-// category.js/brand.js와 동일한 패턴: 공통 서브 헤더에 페이지 제목을 추가하고, 기본 검색·홈 아이콘은 제거한다.
-document.addEventListener('header:ready', () => {
-  const headerContainer = document.querySelector('header.main-header .header-container');
-  const rightIcons = document.querySelector('header.main-header .header-right-icons');
-  if (rightIcons) rightIcons.remove();
-
-  if (headerContainer) {
-    const title = document.createElement('h1');
-    title.className = 'header-title';
-    title.textContent = '프로필 편집';
-    headerContainer.appendChild(title);
-  }
-});
+window.setSubHeaderTitle('프로필 편집');
 
 // signup.js/login.js와 동일한 컨벤션: 화면별로 필요한 에러 코드만 모아 둔다.
 const ERROR_MESSAGES = Object.freeze({
@@ -44,42 +32,9 @@ const ERROR_MESSAGES = Object.freeze({
   INTERNAL_SERVER_ERROR: '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
 });
 
-// form 범위 안에서만 동작하는 에러 표시/초기화 헬퍼 (여러 form이 서로의 에러를 건드리지 않도록 분리)
-function showFormError(globalErrorEl, message, focusElement = null) {
-  if (focusElement) {
-    const parentGroup = focusElement.closest('.form-group');
-    const inlineErrorEl = parentGroup ? parentGroup.querySelector('.auth-error') : null;
-    if (inlineErrorEl) {
-      inlineErrorEl.textContent = message;
-      inlineErrorEl.hidden = false;
-      inlineErrorEl.setAttribute('aria-live', 'polite');
-    }
-    focusElement.setAttribute('aria-invalid', 'true');
-    if (document.activeElement !== focusElement) {
-      focusElement.focus();
-    }
-  } else if (globalErrorEl) {
-    globalErrorEl.textContent = message;
-    globalErrorEl.hidden = false;
-    globalErrorEl.setAttribute('aria-live', 'polite');
-  }
-}
-
-function clearFormError(form, globalErrorEl) {
-  if (globalErrorEl) {
-    globalErrorEl.hidden = true;
-    globalErrorEl.textContent = '';
-  }
-  Array.from(form.querySelectorAll('input')).forEach((input) => {
-    input.removeAttribute('aria-invalid');
-    const parentGroup = input.closest('.form-group');
-    const inlineErrorEl = parentGroup ? parentGroup.querySelector('.auth-error') : null;
-    if (inlineErrorEl) {
-      inlineErrorEl.hidden = true;
-      inlineErrorEl.textContent = '';
-    }
-  });
-}
+// login.js/signup.js와 동일한 인라인 폼 에러 로직이라 component.js의 공통 헬퍼를 그대로 쓴다.
+const showFormError = window.showFieldError;
+const clearFormError = window.clearFieldErrors;
 
 // 브라우저 기본 alert()/confirm() 대신, order.html의 나가기 확인 오버레이와 동일한 스타일의
 // 커스텀 팝업(#profile-popup-overlay)을 재사용한다. showCancel이 false면 확인 버튼만 남는 알림 팝업이 된다.
@@ -195,7 +150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return true;
     } catch (error) {
       console.error('사용자 정보를 불러오지 못했습니다:', error);
-      alert('사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+      window.alert('사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
       return false;
     }
   }
@@ -380,12 +335,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 계정 삭제 — 확인 절차가 이미 커스텀 팝업이므로, 결과 메시지도 같은 팝업으로 통일한다.
+  // (메시지를 팝업으로만 띄우기 때문에 다른 폼과 달리 인라인 에러 요소는 쓰지 않는다.)
   const deleteForm = document.getElementById('delete-account-form');
-  const deleteFormError = document.getElementById('delete-account-error');
   if (deleteForm) {
     deleteForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      clearFormError(deleteForm, deleteFormError);
 
       const password = deleteForm.password.value;
       if (!password) {

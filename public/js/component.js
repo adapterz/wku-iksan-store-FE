@@ -199,6 +199,68 @@ function bindHeaderBackButton() {
     }
 }
 
+// 서브 헤더에 페이지 제목만 필요한 화면(category.js/brand.js/profile.js 등) 공통 헬퍼.
+// header:ready 이후 우측 검색·홈 아이콘을 지우고 그 자리에 제목을 넣는다.
+window.setSubHeaderTitle = function(titleText) {
+    document.addEventListener('header:ready', () => {
+        const headerContainer = document.querySelector('header.main-header .header-container');
+        const rightIcons = document.querySelector('header.main-header .header-right-icons');
+        if (rightIcons) rightIcons.remove();
+
+        if (headerContainer) {
+            const title = document.createElement('h1');
+            title.className = 'header-title';
+            title.textContent = titleText;
+            headerContainer.appendChild(title);
+        }
+    });
+};
+
+// login.js/signup.js/profile.js가 각자 들고 있던 동일한 폼 에러 표시/초기화 로직의 공통 버전.
+// focusElement가 있으면 그 input이 속한 .form-group 안의 .auth-error에 인라인으로 표시하고,
+// 없으면 globalErrorEl(폼 전역 에러 문구)에 표시한다.
+window.showFieldError = function(globalErrorEl, message, focusElement = null) {
+    if (focusElement) {
+        const parentGroup = focusElement.closest('.form-group');
+        const inlineErrorEl = parentGroup ? parentGroup.querySelector('.auth-error') : null;
+        if (inlineErrorEl) {
+            if (inlineErrorEl.textContent !== message) {
+                inlineErrorEl.textContent = message;
+            }
+            inlineErrorEl.hidden = false;
+            inlineErrorEl.setAttribute('aria-live', 'polite');
+        }
+        focusElement.setAttribute('aria-invalid', 'true');
+        if (document.activeElement !== focusElement) {
+            focusElement.focus();
+        }
+    } else if (globalErrorEl) {
+        if (globalErrorEl.textContent !== message) {
+            globalErrorEl.textContent = message;
+        }
+        globalErrorEl.hidden = false;
+        globalErrorEl.setAttribute('aria-live', 'polite');
+    }
+};
+
+// form 안 모든 input의 에러 상태(aria-invalid, 인라인 .auth-error)와 전역 에러 요소를 초기화한다.
+window.clearFieldErrors = function(form, globalErrorEl) {
+    if (globalErrorEl) {
+        globalErrorEl.hidden = true;
+        globalErrorEl.textContent = '';
+    }
+    if (!form) return;
+    Array.from(form.querySelectorAll('input')).forEach((input) => {
+        input.removeAttribute('aria-invalid');
+        const parentGroup = input.closest('.form-group');
+        const inlineErrorEl = parentGroup ? parentGroup.querySelector('.auth-error') : null;
+        if (inlineErrorEl) {
+            inlineErrorEl.hidden = true;
+            inlineErrorEl.textContent = '';
+        }
+    });
+};
+
 // 검색 결과 페이지(search.html) 전용 헤더 HTML 반환 함수
 // index.html의 회색 검색 인라인 박스(.header-search-box)를 재사용하되, 오버레이 대신
 // 이 자리에서 바로 입력·재검색할 수 있도록 실제 <input>으로 구성한다.

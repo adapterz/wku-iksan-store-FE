@@ -31,58 +31,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('signup-form');
   const errorEl = document.getElementById('signup-error');
   const submitBtn = form ? form.querySelector('.btn-auth-submit') : null;
-  
-  // 2. 폼 안의 모든 input 요소들을 1회만 조회하여 캐싱 (DOM 재탐색 방지)
-  const formInputs = form ? Array.from(form.querySelectorAll('input')) : [];
 
-  // UX/A11y 강화를 위해 포커스를 이동시킬 element를 인자로 추가
+  // login.js와 동일하게 쓰던 인라인 폼 에러 로직이라 component.js의 공통 헬퍼에 위임한다.
+  // (호출부는 그대로 두기 위해 이 페이지의 form/errorEl을 닫는 얇은 래퍼만 남긴다.)
   function showError(message, focusElement = null) {
-    if (focusElement) {
-      const parentGroup = focusElement.closest('.form-group');
-      if (parentGroup) {
-        const inlineErrorEl = parentGroup.querySelector('.auth-error');
-        if (inlineErrorEl) {
-          if (inlineErrorEl.textContent !== message) {
-            inlineErrorEl.textContent = message;
-          }
-          inlineErrorEl.hidden = false;
-          inlineErrorEl.setAttribute('aria-live', 'polite');
-        }
-      }
-      focusElement.setAttribute('aria-invalid', 'true');
-      if (document.activeElement !== focusElement) {
-        focusElement.focus();
-      }
-    } else {
-      // 글로벌 에러 (네트워크 에러 등 특정 input이 없는 경우)
-      if (!errorEl) return;
-      if (errorEl.textContent !== message) {
-        errorEl.textContent = message;
-      }
-      errorEl.hidden = false;
-      errorEl.setAttribute('aria-live', 'polite');
-    }
+    window.showFieldError(errorEl, message, focusElement);
   }
 
   function clearError() {
-    // 글로벌 에러 초기화
-    if (errorEl) {
-      errorEl.hidden = true;
-      errorEl.textContent = '';
-    }
-    
-    // 폼 내 모든 입력창의 에러 상태 및 인라인 에러 텍스트 초기화
-    formInputs.forEach(input => {
-      input.removeAttribute('aria-invalid');
-      const parentGroup = input.closest('.form-group');
-      if (parentGroup) {
-        const inlineErrorEl = parentGroup.querySelector('.auth-error');
-        if (inlineErrorEl) {
-          inlineErrorEl.hidden = true;
-          inlineErrorEl.textContent = '';
-        }
-      }
-    });
+    window.clearFieldErrors(form, errorEl);
   }
 
   // 유효성 검사 로직을 별도 함수로 분리 (관심사 분리, DRY 원칙)

@@ -1,16 +1,4 @@
-// 공통 서브 헤더에 브랜드 페이지 제목을 추가하고, 기본 검색·홈 아이콘은 제거한다.
-document.addEventListener('header:ready', () => {
-    const headerContainer = document.querySelector('header.main-header .header-container');
-    const rightIcons = document.querySelector('header.main-header .header-right-icons');
-    if (rightIcons) rightIcons.remove();
-
-    if (headerContainer) {
-        const title = document.createElement('h1');
-        title.className = 'header-title';
-        title.textContent = '브랜드';
-        headerContainer.appendChild(title);
-    }
-});
+window.setSubHeaderTitle('브랜드');
 
 document.addEventListener('DOMContentLoaded', () => {
     const BRAND_CACHE_TTL_MS = 5 * 60 * 1000;
