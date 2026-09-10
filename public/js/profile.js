@@ -143,6 +143,11 @@ function validateNewPasswordValue(password, passwordInput) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // bfcache 복원(뒤로가기→앞으로가기) 시에도 이 함수가 다시 호출되는데, 그때 닉네임/이메일
+  // input을 서버 값으로 다시 채우면 수정 중이던 값이 조용히 덮어써진다. bfcache는 페이지를
+  // 떠날 때의 input 값을 그대로 복원해주므로, 최초 로드 때만 프리필하면 된다.
+  let hasPrefilled = false;
+
   // 인증 확인 및 현재 값(닉네임/이메일) 프리필. 성공 시 true, 실패(리다이렉트 처리됨) 시 false를 반환한다.
   async function checkAuthAndLoadUserData() {
     try {
@@ -152,10 +157,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       const user = resData.data;
-      const nicknameInput = document.getElementById('nickname');
-      const emailInput = document.getElementById('email');
-      if (nicknameInput) nicknameInput.value = user.nickname || '';
-      if (emailInput) emailInput.value = user.email || '';
+      if (!hasPrefilled) {
+        const nicknameInput = document.getElementById('nickname');
+        const emailInput = document.getElementById('email');
+        if (nicknameInput) nicknameInput.value = user.nickname || '';
+        if (emailInput) emailInput.value = user.email || '';
+        hasPrefilled = true;
+      }
 
       document.body.style.visibility = 'visible';
       document.body.style.opacity = '1';
@@ -299,6 +307,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.showToast('이메일이 변경되었습니다.');
       } catch (error) {
         console.error('이메일 변경 실패:', error);
+        // 실패 케이스에도 비밀번호 입력값이 그대로 남아있지 않도록 비운다.
+        emailForm.password.value = '';
         const target = error.code === 'EMAIL_ALREADY_EXISTS' ? emailForm.email
           : error.code === 'INVALID_PASSWORD' ? emailForm.password
           : null;
@@ -345,6 +355,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.showToast('비밀번호가 변경되었습니다.');
       } catch (error) {
         console.error('비밀번호 변경 실패:', error);
+        // 실패 케이스에도 비밀번호 입력값들이 그대로 남아있지 않도록 비운다.
+        passwordForm.currentPassword.value = '';
+        passwordForm.newPassword.value = '';
+        if (strengthIndicator) strengthIndicator.classList.remove('badge-visible');
         const target = error.code === 'INVALID_PASSWORD' ? passwordForm.currentPassword : null;
         showFormError(passwordFormError, ERROR_MESSAGES[error.code] || ERROR_MESSAGES.INTERNAL_SERVER_ERROR, target);
       } finally {
@@ -392,12 +406,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.href = 'login.html';
       } catch (error) {
         console.error('계정 삭제 실패:', error);
+        // 실패 케이스에도 비밀번호 입력값이 그대로 남아있지 않도록 비운다.
+        deleteForm.password.value = '';
 
         // BE 오류 응답에는 미사용 선물 개수가 담겨 있지 않아, 별도로 조회해 메시지에 채워 넣는다.
         if (error.code === 'ACCOUNT_HAS_UNUSED_GIFTS') {
           let message = ERROR_MESSAGES.ACCOUNT_HAS_UNUSED_GIFTS;
           try {
-            const unusedResult = await requestJson('/api/gifts?status=unused');
+            // silent401: 이 조회가 401을 받아도 전역 리다이렉트 토스트가 지금 띄우려는
+            // 안내 팝업을 가로채지 않도록, 조용히 실패해서 기본 메시지로 폴백하게 한다.
+            const unusedResult = await requestJson('/api/gifts?status=unused', { silent401: true });
             if (unusedResult && Array.isArray(unusedResult.data)) {
               message = `미사용 선물이 ${unusedResult.data.length}개 있습니다.`;
             }
