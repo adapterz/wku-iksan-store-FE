@@ -236,6 +236,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           method: 'PATCH',
           body: { nickname }
         });
+        // 401(세션 만료)이면 requestJson()이 예외 대신 undefined를 반환하고 전역 리다이렉트를 이미 처리했으므로,
+        // 여기서 추가 메시지 없이 조용히 빠져나간다 (checkAuthAndLoadUserData와 동일한 패턴).
+        if (!result) return;
         const displayNicknameEl = document.getElementById('display-nickname');
         if (displayNicknameEl && result.data) displayNicknameEl.textContent = result.data.nickname;
         window.showToast('닉네임이 변경되었습니다.');
@@ -274,10 +277,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (submitBtn) submitBtn.disabled = true;
 
       try {
-        await requestJson('/api/users/me/email', {
+        const result = await requestJson('/api/users/me/email', {
           method: 'PATCH',
           body: { email, password }
         });
+        // 401이면 requestJson()이 undefined를 반환하고 전역 리다이렉트를 이미 처리했으므로 조용히 빠져나간다.
+        if (!result) return;
         emailForm.password.value = '';
         window.showToast('이메일이 변경되었습니다.');
       } catch (error) {
@@ -317,10 +322,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (submitBtn) submitBtn.disabled = true;
 
       try {
-        await requestJson('/api/users/me/password', {
+        const result = await requestJson('/api/users/me/password', {
           method: 'PATCH',
           body: { currentPassword, newPassword }
         });
+        // 401이면 requestJson()이 undefined를 반환하고 전역 리다이렉트를 이미 처리했으므로 조용히 빠져나간다.
+        if (!result) return;
         passwordForm.reset();
         if (strengthIndicator) strengthIndicator.classList.remove('badge-visible');
         window.showToast('비밀번호가 변경되었습니다.');
@@ -357,10 +364,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (submitBtn) submitBtn.disabled = true;
 
       try {
-        await requestJson('/api/users/me', {
+        const result = await requestJson('/api/users/me', {
           method: 'DELETE',
           body: { password }
         });
+        // 401이면 requestJson()이 undefined를 반환하고 전역 리다이렉트를 이미 처리했으므로,
+        // "계정이 삭제되었습니다" 같은 거짓 성공 메시지를 띄우지 않고 조용히 빠져나간다.
+        if (!result) return;
         localStorage.removeItem('isLoggedIn');
         window._wishlistCache = null;
         window._wishlistFetchPromise = null;
