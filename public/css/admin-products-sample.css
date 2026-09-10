@@ -1,0 +1,56 @@
+/* Isolated prototype: no production selectors or page scripts are changed. */
+.admin-sample{box-shadow:none;font-size:14px}
+body.admin-sample{padding-bottom:0}
+.admin-sample button,.admin-sample select,.admin-sample textarea,.admin-sample input{font:inherit}
+.admin-sample button:disabled{opacity:.45;cursor:not-allowed}
+.admin-sample [hidden]{display:none!important}
+.admin-sample button:focus-visible,.admin-sample a:focus-visible,.admin-sample input:focus-visible,.admin-sample select:focus-visible{outline:2px solid #191919;outline-offset:3px}
+
+.ai-header{height:60px;display:flex;align-items:center;padding:0 16px;border-bottom:1px solid #f2f2f2;background:#fff}
+.ai-header h1{font-size:17px;font-weight:700}
+.ai-preview{display:flex;align-items:center;justify-content:space-between;background:#f7f7f7;color:#767676;padding:9px 16px;font-size:10px;gap:8px}
+
+.ai-gate{padding:60px 16px;text-align:center;color:#767676;font-size:13px}
+.ai-gate button{margin-top:16px}
+
+.ai-tabs{display:flex;gap:4px;border-bottom:1px solid #eee;padding:0 16px;background:#fff;position:sticky;top:0;z-index:2}
+.ai-tabs button{padding:14px 4px;margin-right:16px;color:#999;font-size:14px;border-bottom:2px solid transparent}
+.ai-tabs button[aria-current=page]{color:#191919;border-color:#191919;font-weight:700}
+
+.ap-status-filter{display:flex;gap:6px;padding:12px 16px;flex-wrap:wrap}
+.ap-status-filter button{font-size:12.5px;padding:6px 12px;border:1px solid #ddd;border-radius:100px;color:#555}
+.ap-status-filter button[aria-current=page]{background:var(--primary-color);color:#fff;border-color:var(--primary-color)}
+
+.ai-list{padding:0 16px 16px;display:flex;flex-direction:column;gap:10px}
+.ai-card{background:#fff;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:14px 16px}
+.ai-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ai-card-head-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ai-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:100px}
+.ai-badge.status-active{background:#e9f4e1;color:#3c6b2b}
+.ai-badge.status-hidden{background:#fff3d9;color:#8a5a10}
+.ai-badge.status-discontinued{background:#eee;color:#888}
+.ai-id{font-size:11px;color:#999}
+.ai-content{font-size:14px;color:#191919;margin:10px 0 4px;line-height:1.6;font-weight:700}
+.ai-meta{font-size:11px;color:#999;margin:0 0 8px;line-height:1.7}
+.ai-btn-row{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.ai-toggle{font-size:12.5px;padding:6px 12px;border:1px solid #ddd;border-radius:6px;color:#555}
+.ai-toggle.danger{color:#b64535;border-color:#f0c9c0}
+.ai-primary{border-radius:8px;background:var(--primary-color);color:#fff;padding:9px 16px;font-weight:700!important;font-size:13px}
+.ai-secondary{border:1px solid #ddd;padding:9px 16px;border-radius:6px;background:#fff;font-size:13px!important}
+
+.as-form-panel{margin:12px 16px 24px;padding:16px;background:#fff;border:1px solid var(--border-color);border-radius:var(--radius-md)}
+.as-form-title{font-size:13px;font-weight:700;margin-bottom:12px}
+.as-field{margin-bottom:12px}
+.as-field label{display:block;font-size:12px;color:#767676;margin-bottom:5px}
+.as-field input[type=text],.as-field input[type=number],.as-field select,.as-field textarea{width:100%;border:1px solid #ddd;border-radius:8px;padding:8px 10px;font-size:13px}
+.as-field input[type=text],.as-field input[type=number],.as-field select{height:38px}
+.as-field textarea{resize:vertical;min-height:56px;line-height:1.6}
+.ap-optional-details{margin-top:4px;margin-bottom:12px}
+.ap-optional-details summary{font-size:12.5px;color:#767676;cursor:pointer;padding:4px 0}
+.ap-optional-details .as-field{margin-top:10px}
+.ai-field-error{color:#b64535;font-size:12px;margin:6px 0 0}
+.ai-empty{text-align:center;padding:40px 16px;color:#999;font-size:13px}
+.ai-footer{margin-top:auto;padding:32px 16px 28px;text-align:center;color:#aaa;font-size:10px;background:#fafafa;line-height:2}
+.ai-footer a{color:#888;text-decoration:underline}
+#toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);width:max-content;max-width:90%;padding:12px 20px;background:#222;color:white;border-radius:8px;font-size:12px;z-index:20}
+#page-error{color:#b64535;padding:15px 16px;font-size:12px}
