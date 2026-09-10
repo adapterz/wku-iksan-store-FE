@@ -36,6 +36,11 @@ const ERROR_MESSAGES = Object.freeze({
 const showFormError = window.showFieldError;
 const clearFormError = window.clearFieldErrors;
 
+// 팝업이 열려 있는 도중 showPopup()이 다시 호출되는 경우(예: 폼 이중 제출)를 대비한 가드.
+// 정리하지 않으면 confirm/cancel 버튼에 리스너가 계속 쌓여, 버튼 클릭 한 번에 여러 Promise가
+// 동시에 resolve되어 요청이 중복 전송될 수 있다.
+let activePopupCleanup = null;
+
 // 브라우저 기본 alert()/confirm() 대신, order.html의 나가기 확인 오버레이와 동일한 스타일의
 // 커스텀 팝업(#profile-popup-overlay)을 재사용한다. showCancel이 false면 확인 버튼만 남는 알림 팝업이 된다.
 function showPopup(message, { showCancel = false } = {}) {
@@ -56,6 +61,11 @@ function showPopup(message, { showCancel = false } = {}) {
       return;
     }
 
+    // 이전에 열려 있던(아직 해소되지 않은) 팝업이 있다면 취소 처리로 정리한 뒤 새로 연다.
+    if (activePopupCleanup) {
+      activePopupCleanup(false);
+    }
+
     messageEl.textContent = message;
     cancelBtn.hidden = !showCancel;
 
@@ -63,11 +73,13 @@ function showPopup(message, { showCancel = false } = {}) {
       overlay.classList.remove('show');
       confirmBtn.removeEventListener('click', onConfirm);
       cancelBtn.removeEventListener('click', onCancel);
+      if (activePopupCleanup === cleanup) activePopupCleanup = null;
       resolve(result);
     };
     const onConfirm = () => cleanup(true);
     const onCancel = () => cleanup(false);
 
+    activePopupCleanup = cleanup;
     confirmBtn.addEventListener('click', onConfirm);
     cancelBtn.addEventListener('click', onCancel);
     overlay.classList.add('show');
@@ -348,22 +360,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     deleteForm.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const password = deleteForm.password.value;
-      if (!password) {
-        await showAlertPopup(ERROR_MESSAGES.REQUIRED_PASSWORD);
-        deleteForm.password.focus();
-        return;
-      }
-
-      const confirmed = await showConfirmPopup('정말 계정을 삭제 하시겠습니까? 복구할 수 없습니다.');
-      if (!confirmed) {
-        return;
-      }
-
+      // 확인 팝업이 뜨기 전(비밀번호 검증 단계)부터 버튼을 잠가, 팝업이 열려 있는 동안
+      // Enter 연타 등으로 이 핸들러가 다시 실행되며 확인 팝업이 중복으로 열리는 것을 막는다.
       const submitBtn = deleteForm.querySelector('.btn-auth-submit');
       if (submitBtn) submitBtn.disabled = true;
 
       try {
+        const password = deleteForm.password.value;
+        if (!password) {
+          await showAlertPopup(ERROR_MESSAGES.REQUIRED_PASSWORD);
+          deleteForm.password.focus();
+          return;
+        }
+
+        const confirmed = await showConfirmPopup('정말 계정을 삭제 하시겠습니까? 복구할 수 없습니다.');
+        if (!confirmed) {
+          return;
+        }
+
         const result = await requestJson('/api/users/me', {
           method: 'DELETE',
           body: { password }
