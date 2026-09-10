@@ -2684,15 +2684,55 @@ body {
     align-items: center;
     gap: 16px;
 }
-.profile-logout-btn {
-    margin-left: auto;
+.profile-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+}
+.profile-action-btn {
+    flex: 1;
+    text-align: center;
     font-size: 13px;
-    color: #999;
+    color: #666;
     background: none;
     border: 1px solid #e5e5e5;
     border-radius: 20px;
-    padding: 6px 14px;
+    padding: 8px 14px;
     cursor: pointer;
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
+/* Profile Edit Page */
+.profile-edit-content {
+    max-width: 430px;
+    margin: 0 auto;
+    padding: 16px 20px 40px;
+}
+.profile-edit-section {
+    background-color: #fff;
+    border-bottom: 8px solid #f4f4f4;
+    padding: 20px 0;
+}
+.profile-edit-section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #191919;
+    margin: 0 0 14px;
+}
+.profile-edit-desc {
+    font-size: 13px;
+    color: #999;
+    margin: -6px 0 14px;
+}
+.profile-edit-danger .profile-edit-section-title {
+    color: #f15746;
+}
+.btn-danger {
+    background-color: #f15746 !important;
+}
+.btn-danger:hover {
+    background-color: #d8402f !important;
 }
 .profile-img-container {
     width: 56px;
