@@ -60,10 +60,14 @@ function renderDashboard(data) {
   );
 
   const productEl = document.getElementById('product-stats');
-  productEl.replaceChildren(
-    statCard('활성 상품', data.products.totalCount),
+  const showDiscontinued = data.products.discontinuedCount > 0;
+  productEl.className = 'ai-stat-grid' + (showDiscontinued ? '' : ' two');
+  const productCards = [
+    statCard('판매 중 상품', data.products.totalCount),
     statCard('숨김 상품', data.products.hiddenCount)
-  );
+  ];
+  if (showDiscontinued) productCards.push(statCard('단종 상품', data.products.discontinuedCount));
+  productEl.replaceChildren(...productCards);
 
   const brandRowsEl = document.getElementById('brand-rows');
   const max = Math.max(...data.products.byBrand.map(b => b.count), 1);

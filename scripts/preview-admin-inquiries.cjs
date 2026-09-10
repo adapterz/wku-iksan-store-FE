@@ -40,14 +40,15 @@ async function main() {
       [i+1,'sample'+i+'@example.test',password,i===0?'admin':'user',name]);
   const ADMIN_ID=1, APPELLANT_ID=2, SUSPENDED_ID=3, REPORTER_ID=4;
 
-  // 상품 현황(products.byBrand/hiddenCount)을 채우기 위한 카테고리 + 상품(브랜드 5개, 1개 hidden).
+  // 상품 현황(products.byBrand/hiddenCount/discontinuedCount)을 채우기 위한 카테고리 + 상품(브랜드 6개, 1개 hidden, 1개 discontinued).
   await connection.query("INSERT INTO categories (id,name) VALUES (1,'익산 특산품')");
   const products=[
     ['익산 딸기잼','익산로컬푸드',12000,'active'],
     ['한지 공예 세트','전주한지',34000,'active'],
     ['건해물 선물세트','군산해물',28000,'active'],
     ['목기 다과상','남원목기',52000,'hidden'],
-    ['정읍 햅쌀 5kg','정읍쌀',19000,'active']
+    ['정읍 햅쌀 5kg','정읍쌀',19000,'active'],
+    ['익산 곶감 세트','성당포구곶감',26000,'discontinued']
   ];
   for(const [name,brand,price,status] of products)
     await connection.query('INSERT INTO products (name,brand,price,category_id,status) VALUES (?,?,?,1,?)',[name,brand,price,status]);

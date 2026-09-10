@@ -49,7 +49,7 @@ API 검증 스크립트(23건)는 샘플 서버가 켜져 있을 때 실행하�
 - 현재 PR은 독립 샘플 초안입니다. 우선 miku의 진행 중인 작업과 파일·기능 범위가 겹치는지만 확인합니다.
 - 디자인과 전체 사용자 흐름의 상세 검토는 miku가 가능한 시점에 진행하며, 지금 최종 승인을 요청하는 것은 아닙니다.
 - 기존 공통 CSS/JS, index.html 등은 변경하지 않습니다. 실제 화면 연결 전 변경할 파일과 담당 범위를 조율합니다.
-- 의존 BE: 관리자 대시보드 API PR https://github.com/adapterz/wku-iksan-store-BE/pull/105 (리뷰 대기), 문의하기 API PR https://github.com/adapterz/wku-iksan-store-BE/pull/100 (병합됨)
+- 의존 BE: 관리자 대시보드 API PR https://github.com/adapterz/wku-iksan-store-BE/pull/105 (병합됨, `discontinuedCount` 필드 포함), 문의하기 API PR https://github.com/adapterz/wku-iksan-store-BE/pull/100 (병합됨), 정지 회원 리뷰 제한 PR https://github.com/adapterz/wku-iksan-store-BE/pull/107 (병합됨)
 - 설계: https://github.com/adapterz/wku-iksan-store-BE/issues/90
-- 아직 남은 사항: `sanctionId` 조회 화면(회원 제재), 리뷰 신고 큐, 상품·카테고리 관리 화면 — 이번 샘플에 없음. PR #105 자체도 아직 미확정 항목(hidden 상품이 byBrand에서 빠지는 것이 의도인지, inquiryCount 카테고리 분리 여부) 두 가지가 남아 있어 이 샘플의 대시보드 숫자도 그 결정에 따라 바뀔 수 있습니다.
+- 아직 남은 사항: `sanctionId` 조회 화면(회원 제재), 리뷰 신고 큐, 상품·카테고리 관리 화면 — 이번 샘플에 없음. inquiryCount는 여전히 일반/이의제기 구분 없이 합산됩니다(별도 결정 없으면 이대로 유지).
 - 운영용 완성 페이지가 아니므로 즉시 머지·배포하지 않습니다.

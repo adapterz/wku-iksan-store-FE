@@ -25,11 +25,11 @@ async function api(url, method = 'GET', body, authenticated = true) {
   check(dashboard.pendingActions.reportCount === 2, 'reportCount fixture');
   check(dashboard.pendingActions.inquiryCount === 2, 'inquiryCount fixture (general + appeal, answered excluded)');
   check(dashboard.pendingActions.activeSuspensionCount === 2, 'activeSuspensionCount counts suspensions only, not the warning');
-  check(dashboard.products.totalCount === 4, 'active product count excludes the hidden one');
+  check(dashboard.products.totalCount === 4, 'active product count excludes hidden/discontinued');
   check(dashboard.products.hiddenCount === 1, 'hiddenCount fixture');
-  // byBrand는 status='active'만 GROUP BY하므로, hidden 상품(남원목기)의 브랜드는 여기 아예 안 잡힌다
-  // (PR #105에서 논의 중인 "hidden/discontinued 브랜드가 byBrand에서 사라짐" 이슈를 그대로 재현).
-  check(dashboard.products.byBrand.length === 4, 'byBrand excludes the hidden product brand');
+  check(dashboard.products.discontinuedCount === 1, 'discontinuedCount fixture (PR #105 228a2f4)');
+  // byBrand는 status='active'만 GROUP BY하므로, hidden/discontinued 상품의 브랜드는 여기 안 잡힌다.
+  check(dashboard.products.byBrand.length === 4, 'byBrand excludes the hidden and discontinued product brands');
   check(dashboard.products.byBrand.every(b => b.count === 1), 'one active product per remaining brand');
 
   const pending = (await api('/api/admin/inquiries?status=pending')).body;
