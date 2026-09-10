@@ -1218,12 +1218,17 @@ body.page-brand-body {
 /* 둘러보기 상품 페이지 전환 슬라이딩 애니메이션 (두 패널이 동시에 화면에 보이며 나란히 이동).
    JS(home.js renderBrowsePage)가 애니메이션 중에는 기존 카드(.browse-panel-outgoing)와 다음
    카드(.browse-panel-incoming)를 뷰포트 안에 절대위치로 나란히 배치하고, 같은 방향으로 함께
-   translateX시킨 뒤 transitionend 시점에 기존 패널을 제거하고 새 패널을 원래 레이아웃으로 되돌린다. */
+   translateX시킨 뒤 transitionend 시점에 기존 패널을 제거하고 새 패널을 원래 레이아웃으로 되돌린다.
+   지속시간/커브를 #browse-section에 한 번만 정의해, 슬라이드(transform)·높이·페이지 인디케이터
+   페이드가 전부 같은 리듬으로 움직이고 값 하나만 바꿔도 셋이 같이 조정되게 한다. */
+#browse-section {
+  --browse-slide-duration: 1.0s;
+  --browse-slide-easing: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .browse-cards-viewport {
   position: relative;
   overflow: hidden;
-  --browse-slide-duration: 1.0s;
-  --browse-slide-easing: cubic-bezier(0.16, 1, 0.3, 1);
   /* 페이지마다 카드 개수(높이)가 달라지므로, 가로 슬라이드와 같은 시간/커브로 높이도 함께
      움직여야 슬라이드가 끝나는 순간 뷰포트가 갑자기 줄어들며 "끊기는" 느낌이 나지 않는다. */
   transition: height var(--browse-slide-duration) var(--browse-slide-easing);
@@ -1319,6 +1324,15 @@ body.page-brand-body {
   font-size: 13px;
   font-weight: 600;
   color: #767676;
+  /* 텍스트는 CSS로 슬라이드시킬 수 없으므로 살짝 흐려졌다 새 숫자로 살아나는 페이드로 대체한다.
+     카드 슬라이드(--browse-slide-duration)보다 훨씬 짧게 잡아, 슬라이드가 끝나기 한참 전에
+     숫자 전환이 먼저 자연스럽게 끝나도록 한다(전체를 슬라이드와 같은 긴 시간으로 흐렸다 켜면
+     숫자만 한참 안 보이다 뒤늦게 나타나 오히려 더 끊겨 보인다). */
+  transition: opacity 0.15s var(--browse-slide-easing);
+}
+
+.browse-page-indicator.browse-indicator-fading {
+  opacity: 0;
 }
 
 /* Footer Section */

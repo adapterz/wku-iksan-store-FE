@@ -125,7 +125,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updateControls = () => {
       if (browsePagination) browsePagination.style.display = totalPages > 1 ? '' : 'none';
-      if (pageIndicator) pageIndicator.textContent = `${browsePageIndex + 1} / ${totalPages}`;
+
+      const indicatorText = `${browsePageIndex + 1} / ${totalPages}`;
+      if (pageIndicator) {
+        if (direction && pageIndicator.textContent !== indicatorText) {
+          // 카드 슬라이드와 함께 숫자가 뚝 바뀌지 않도록, 짧게 흐려졌다가 새 값으로 살아나게 한다.
+          pageIndicator.classList.add('browse-indicator-fading');
+          pageIndicator.addEventListener('transitionend', function onIndicatorFadeOut() {
+            pageIndicator.removeEventListener('transitionend', onIndicatorFadeOut);
+            pageIndicator.textContent = indicatorText;
+            pageIndicator.classList.remove('browse-indicator-fading');
+          }, { once: true });
+        } else if (!direction) {
+          // 최초 렌더 등 애니메이션 없이 바로 반영하는 경우는 페이드 없이 즉시 반영한다.
+          pageIndicator.textContent = indicatorText;
+        }
+      }
+
       if (btnPrev) btnPrev.disabled = browseAnimating || browsePageIndex === 0;
       if (btnNext) btnNext.disabled = browseAnimating || browsePageIndex >= totalPages - 1;
     };
