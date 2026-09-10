@@ -1,0 +1,84 @@
+'use strict';
+const assert = require('node:assert/strict');
+const origin = process.env.ADMIN_PREVIEW_URL || 'http://127.0.0.1:8089';
+if (new URL(origin).hostname !== '127.0.0.1') throw new Error('Local preview only');
+const APPELLANT_ID = 2; // preview-admin-inquiries.cjs 고정 픽스처
+let cookie = '', checks = 0;
+const check = (value, message) => { assert.ok(value, message); checks++; };
+
+async function api(url, method = 'GET', body, authenticated = true) {
+  const res = await fetch(origin + url, {
+    method,
+    headers: { ...(authenticated && cookie ? { cookie } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (res.headers.get('set-cookie')) cookie = res.headers.get('set-cookie').split(';')[0];
+  return { status: res.status, body: await res.json() };
+}
+
+(async () => {
+  check((await api('/__preview/status')).body.localPreview === true, 'preview guard');
+  check((await api('/api/admin/dashboard', 'GET', undefined, false)).status === 401, 'guest blocked from dashboard');
+  check((await api('/__preview/login', 'POST')).status === 200, 'fixture admin login');
+
+  const dashboard = (await api('/api/admin/dashboard')).body.data;
+  check(dashboard.pendingActions.reportCount === 2, 'reportCount fixture');
+  check(dashboard.pendingActions.inquiryCount === 2, 'inquiryCount fixture (general + appeal, answered excluded)');
+  check(dashboard.pendingActions.activeSuspensionCount === 2, 'activeSuspensionCount counts suspensions only, not the warning');
+  check(dashboard.products.totalCount === 4, 'active product count excludes the hidden one');
+  check(dashboard.products.hiddenCount === 1, 'hiddenCount fixture');
+  // byBrand는 status='active'만 GROUP BY하므로, hidden 상품(남원목기)의 브랜드는 여기 아예 안 잡힌다
+  // (PR #105에서 논의 중인 "hidden/discontinued 브랜드가 byBrand에서 사라짐" 이슈를 그대로 재현).
+  check(dashboard.products.byBrand.length === 4, 'byBrand excludes the hidden product brand');
+  check(dashboard.products.byBrand.every(b => b.count === 1), 'one active product per remaining brand');
+
+  const pending = (await api('/api/admin/inquiries?status=pending')).body;
+  check(pending.data.length === 2, 'two pending inquiries');
+  const generalInquiry = pending.data.find(i => i.category === 'general');
+  const appealInquiry = pending.data.find(i => i.category === 'sanction_appeal');
+  check(!!generalInquiry && !!appealInquiry, 'both categories present in queue');
+
+  const answeredBefore = (await api('/api/admin/inquiries?status=answered')).body;
+  check(answeredBefore.data.length === 1, 'one pre-seeded answered inquiry');
+
+  // 일반 문의 답변 (sanctionId 없음)
+  const answered = await api('/api/admin/inquiries/' + generalInquiry.inquiryId, 'PATCH', { adminReply: '확인 후 처리했습니다.' });
+  check(answered.status === 200 && answered.body.data.status === 'answered', 'general inquiry answered');
+  check(answered.body.data.resolvedSanctionId === null, 'no sanction touched for general inquiry');
+
+  // 동일 내용 재시도는 멱등하게 통과
+  const retrySame = await api('/api/admin/inquiries/' + generalInquiry.inquiryId, 'PATCH', { adminReply: '확인 후 처리했습니다.' });
+  check(retrySame.status === 200, 'identical retry is idempotent, not an error');
+
+  // 다른 내용으로 재요청하면 충돌
+  const retryDifferent = await api('/api/admin/inquiries/' + generalInquiry.inquiryId, 'PATCH', { adminReply: '다른 답변' });
+  check(retryDifferent.status === 409 && retryDifferent.body.code === 'INQUIRY_ALREADY_PROCESSED', 'mismatched retry rejected');
+
+  // 제재 이의제기 승인 — sanctionId를 함께 보내면 같은 트랜잭션에서 정지가 해제되어야 한다
+  const sanctionsBefore = (await api('/api/admin/users/' + APPELLANT_ID + '/sanctions')).body.data;
+  const targetSanction = sanctionsBefore.find(s => s.status === 'active');
+  check(!!targetSanction, 'appellant has an active suspension to lift');
+
+  const appealAnswered = await api('/api/admin/inquiries/' + appealInquiry.inquiryId, 'PATCH', {
+    adminReply: '확인 결과 정지 사유가 잘못 적용되어 해제합니다.',
+    sanctionId: targetSanction.sanctionId
+  });
+  check(appealAnswered.status === 200 && appealAnswered.body.data.resolvedSanctionId === targetSanction.sanctionId, 'appeal answered with resolvedSanctionId set');
+
+  const sanctionsAfter = (await api('/api/admin/users/' + APPELLANT_ID + '/sanctions')).body.data;
+  const liftedSanction = sanctionsAfter.find(s => s.sanctionId === targetSanction.sanctionId);
+  check(liftedSanction.status === 'lifted', 'sanction actually lifted by the inquiry approval');
+
+  const dashboardAfter = (await api('/api/admin/dashboard')).body.data;
+  check(dashboardAfter.pendingActions.inquiryCount === 0, 'inquiryCount drops to 0 after both pending inquiries answered');
+  check(dashboardAfter.pendingActions.activeSuspensionCount === 1, 'activeSuspensionCount drops by one after the lift');
+
+  // 다른 유저(제재 없는 유저)의 sanctionId로 승인 시도 시 거부
+  const wrongUserAttempt = await api('/api/admin/inquiries/' + appealInquiry.inquiryId, 'PATCH', {
+    adminReply: '다시 처리',
+    sanctionId: 999999
+  });
+  check(wrongUserAttempt.status !== 200, 'nonexistent sanctionId rejected even though inquiry is already answered');
+
+  console.log('PASS: ' + checks + ' local admin-inquiries preview API checks');
+})().catch(e => { console.error(e); process.exitCode = 1; });
