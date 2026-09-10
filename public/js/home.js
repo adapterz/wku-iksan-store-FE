@@ -56,14 +56,48 @@ document.addEventListener('DOMContentLoaded', () => {
   const RECOMMEND_INITIAL_COUNT = 6;
   const RECOMMEND_PAGE_SIZE = 10;
 
+  // createSkeletonCard()는 스켈레톤 전용 마크업(줄 3개)이라 실제 카드의 .product-title(고정
+  // 34px)/.price-info(북마크 버튼 포함)/.stats-row 높이와 정확히 맞지 않아, 자리표시자 행의
+  // 높이가 실제 카드 행과 달라져 마지막 페이지에서 박스 크기가 달라지는 원인이 됐다.
+  // 대신 실제 카드와 동일한 클래스 구조를 빈 내용으로 그대로 재사용해 높이를 정확히 맞춘다.
+  function createBrowseCardPlaceholder() {
+    const card = document.createElement('div');
+    card.className = 'product-card browse-card-placeholder';
+    card.setAttribute('aria-hidden', 'true');
+    card.innerHTML = `
+      <div class="card-img-wrapper"></div>
+      <div class="card-body">
+        <span class="brand-name">&nbsp;</span>
+        <h4 class="product-title">&nbsp;</h4>
+        <div class="price-info" style="display: flex; justify-content: space-between; align-items: center;">
+          <div><span class="price">&nbsp;</span></div>
+          <button class="btn-save-bookmark" tabindex="-1" disabled style="background:none; border:none; padding:4px;">
+            <i class="fa-regular fa-bookmark" style="font-size: 20px; color: #999;"></i>
+          </button>
+        </div>
+        <div class="stats-row">&nbsp;</div>
+      </div>
+    `;
+    return card;
+  }
+
+  // 실제 상품 카드를 채운 뒤, 마지막 페이지처럼 6개(3x2)를 못 채우는 경우에도 그리드 크기가
+  // 줄어들지 않도록 보이지 않는 자리표시자로 남은 칸을 채운다.
+  function appendBrowseCards(row, products) {
+    products.forEach(product => {
+      row.appendChild(createProductCard(product));
+    });
+    for (let i = products.length; i < BROWSE_PAGE_SIZE; i++) {
+      row.appendChild(createBrowseCardPlaceholder());
+    }
+  }
+
   // 둘러보기 상품 카드 그리드(.ranking-cards-row.browse-cards-row) 엘리먼트를 새로 만들어 반환한다.
   // 페이지 전환 애니메이션 중에는 기존/다음 페이지 카드를 각각 별도 엘리먼트로 띄워 나란히 이동시켜야 하므로 분리했다.
   function createBrowseCardsRow(products) {
     const row = document.createElement('div');
     row.className = 'ranking-cards-row browse-cards-row';
-    products.forEach(product => {
-      row.appendChild(createProductCard(product));
-    });
+    appendBrowseCards(row, products);
     return row;
   }
 
@@ -84,6 +118,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const totalPages = Math.max(1, Math.ceil(activeFilteredProducts.length / BROWSE_PAGE_SIZE));
     browsePageIndex = Math.min(Math.max(browsePageIndex, 0), totalPages - 1);
+    // 페이지마다 겹침 없이 순서대로 6개씩 자른다. 마지막 페이지의 나머지(전체 개수 % 6)가
+    // 6개 미만이어도 박스 크기(3x2)는 appendBrowseCards의 자리표시자로 항상 고정 유지한다.
     const start = browsePageIndex * BROWSE_PAGE_SIZE;
     const pageProducts = activeFilteredProducts.slice(start, start + BROWSE_PAGE_SIZE);
 
@@ -96,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!direction) {
       currentRow.innerHTML = '';
-      pageProducts.forEach(product => currentRow.appendChild(createProductCard(product)));
+      appendBrowseCards(currentRow, pageProducts);
       updateControls();
       return;
     }
@@ -134,6 +170,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const exitTo = direction === 'next' ? '-100%' : '100%';
       outgoingRow.style.transform = `translateX(${exitTo})`;
       incomingRow.style.transform = 'translateX(0)';
+      // 가로 슬라이드와 동시에 뷰포트 높이도 목표 높이로 이징시켜, 슬라이드가 끝나는 순간
+      // 높이가 뚝 끊겨 줄어들지 않고 함께 자연스럽게 마무리되게 한다.
+      viewport.style.height = `${incomingHeight}px`;
 
       incomingRow.addEventListener('transitionend', function onSlideEnd() {
         incomingRow.removeEventListener('transitionend', onSlideEnd);

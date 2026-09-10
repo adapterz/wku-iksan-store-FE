@@ -1208,6 +1208,13 @@ body.page-brand-body {
   font-size: 13px;
 }
 
+/* 마지막 페이지처럼 상품이 6개(3x2)를 못 채울 때, 남은 칸을 보이지 않는 자리표시자로 채워
+   그리드 크기(높이)가 줄어들지 않고 항상 3x2로 유지되게 한다. */
+.browse-card-placeholder {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* 둘러보기 상품 페이지 전환 슬라이딩 애니메이션 (두 패널이 동시에 화면에 보이며 나란히 이동).
    JS(home.js renderBrowsePage)가 애니메이션 중에는 기존 카드(.browse-panel-outgoing)와 다음
    카드(.browse-panel-incoming)를 뷰포트 안에 절대위치로 나란히 배치하고, 같은 방향으로 함께
@@ -1215,6 +1222,11 @@ body.page-brand-body {
 .browse-cards-viewport {
   position: relative;
   overflow: hidden;
+  --browse-slide-duration: 1.0s;
+  --browse-slide-easing: cubic-bezier(0.16, 1, 0.3, 1);
+  /* 페이지마다 카드 개수(높이)가 달라지므로, 가로 슬라이드와 같은 시간/커브로 높이도 함께
+     움직여야 슬라이드가 끝나는 순간 뷰포트가 갑자기 줄어들며 "끊기는" 느낌이 나지 않는다. */
+  transition: height var(--browse-slide-duration) var(--browse-slide-easing);
 }
 
 .browse-cards-row.browse-panel {
@@ -1222,7 +1234,7 @@ body.page-brand-body {
   top: 0;
   left: 0;
   width: 100%;
-  transition: transform 1.0s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform var(--browse-slide-duration) var(--browse-slide-easing);
 }
 
 .browse-cards-row.browse-panel.browse-no-transition {
