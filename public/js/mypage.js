@@ -37,24 +37,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    // Settings Overlay Logic
-    const settingsBtn = document.getElementById('btn-settings-open');
-    const settingsOverlay = document.getElementById('settings-overlay');
-    const settingsCloseBtn = document.getElementById('btn-settings-close');
-
-    if (settingsBtn && settingsOverlay && settingsCloseBtn) {
-        settingsBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            settingsOverlay.classList.add('open');
-        });
-
-        settingsCloseBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            settingsOverlay.classList.remove('open');
-        });
-    }
-
-
     // Logout Logic
     async function handleLogout(e) {
         e.preventDefault();
@@ -68,11 +50,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         window._wishlistCache = null;
         window._wishlistFetchPromise = null;
         window.location.href = 'login.html';
-    }
-
-    const logoutBtn = document.getElementById('btn-settings-logout');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', handleLogout);
     }
 
     const profileLogoutBtn = document.getElementById('btn-profile-logout');
@@ -180,9 +157,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Policy Overlays Logic
     const policyConfig = [
-        { btns: ['btn-policy-terms', 'btn-settings-policy-terms'], overlay: 'policy-terms-overlay', close: 'btn-close-terms' },
-        { btns: ['btn-policy-penalty', 'btn-settings-policy-penalty'], overlay: 'policy-penalty-overlay', close: 'btn-close-penalty' },
-        { btns: ['btn-policy-privacy', 'btn-settings-policy-privacy'], overlay: 'policy-privacy-overlay', close: 'btn-close-privacy' }
+        { btns: ['btn-policy-terms'], overlay: 'policy-terms-overlay', close: 'btn-close-terms' },
+        { btns: ['btn-policy-penalty'], overlay: 'policy-penalty-overlay', close: 'btn-close-penalty' },
+        { btns: ['btn-policy-privacy'], overlay: 'policy-privacy-overlay', close: 'btn-close-privacy' }
     ];
 
     policyConfig.forEach(({ btns, overlay, close }) => {
