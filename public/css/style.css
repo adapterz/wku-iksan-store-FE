@@ -1147,35 +1147,6 @@ body.page-brand-body {
 
 
 
-/* Horizontal Product List Section */
-.horizontal-product-section {
-  margin-bottom: 32px;
-}
-
-.horizontal-product-list-group {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.horizontal-product-list {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 28%;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-  scrollbar-width: none;
-}
-
-.horizontal-product-list::-webkit-scrollbar {
-  display: none;
-}
-
-.horizontal-product-list .product-card {
-  width: 100%;
-}
-
 /* 2-Column Grid Layout for Ranking Cards */
 .ranking-cards-row {
   display: grid;
@@ -1214,33 +1185,48 @@ body.page-brand-body {
   font-size: 15px;
 }
 
-/* Typography for smaller horizontal cards */
-.horizontal-product-list .product-title {
+/* 둘러보기 상품: 3열x2행 고정 그리드 (2열 기본값을 덮어씀, 좁아진 카드 폭에 맞춰 타이포 축소) */
+.browse-cards-row {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px 8px;
+}
+
+.browse-cards-row .product-title {
   height: 34px;
   font-size: 12px;
-  margin-bottom: 4px;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  word-break: break-all;
 }
 
-.horizontal-product-list .brand-name {
+.browse-cards-row .brand-name {
   font-size: 12px;
-  font-weight: 600;
 }
 
-.horizontal-product-list .price {
+.browse-cards-row .price {
   font-size: 13px;
-  font-weight: 700;
 }
 
-.horizontal-product-list .discount-rate {
+.browse-cards-row .discount-rate {
   font-size: 13px;
-  font-weight: 700;
+}
+
+/* 둘러보기 상품 페이지 전환 슬라이딩 애니메이션 (두 패널이 동시에 화면에 보이며 나란히 이동).
+   JS(home.js renderBrowsePage)가 애니메이션 중에는 기존 카드(.browse-panel-outgoing)와 다음
+   카드(.browse-panel-incoming)를 뷰포트 안에 절대위치로 나란히 배치하고, 같은 방향으로 함께
+   translateX시킨 뒤 transitionend 시점에 기존 패널을 제거하고 새 패널을 원래 레이아웃으로 되돌린다. */
+.browse-cards-viewport {
+  position: relative;
+  overflow: hidden;
+}
+
+.browse-cards-row.browse-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  transition: transform 1.0s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.browse-cards-row.browse-panel.browse-no-transition {
+  transition: none;
 }
 
 /* Stats Row for Interest & Review Counts */
@@ -1248,10 +1234,6 @@ body.page-brand-body {
   font-size: 11px;
   color: #999999;
   margin-top: 4px;
-}
-
-.horizontal-product-list .stats-row {
-  font-size: 10px;
 }
 
 
@@ -1283,6 +1265,48 @@ body.page-brand-body {
 
 .btn-ranking-more:active {
   background-color: #F5F5F5;
+}
+
+/* 둘러보기 상품: 고정 2열x3행 그리드 하단의 좌우 페이지 이동 컨트롤 (btn-ranking-more와 톤을 맞춘 인라인 박스 버튼) */
+.browse-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.browse-page-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background-color: #FFFFFF;
+  border: 1px solid #EAEAEA;
+  border-radius: 8px;
+  color: #191919;
+  font-size: 14px;
+  transition: var(--transition-smooth);
+  cursor: pointer;
+}
+
+.browse-page-btn:active {
+  background-color: #F5F5F5;
+}
+
+.browse-page-btn:disabled {
+  color: #D3D3D3;
+  cursor: default;
+  background-color: #FFFFFF;
+}
+
+.browse-page-indicator {
+  min-width: 48px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #767676;
 }
 
 /* Footer Section */

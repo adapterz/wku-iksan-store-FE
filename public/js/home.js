@@ -10,39 +10,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Helper to show skeleton placeholders before API data arrives
   function renderSkeletonState() {
-    const list1Top = document.getElementById('horizontal-list-1-top');
-    const list1Bottom = document.getElementById('horizontal-list-1-bottom');
-    const rankingRow = document.querySelector('.ranking-cards-row');
+    const browseRow = document.getElementById('browse-product-list');
+    const recommendRow = document.getElementById('recommend-product-list');
 
-    [list1Top, list1Bottom].forEach(list => {
-      if (!list) return;
-      list.innerHTML = '';
-      for (let i = 0; i < 2; i++) list.appendChild(createSkeletonCard());
+    [browseRow, recommendRow].forEach(row => {
+      if (!row) return;
+      row.innerHTML = '';
+      for (let i = 0; i < 6; i++) row.appendChild(createSkeletonCard());
     });
-
-    if (rankingRow) {
-      rankingRow.innerHTML = '';
-      for (let i = 0; i < 6; i++) rankingRow.appendChild(createSkeletonCard());
-    }
   }
 
   // Helper to show a fallback message across every product section
   function renderFallbackState(message) {
-    const list1Top = document.getElementById('horizontal-list-1-top');
-    const list1Bottom = document.getElementById('horizontal-list-1-bottom');
-    const rankingRow = document.querySelector('.ranking-cards-row');
+    const browseRow = document.getElementById('browse-product-list');
+    const recommendRow = document.getElementById('recommend-product-list');
     const html = `
       <div class="empty-state">
         <i class="fa-solid fa-box-open"></i>
         <p>${message}</p>
       </div>
     `;
-    [list1Top, list1Bottom, rankingRow].forEach(el => { if (el) el.innerHTML = html; });
+    [browseRow, recommendRow].forEach(el => { if (el) el.innerHTML = html; });
+
+    const browsePagination = document.getElementById('browse-pagination');
+    if (browsePagination) browsePagination.style.display = 'none';
 
     const btnRankingMore = document.getElementById('btn-ranking-more');
-    if (btnRankingMore) {
-      btnRankingMore.style.display = 'none';
-    }
+    if (btnRankingMore) btnRankingMore.style.display = 'none';
   }
 
   // Helper to show empty state when no products are found
@@ -56,31 +50,119 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   let cachedProducts = [];
   let activeFilteredProducts = [];
+  let browsePageIndex = 0;
   let rankingVisibleCount = 6;
+  const BROWSE_PAGE_SIZE = 6; // 고정 2열x3행
   const RECOMMEND_INITIAL_COUNT = 6;
   const RECOMMEND_PAGE_SIZE = 10;
+
+  // 둘러보기 상품 카드 그리드(.ranking-cards-row.browse-cards-row) 엘리먼트를 새로 만들어 반환한다.
+  // 페이지 전환 애니메이션 중에는 기존/다음 페이지 카드를 각각 별도 엘리먼트로 띄워 나란히 이동시켜야 하므로 분리했다.
+  function createBrowseCardsRow(products) {
+    const row = document.createElement('div');
+    row.className = 'ranking-cards-row browse-cards-row';
+    products.forEach(product => {
+      row.appendChild(createProductCard(product));
+    });
+    return row;
+  }
+
+  // 둘러보기 상품: 현재 페이지(browsePageIndex)의 6개만 그려 넣고, 좌우 버튼/인디케이터 상태를 갱신한다.
+  // direction('next'|'prev')이 주어지면 기존 카드(outgoing)와 다음 카드(incoming) 패널을 뷰포트 안에
+  // 나란히 배치한 뒤 같은 방향으로 함께 이동시켜, 두 페이지가 동시에 보이며 전환되는 모션을 만든다.
+  // 없으면(최초 렌더 등) 애니메이션 없이 즉시 반영한다.
+  let browseAnimating = false;
+
+  function renderBrowsePage(direction) {
+    const viewport = document.getElementById('browse-cards-viewport');
+    const currentRow = document.getElementById('browse-product-list');
+    const browsePagination = document.getElementById('browse-pagination');
+    const pageIndicator = document.getElementById('browse-page-indicator');
+    const btnPrev = document.getElementById('btn-browse-prev');
+    const btnNext = document.getElementById('btn-browse-next');
+    if (!viewport || !currentRow) return;
+
+    const totalPages = Math.max(1, Math.ceil(activeFilteredProducts.length / BROWSE_PAGE_SIZE));
+    browsePageIndex = Math.min(Math.max(browsePageIndex, 0), totalPages - 1);
+    const start = browsePageIndex * BROWSE_PAGE_SIZE;
+    const pageProducts = activeFilteredProducts.slice(start, start + BROWSE_PAGE_SIZE);
+
+    const updateControls = () => {
+      if (browsePagination) browsePagination.style.display = totalPages > 1 ? '' : 'none';
+      if (pageIndicator) pageIndicator.textContent = `${browsePageIndex + 1} / ${totalPages}`;
+      if (btnPrev) btnPrev.disabled = browseAnimating || browsePageIndex === 0;
+      if (btnNext) btnNext.disabled = browseAnimating || browsePageIndex >= totalPages - 1;
+    };
+
+    if (!direction) {
+      currentRow.innerHTML = '';
+      pageProducts.forEach(product => currentRow.appendChild(createProductCard(product)));
+      updateControls();
+      return;
+    }
+
+    // 애니메이션 도중 중복 클릭 방지
+    browseAnimating = true;
+
+    const outgoingRow = currentRow;
+    const incomingRow = createBrowseCardsRow(pageProducts);
+    incomingRow.id = 'browse-product-list';
+    outgoingRow.removeAttribute('id');
+
+    // 패널로 전환하기 전, 절대위치가 되어도 뷰포트 높이가 무너지지 않도록 현재 높이를 먼저 재둔다.
+    const outgoingHeight = outgoingRow.offsetHeight;
+    outgoingRow.classList.add('browse-panel', 'browse-no-transition');
+    outgoingRow.style.transform = 'translateX(0)';
+
+    const enterFrom = direction === 'next' ? '100%' : '-100%';
+    incomingRow.classList.add('browse-panel', 'browse-no-transition');
+    incomingRow.style.transform = `translateX(${enterFrom})`;
+    viewport.appendChild(incomingRow);
+
+    const incomingHeight = incomingRow.offsetHeight;
+    viewport.style.height = `${Math.max(outgoingHeight, incomingHeight)}px`;
+
+    // 강제 리플로우: 두 패널의 시작 위치(transform)를 트랜지션 없이 먼저 확정한 뒤 트랜지션을 켠다
+    void incomingRow.offsetWidth;
+    outgoingRow.classList.remove('browse-no-transition');
+    incomingRow.classList.remove('browse-no-transition');
+
+    // 페이지 인디케이터/버튼은 슬라이드가 시작되는 시점에 목적지 페이지 기준으로 갱신한다
+    updateControls();
+
+    requestAnimationFrame(() => {
+      const exitTo = direction === 'next' ? '-100%' : '100%';
+      outgoingRow.style.transform = `translateX(${exitTo})`;
+      incomingRow.style.transform = 'translateX(0)';
+
+      incomingRow.addEventListener('transitionend', function onSlideEnd() {
+        incomingRow.removeEventListener('transitionend', onSlideEnd);
+
+        outgoingRow.remove();
+        incomingRow.classList.remove('browse-panel');
+        incomingRow.style.transform = '';
+        viewport.style.height = '';
+
+        browseAnimating = false;
+        updateControls();
+      }, { once: true });
+    });
+  }
 
   // Helper to render products into layout elements
   function renderProductsData(products) {
     activeFilteredProducts = products;
+    browsePageIndex = 0;
     rankingVisibleCount = Math.min(RECOMMEND_INITIAL_COUNT, products.length);
 
-    // Render horizontal list 1 (위/아래 줄이 각각 독립적으로 스크롤되도록 상품을 절반씩 나눠 담는다)
-    const list1Top = document.getElementById('horizontal-list-1-top');
-    const list1Bottom = document.getElementById('horizontal-list-1-bottom');
-    if (list1Top) list1Top.innerHTML = '';
-    if (list1Bottom) list1Bottom.innerHTML = '';
-    products.forEach((product, idx) => {
-      const target = idx % 2 === 0 ? list1Top : list1Bottom;
-      if (target) target.appendChild(createProductCard(product));
-    });
+    renderBrowsePage();
 
-    // Render ranking products (초기에는 RECOMMEND_INITIAL_COUNT개까지만 노출)
-    const rankingRow = document.querySelector('.ranking-cards-row');
-    if (rankingRow) {
-      rankingRow.innerHTML = '';
+    // Render recommend products (초기에는 RECOMMEND_INITIAL_COUNT개까지만 노출)
+    const recommendRow = document.getElementById('recommend-product-list');
+    if (recommendRow) {
+      recommendRow.innerHTML = '';
       products.slice(0, rankingVisibleCount).forEach((product, idx) => {
-        rankingRow.appendChild(createProductCard(product, { showRank: true, rankIndex: idx + 1 }));
+        recommendRow.appendChild(createProductCard(product, { showRank: true, rankIndex: idx + 1 }));
       });
     }
 
@@ -179,8 +261,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 노출 기준 안내 툴팁: 여닫힘 로직은 component.js의 공용 유틸리티(찜 랭킹에서 사용한 것과 동일)를 재사용한다.
   window.initInfoTooltip(
-    document.getElementById('browse1-info-btn'),
-    document.getElementById('browse1-info-tooltip')
+    document.getElementById('browse-info-btn'),
+    document.getElementById('browse-info-tooltip')
   );
   window.initInfoTooltip(
     document.getElementById('recommend-info-btn'),
@@ -214,17 +296,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-  // Mouse wheel horizontal scrolling for product lists
-  const horizontalLists = document.querySelectorAll('.horizontal-product-list');
-  horizontalLists.forEach(list => {
-    list.addEventListener('wheel', (e) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        list.scrollLeft += e.deltaY;
-      }
-    }, { passive: false });
-  });
-
   // Sub Tab Segmented Control (선물 테마, 카테고리, 추천 브랜드) Click Logic
   const pillBtns = document.querySelectorAll('.pill-btn');
   const pillSelector = document.querySelector('.pill-selector');
@@ -238,12 +309,33 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 둘러보기 상품 좌우 페이지 이동 Click Logic
+  const btnBrowsePrev = document.getElementById('btn-browse-prev');
+  const btnBrowseNext = document.getElementById('btn-browse-next');
+
+  if (btnBrowsePrev) {
+    btnBrowsePrev.addEventListener('click', () => {
+      if (browseAnimating || browsePageIndex <= 0) return;
+      browsePageIndex -= 1;
+      renderBrowsePage('prev');
+    });
+  }
+
+  if (btnBrowseNext) {
+    btnBrowseNext.addEventListener('click', () => {
+      const totalPages = Math.max(1, Math.ceil(activeFilteredProducts.length / BROWSE_PAGE_SIZE));
+      if (browseAnimating || browsePageIndex >= totalPages - 1) return;
+      browsePageIndex += 1;
+      renderBrowsePage('next');
+    });
+  }
+
   // Real-time Ranking "더보기" (Show More) Click Logic
   const btnRankingMore = document.getElementById('btn-ranking-more');
 
   if (btnRankingMore) {
     btnRankingMore.addEventListener('click', () => {
-      const rankingRow = document.querySelector('.ranking-cards-row');
+      const rankingRow = document.getElementById('recommend-product-list');
       if (!rankingRow) return;
 
       if (rankingVisibleCount >= activeFilteredProducts.length) return;
