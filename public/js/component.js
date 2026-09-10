@@ -290,6 +290,9 @@ window.ERROR_MESSAGES = Object.freeze({
     INVALID_PASSWORD: '비밀번호가 일치하지 않습니다.',
     // 계정 삭제 오류
     ACCOUNT_HAS_UNUSED_GIFTS: '미사용 선물이 남아있어 계정을 삭제할 수 없습니다.',
+    // BE PR #103(adapterz/wku-iksan-store-BE): 활성 정지 중인 회원이 탈퇴로 제재를 회피하지 못하도록
+    // 계정 삭제 자체를 막는다(403). 재시도로 해결되는 문제가 아니므로 이유를 명시해서 안내한다.
+    ACCOUNT_HAS_ACTIVE_SANCTION: '이용 정지 중에는 계정을 삭제할 수 없습니다.',
     // 공통 오류
     UNAUTHORIZED: '로그인이 필요합니다.',
     NETWORK_ERROR: '네트워크 연결을 확인해 주세요.',
