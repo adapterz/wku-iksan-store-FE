@@ -1,31 +1,5 @@
-// 1. 변하지 않는 상수(에러 메시지)는 스코프 바깥으로 분리 (메모리 최적화)
-const ERROR_MESSAGES = Object.freeze({
-  // 이메일 오류
-  REQUIRED_EMAIL: '이메일을 입력해 주세요.',
-  INVALID_EMAIL_TYPE : '이메일 입력값을 확인해 주세요.',
-  INVALID_EMAIL_FORMAT : '이메일 형식을 확인해 주세요',
-  EMAIL_TOO_LONG : '이메일이 너무 깁니다.',
-  EMAIL_ALREADY_EXISTS : '이미 가입된 이메일 입니다.',
-  // 비밀번호 오류
-  REQUIRED_PASSWORD: '비밀번호를 입력해 주세요.',
-  INVALID_PASSWORD_TYPE : '비밀번호 입력값을 확인해주세요.',
-  INVALID_PASSWORD_FORMAT : '비밀번호에는 공백을 사용할 수 없습니다.',
-  PASSWORD_TOO_SHORT : '비밀번호는 8자 이상 입력해 주세요',
-  PASSWORD_TOO_LONG : '비밀번호는 15자 이하로 입력해주세요',
-  COMMON_PASSWORD : '다른 비밀번호를 사용해 주세요.',
-  // 닉네임 오류
-  REQUIRED_NICKNAME: '닉네임을 입력해 주세요.',
-  INVALID_NICKNAME_TYPE : '닉네임 입력값을 확인해주세요',
-  INVALID_NICKNAME_FORMAT : '한글·영문·숫자만 사용할 수 있습니다.',
-  NICKNAME_TOO_SHORT : '닉네임은 2자 이상 입력해 주세요.',
-  NICKNAME_TOO_LONG : '닉네임은 8자 이하로 입력해 주세요',
-  NICKNAME_ALREADY_EXISTS: '이미 사용 중인 닉네임입니다.',
-  // 공통 오류
-  NETWORK_ERROR : '네트워크 연결을 확인해 주세요.',
-  INVALID_JSON_RESPONSE : '서버 응답을 처리할 수 없습니다.',
-  INTERNAL_SERVER_ERROR: '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
-});
-
+// profile.js와 거의 동일했던 에러 메시지/유효성 검사 로직이라 component.js의 공통 헬퍼를 그대로 쓴다.
+const ERROR_MESSAGES = window.ERROR_MESSAGES;
 
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('signup-form');
@@ -42,103 +16,22 @@ document.addEventListener('DOMContentLoaded', () => {
     window.clearFieldErrors(form, errorEl);
   }
 
-  // 유효성 검사 로직을 별도 함수로 분리 (관심사 분리, DRY 원칙)
+  // 이메일/비밀번호/닉네임 각각의 규칙 자체는 profile.js와 공유하는 component.js 함수에 위임하고,
+  // 여기서는 회원가입 폼 특유의 순서(이메일→비밀번호→닉네임)로 첫 실패만 골라 반환한다.
   function validateForm(emailInput, passwordInput, nicknameInput) {
     const email = emailInput.value.trim().toLowerCase();
     const password = passwordInput.value;
     const nickname = nicknameInput.value;
 
-    // 이메일 유효성 검사
-    if (!email) {
-      return {
-        isValid: false,
-        message: ERROR_MESSAGES.REQUIRED_EMAIL,
-        element: emailInput
-      };
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return { 
-        isValid: false, 
-        message: ERROR_MESSAGES.INVALID_EMAIL_FORMAT, 
-        element: emailInput 
-      };
-    }
-    if (email.length > 255) {
-      return { 
-        isValid: false,
-        message: ERROR_MESSAGES.EMAIL_TOO_LONG, 
-        element: emailInput 
-      };
-    }
+    const emailValidation = window.validateEmailValue(email, emailInput);
+    if (!emailValidation.isValid) return emailValidation;
 
-    // 비밀번호 유효성 검사
-    if (!password) {
-      return { 
-        isValid: false,
-        message: ERROR_MESSAGES.REQUIRED_PASSWORD,
-        element: passwordInput 
-      };
-    }
-    if (/\s/.test(password)) {
-      return {
-        isValid: false,
-        message: ERROR_MESSAGES.INVALID_PASSWORD_FORMAT,
-        element: passwordInput
-      };
-    }
-    if (password.length < 8) {
-      return {
-        isValid: false,
-        message: ERROR_MESSAGES.PASSWORD_TOO_SHORT,
-        element: passwordInput
-      };
-    }
-    if (password.length > 15) {
-      return {
-        isValid: false,
-        message: ERROR_MESSAGES.PASSWORD_TOO_LONG,
-        element: passwordInput
-      };
-    }
+    const passwordValidation = window.validateNewPasswordValue(password, passwordInput);
+    if (!passwordValidation.isValid) return passwordValidation;
 
-    // 닉네임 유효성 검사
-    if (!nickname) {
-      return { 
-        isValid: false, 
-        message: ERROR_MESSAGES.REQUIRED_NICKNAME, 
-        element: nicknameInput 
-      };
-    }
+    const nicknameValidation = window.validateNicknameValue(nickname, nicknameInput);
+    if (!nicknameValidation.isValid) return nicknameValidation;
 
-    // 1단계: 공백 포함 여부 검사
-    if (/\s/.test(nickname)) {
-      return {
-        isValid: false,
-        message: ERROR_MESSAGES.INVALID_NICKNAME_FORMAT,
-        element: nicknameInput
-      };
-    }
-
-    // 2단계: 자릿수/길이 제한 검사
-    if (nickname.length < 2) return {
-      isValid: false,
-      message: ERROR_MESSAGES.NICKNAME_TOO_SHORT,
-      element: nicknameInput
-    };
-    if (nickname.length > 8) return {
-      isValid: false,
-      message: ERROR_MESSAGES.NICKNAME_TOO_LONG,
-      element: nicknameInput
-    };
-
-    // 3단계: 허용 문자(한글·영문·숫자) 정규식 검사
-    if (!/^[가-힣a-zA-Z0-9]+$/.test(nickname)) {
-      return {
-        isValid: false,
-        message: ERROR_MESSAGES.INVALID_NICKNAME_FORMAT,
-        element: nicknameInput
-      };
-    }
     return { isValid: true, data: { email, password, nickname } };
   }
 
@@ -165,49 +58,34 @@ document.addEventListener('DOMContentLoaded', () => {
       // 기존 상태 클래스 초기화
       strengthIndicator.classList.remove('badge-visible', 'badge-invalid', 'badge-weak', 'badge-medium', 'badge-strong');
 
-      if (!val) {
+      // 강도/유효성 판정 로직(window.getPasswordStrength)은 profile.js와 공유하고,
+      // 빈 값일 때 즉시 "필수" 에러를 띄우는 회원가입 특유의 동작만 여기서 처리한다.
+      const strength = window.getPasswordStrength(val);
+
+      if (strength.level === 'empty') {
         showError(ERROR_MESSAGES.REQUIRED_PASSWORD, passwordInput);
         return;
       }
-      
+
       strengthIndicator.classList.add('badge-visible');
-      
-      // 필수 규칙 미충족 시 실시간 인라인 에러 출력
-      if (/\s/.test(val)) {
-        strengthIndicator.textContent = '사용 불가';
-        strengthIndicator.classList.add('badge-invalid');
-        showError(ERROR_MESSAGES.INVALID_PASSWORD_FORMAT, passwordInput);
-        return;
-      }
 
-      if (val.length < 8) {
+      if (strength.level === 'invalid') {
         strengthIndicator.textContent = '사용 불가';
         strengthIndicator.classList.add('badge-invalid');
-        showError(ERROR_MESSAGES.PASSWORD_TOO_SHORT, passwordInput);
-        return;
-      }
-
-      if (val.length > 15) {
-        strengthIndicator.textContent = '사용 불가';
-        strengthIndicator.classList.add('badge-invalid');
-        showError(ERROR_MESSAGES.PASSWORD_TOO_LONG, passwordInput);
+        const messageKey = strength.reason === 'whitespace' ? 'INVALID_PASSWORD_FORMAT'
+          : strength.reason === 'tooShort' ? 'PASSWORD_TOO_SHORT'
+          : 'PASSWORD_TOO_LONG';
+        showError(ERROR_MESSAGES[messageKey], passwordInput);
         return;
       }
 
       // 위 필수 규칙을 모두 통과했다면 오류 메시지 제거
       clearPasswordError(passwordInput, inlineErrorEl);
 
-      // 문자 종류 분석 (영문, 숫자, 특수문자)
-      const hasLetter = /[a-zA-Z]/.test(val);
-      const hasNumber = /\d/.test(val);
-      const hasSpecial = /[^a-zA-Z0-9\s]/.test(val);
-      
-      const typesCount = [hasLetter, hasNumber, hasSpecial].filter(Boolean).length;
-      
-      if (typesCount <= 1) {
+      if (strength.level === 'weak') {
         strengthIndicator.textContent = '약함';
         strengthIndicator.classList.add('badge-weak');
-      } else if (typesCount === 2) {
+      } else if (strength.level === 'medium') {
         strengthIndicator.textContent = '보통';
         strengthIndicator.classList.add('badge-medium');
       } else {

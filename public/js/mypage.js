@@ -46,9 +46,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (error) {
             console.error('로그아웃 요청 실패:', error);
         }
-        localStorage.removeItem('isLoggedIn');
-        window._wishlistCache = null;
-        window._wishlistFetchPromise = null;
+        // profile.js의 계정 삭제 흐름과 공유하는 클라이언트 측 로그인 흔적 정리 헬퍼(component.js).
+        window.clearClientSession();
         window.location.href = 'login.html';
     }
 

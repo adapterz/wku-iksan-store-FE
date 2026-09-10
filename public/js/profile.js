@@ -1,40 +1,13 @@
 window.setSubHeaderTitle('프로필 편집');
 
-// signup.js/login.js와 동일한 컨벤션: 화면별로 필요한 에러 코드만 모아 둔다.
-const ERROR_MESSAGES = Object.freeze({
-  // 닉네임 오류
-  REQUIRED_NICKNAME: '닉네임을 입력해 주세요.',
-  INVALID_NICKNAME_TYPE: '닉네임 입력값을 확인해주세요',
-  INVALID_NICKNAME_FORMAT: '한글·영문·숫자만 사용할 수 있습니다.',
-  NICKNAME_TOO_SHORT: '닉네임은 2자 이상 입력해 주세요.',
-  NICKNAME_TOO_LONG: '닉네임은 8자 이하로 입력해 주세요',
-  NICKNAME_ALREADY_EXISTS: '이미 사용 중인 닉네임입니다.',
-  // 이메일 오류
-  REQUIRED_EMAIL: '이메일을 입력해 주세요.',
-  INVALID_EMAIL_TYPE: '이메일 입력값을 확인해 주세요.',
-  INVALID_EMAIL_FORMAT: '이메일 형식을 확인해 주세요',
-  EMAIL_TOO_LONG: '이메일이 너무 깁니다.',
-  EMAIL_ALREADY_EXISTS: '이미 가입된 이메일 입니다.',
-  // 비밀번호 오류
-  REQUIRED_PASSWORD: '비밀번호를 입력해 주세요.',
-  INVALID_PASSWORD_TYPE: '비밀번호 입력값을 확인해주세요.',
-  INVALID_PASSWORD_FORMAT: '비밀번호에는 공백을 사용할 수 없습니다.',
-  PASSWORD_TOO_SHORT: '비밀번호는 8자 이상 입력해 주세요',
-  PASSWORD_TOO_LONG: '비밀번호는 15자 이하로 입력해주세요',
-  COMMON_PASSWORD: '다른 비밀번호를 사용해 주세요.',
-  INVALID_PASSWORD: '비밀번호가 일치하지 않습니다.',
-  // 계정 삭제 오류
-  ACCOUNT_HAS_UNUSED_GIFTS: '미사용 선물이 남아있어 계정을 삭제할 수 없습니다.',
-  // 공통 오류
-  UNAUTHORIZED: '로그인이 필요합니다.',
-  NETWORK_ERROR: '네트워크 연결을 확인해 주세요.',
-  INVALID_JSON_RESPONSE: '서버 응답을 처리할 수 없습니다.',
-  INTERNAL_SERVER_ERROR: '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
-});
-
-// login.js/signup.js와 동일한 인라인 폼 에러 로직이라 component.js의 공통 헬퍼를 그대로 쓴다.
+// signup.js와 거의 동일했던 에러 메시지/유효성 검사/인라인 에러 로직이라 component.js의 공통
+// 헬퍼를 그대로 쓴다 (login.js는 component.js 자체를 로드하지 않아 이 통합 대상에서 제외됨).
+const ERROR_MESSAGES = window.ERROR_MESSAGES;
 const showFormError = window.showFieldError;
 const clearFormError = window.clearFieldErrors;
+const validateNicknameValue = window.validateNicknameValue;
+const validateEmailValue = window.validateEmailValue;
+const validateNewPasswordValue = window.validateNewPasswordValue;
 
 // 팝업이 열려 있는 도중 showPopup()이 다시 호출되는 경우(예: 폼 이중 제출)를 대비한 가드.
 // 정리하지 않으면 confirm/cancel 버튼에 리스너가 계속 쌓여, 버튼 클릭 한 번에 여러 Promise가
@@ -94,54 +67,6 @@ function showConfirmPopup(message) {
   return showPopup(message, { showCancel: true });
 }
 
-function validateNicknameValue(nickname, nicknameInput) {
-  if (!nickname) {
-    return { isValid: false, message: ERROR_MESSAGES.REQUIRED_NICKNAME, element: nicknameInput };
-  }
-  if (/\s/.test(nickname)) {
-    return { isValid: false, message: ERROR_MESSAGES.INVALID_NICKNAME_FORMAT, element: nicknameInput };
-  }
-  if (nickname.length < 2) {
-    return { isValid: false, message: ERROR_MESSAGES.NICKNAME_TOO_SHORT, element: nicknameInput };
-  }
-  if (nickname.length > 8) {
-    return { isValid: false, message: ERROR_MESSAGES.NICKNAME_TOO_LONG, element: nicknameInput };
-  }
-  if (!/^[가-힣a-zA-Z0-9]+$/.test(nickname)) {
-    return { isValid: false, message: ERROR_MESSAGES.INVALID_NICKNAME_FORMAT, element: nicknameInput };
-  }
-  return { isValid: true };
-}
-
-function validateEmailValue(email, emailInput) {
-  if (!email) {
-    return { isValid: false, message: ERROR_MESSAGES.REQUIRED_EMAIL, element: emailInput };
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { isValid: false, message: ERROR_MESSAGES.INVALID_EMAIL_FORMAT, element: emailInput };
-  }
-  if (email.length > 255) {
-    return { isValid: false, message: ERROR_MESSAGES.EMAIL_TOO_LONG, element: emailInput };
-  }
-  return { isValid: true };
-}
-
-function validateNewPasswordValue(password, passwordInput) {
-  if (!password) {
-    return { isValid: false, message: ERROR_MESSAGES.REQUIRED_PASSWORD, element: passwordInput };
-  }
-  if (/\s/.test(password)) {
-    return { isValid: false, message: ERROR_MESSAGES.INVALID_PASSWORD_FORMAT, element: passwordInput };
-  }
-  if (password.length < 8) {
-    return { isValid: false, message: ERROR_MESSAGES.PASSWORD_TOO_SHORT, element: passwordInput };
-  }
-  if (password.length > 15) {
-    return { isValid: false, message: ERROR_MESSAGES.PASSWORD_TOO_LONG, element: passwordInput };
-  }
-  return { isValid: true };
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
   // bfcache 복원(뒤로가기→앞으로가기) 시에도 이 함수가 다시 호출되는데, 그때 닉네임/이메일
   // input을 서버 값으로 다시 채우면 수정 중이던 값이 조용히 덮어써진다. bfcache는 페이지를
@@ -180,7 +105,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // 비밀번호 실시간 강도 검사 (signup.js와 동일한 규칙)
+  // 비밀번호 실시간 강도 검사. 판정 로직(window.getPasswordStrength)은 signup.js와 공유하고,
+  // 빈 값일 때의 처리(여기서는 조용히 지우기만 함)만 화면별로 다르게 둔다.
   const newPasswordInput = document.getElementById('new-password');
   const strengthIndicator = document.getElementById('new-password-strength');
   if (newPasswordInput && strengthIndicator) {
@@ -191,8 +117,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       strengthIndicator.classList.remove('badge-visible', 'badge-invalid', 'badge-weak', 'badge-medium', 'badge-strong');
 
-      if (!val) {
-        strengthIndicator.classList.remove('badge-visible');
+      const strength = window.getPasswordStrength(val);
+
+      if (strength.level === 'empty') {
         if (inlineErrorEl) {
           inlineErrorEl.hidden = true;
           inlineErrorEl.textContent = '';
@@ -203,7 +130,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       strengthIndicator.classList.add('badge-visible');
 
-      if (/\s/.test(val) || val.length < 8 || val.length > 15) {
+      if (strength.level === 'invalid') {
         strengthIndicator.textContent = '사용 불가';
         strengthIndicator.classList.add('badge-invalid');
         return;
@@ -215,15 +142,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       newPasswordInput.removeAttribute('aria-invalid');
 
-      const hasLetter = /[a-zA-Z]/.test(val);
-      const hasNumber = /\d/.test(val);
-      const hasSpecial = /[^a-zA-Z0-9\s]/.test(val);
-      const typesCount = [hasLetter, hasNumber, hasSpecial].filter(Boolean).length;
-
-      if (typesCount <= 1) {
+      if (strength.level === 'weak') {
         strengthIndicator.textContent = '약함';
         strengthIndicator.classList.add('badge-weak');
-      } else if (typesCount === 2) {
+      } else if (strength.level === 'medium') {
         strengthIndicator.textContent = '보통';
         strengthIndicator.classList.add('badge-medium');
       } else {
@@ -399,9 +321,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // 401이면 requestJson()이 undefined를 반환하고 전역 리다이렉트를 이미 처리했으므로,
         // "계정이 삭제되었습니다" 같은 거짓 성공 메시지를 띄우지 않고 조용히 빠져나간다.
         if (!result) return;
-        localStorage.removeItem('isLoggedIn');
-        window._wishlistCache = null;
-        window._wishlistFetchPromise = null;
+        window.clearClientSession();
         await showAlertPopup('계정이 삭제되었습니다.');
         window.location.href = 'login.html';
       } catch (error) {
