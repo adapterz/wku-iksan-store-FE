@@ -14,11 +14,14 @@ class ApiError extends Error {
 // 읽을 시간(UNAUTHORIZED_REDIRECT_DELAY_MS)을 직접 확보해줘야 한다.
 const UNAUTHORIZED_REDIRECT_DELAY_MS = 800;
 
-function showUnauthorizedToast(message) {
-  let toastEl = document.getElementById('global-401-toast');
+// 화면 하단에 짧게 떴다 사라지는 공용 토스트. duration(ms) 후 자동으로 사라지며,
+// 0을 넘기면(예: 401 리다이렉트 직전) 자동으로 숨기지 않고 페이지 전환에 맡긴다.
+let toastHideTimer = null;
+function showToast(message, duration = 800) {
+  let toastEl = document.getElementById('global-toast');
   if (!toastEl) {
     toastEl = document.createElement('div');
-    toastEl.id = 'global-401-toast';
+    toastEl.id = 'global-toast';
     toastEl.setAttribute('role', 'alert');
     toastEl.setAttribute('aria-live', 'assertive');
     toastEl.style.cssText = [
@@ -34,6 +37,18 @@ function showUnauthorizedToast(message) {
   // 이미 열려있는 토스트의 텍스트만 바뀐 경우에도 opacity 전환이 다시 재생되도록 리플로우를 강제한다.
   void toastEl.offsetWidth;
   toastEl.style.opacity = '1';
+
+  if (toastHideTimer) clearTimeout(toastHideTimer);
+  if (duration > 0) {
+    toastHideTimer = setTimeout(() => {
+      toastEl.style.opacity = '0';
+    }, duration);
+  }
+}
+
+function showUnauthorizedToast(message) {
+  // 곧바로 로그인 페이지로 리다이렉트되므로 자동으로 숨기지 않는다.
+  showToast(message, 0);
 }
 
 // 세션 쿠키, JSON 변환, HTTP·네트워크 오류 처리를 공통으로 수행한다.
@@ -136,3 +151,4 @@ window.PRODUCT_CACHE_TTL_MS = 5 * 60 * 1000;
 window.ApiError = ApiError;
 window.requestJson = requestJson;
 window.fetchListWithCache = fetchListWithCache;
+window.showToast = showToast;

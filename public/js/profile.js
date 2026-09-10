@@ -237,7 +237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         const displayNicknameEl = document.getElementById('display-nickname');
         if (displayNicknameEl && result.data) displayNicknameEl.textContent = result.data.nickname;
-        alert('닉네임이 변경되었습니다.');
+        window.showToast('닉네임이 변경되었습니다.');
       } catch (error) {
         console.error('닉네임 변경 실패:', error);
         const target = error.code === 'NICKNAME_ALREADY_EXISTS' ? nicknameForm.nickname : null;
@@ -278,7 +278,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           body: { email, password }
         });
         emailForm.password.value = '';
-        alert('이메일이 변경되었습니다.');
+        window.showToast('이메일이 변경되었습니다.');
       } catch (error) {
         console.error('이메일 변경 실패:', error);
         const target = error.code === 'EMAIL_ALREADY_EXISTS' ? emailForm.email
@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         passwordForm.reset();
         if (strengthIndicator) strengthIndicator.classList.remove('badge-visible');
-        alert('비밀번호가 변경되었습니다.');
+        window.showToast('비밀번호가 변경되었습니다.');
       } catch (error) {
         console.error('비밀번호 변경 실패:', error);
         const target = error.code === 'INVALID_PASSWORD' ? passwordForm.currentPassword : null;
@@ -362,8 +362,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.removeItem('isLoggedIn');
         window._wishlistCache = null;
         window._wishlistFetchPromise = null;
-        alert('계정이 삭제되었습니다.');
-        window.location.href = 'login.html';
+        window.showToast('계정이 삭제되었습니다.', 0);
+        // 토스트가 alert()과 달리 확인 클릭 없이 사라지므로, 리다이렉트 전에
+        // 사용자가 메시지를 읽을 시간을 api.js의 401 리다이렉트와 동일하게 확보한다.
+        setTimeout(() => {
+          window.location.href = 'login.html';
+        }, 800);
       } catch (error) {
         console.error('계정 삭제 실패:', error);
         const target = error.code === 'INVALID_PASSWORD' ? deleteForm.password : null;
