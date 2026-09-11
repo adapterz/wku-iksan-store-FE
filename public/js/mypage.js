@@ -37,40 +37,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    // Settings Overlay Logic
-    const settingsBtn = document.getElementById('btn-settings-open');
-    const settingsOverlay = document.getElementById('settings-overlay');
-    const settingsCloseBtn = document.getElementById('btn-settings-close');
+    // Logout Logic
+    async function handleLogout(e) {
+        e.preventDefault();
 
-    if (settingsBtn && settingsOverlay && settingsCloseBtn) {
-        settingsBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            settingsOverlay.classList.add('open');
-        });
-
-        settingsCloseBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            settingsOverlay.classList.remove('open');
-        });
+        try {
+            await requestJson('/api/auth/logout', { method: 'POST' });
+        } catch (error) {
+            console.error('로그아웃 요청 실패:', error);
+        }
+        // profile.js의 계정 삭제 흐름과 공유하는 클라이언트 측 로그인 흔적 정리 헬퍼(component.js).
+        window.clearClientSession();
+        window.location.href = 'login.html';
     }
 
-
-    // Logout Logic
-    const logoutBtn = document.getElementById('btn-settings-logout');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
-
-            try {
-                await requestJson('/api/auth/logout', { method: 'POST' });
-            } catch (error) {
-                console.error('로그아웃 요청 실패:', error);
-            }
-            localStorage.removeItem('isLoggedIn');
-            window._wishlistCache = null;
-            window._wishlistFetchPromise = null;
-            window.location.href = 'login.html';
-        });
+    const profileLogoutBtn = document.getElementById('btn-profile-logout');
+    if (profileLogoutBtn) {
+        profileLogoutBtn.addEventListener('click', handleLogout);
     }
 
     // Unused Gifts Logic
@@ -173,9 +156,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Policy Overlays Logic
     const policyConfig = [
-        { btns: ['btn-policy-terms', 'btn-settings-policy-terms'], overlay: 'policy-terms-overlay', close: 'btn-close-terms' },
-        { btns: ['btn-policy-penalty', 'btn-settings-policy-penalty'], overlay: 'policy-penalty-overlay', close: 'btn-close-penalty' },
-        { btns: ['btn-policy-privacy', 'btn-settings-policy-privacy'], overlay: 'policy-privacy-overlay', close: 'btn-close-privacy' }
+        { btns: ['btn-policy-terms'], overlay: 'policy-terms-overlay', close: 'btn-close-terms' },
+        { btns: ['btn-policy-penalty'], overlay: 'policy-penalty-overlay', close: 'btn-close-penalty' },
+        { btns: ['btn-policy-privacy'], overlay: 'policy-privacy-overlay', close: 'btn-close-privacy' }
     ];
 
     policyConfig.forEach(({ btns, overlay, close }) => {

@@ -23,9 +23,7 @@
 <body class="page-mypage" style="visibility: hidden; opacity: 0; transition: opacity 0.3s ease;">
     <!-- Header Area -->
     <header class="mypage-header">
-        <button class="icon-btn" aria-label="설정" id="btn-settings-open">
-            <i class="fa-solid fa-gear"></i>
-        </button>
+        <div class="header-spacer" aria-hidden="true"></div>
         <div class="header-tabs">
             <span class="tab-title" style="font-size: 18px; font-weight: 700;">마이페이지</span>
         </div>
@@ -44,6 +42,10 @@
                     <span id="display-nickname"></span>
                 </h2>
             </div>
+        </div>
+        <div class="profile-actions">
+            <a href="profile.html" class="profile-action-btn">프로필 편집</a>
+            <button class="profile-action-btn" id="btn-profile-logout">로그아웃</button>
         </div>
     </section>
 
@@ -106,31 +108,6 @@
     <nav class="bottom-nav">
         <!-- Dynamically injected by component.js -->
     </nav>
-
-    <!-- Settings Overlay -->
-    <div id="settings-overlay" class="settings-overlay">
-        <div class="settings-overlay-header">
-            <button id="btn-settings-close" class="btn-settings-back" aria-label="뒤로가기">
-                <i class="fa-solid fa-arrow-left"></i>
-            </button>
-            <h2 class="settings-overlay-title">설정</h2>
-        </div>
-        <div class="settings-overlay-body">
-            <!-- 정보 -->
-            <div class="settings-section">
-                <h3 class="settings-section-title">정보</h3>
-                <div class="settings-list">
-                    <a href="#" id="btn-settings-policy-terms" class="settings-item">이용 정책</a>
-                    <a href="#" id="btn-settings-policy-penalty" class="settings-item">패널티 정책</a>
-                    <a href="#" id="btn-settings-policy-privacy" class="settings-item">개인정보처리방침</a>
-                </div>
-            </div>
-            <!-- 로그아웃 버튼-->
-            <div class="settings-group">
-                <button class="settings-item settings-logout" id="btn-settings-logout">로그아웃</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Fullscreen Search Overlay UI -->
     <div id="search-overlay" class="search-overlay">
