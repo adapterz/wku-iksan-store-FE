@@ -194,7 +194,7 @@ function initProductTabs() {
 // 선물후기 목록: 정렬·더보기 상태를 들고 있다가 GET /api/products/:id/reviews를 호출한다.
 // 상단 요약(평균 별점·리뷰수)과 탭 라벨도 이 응답 하나로 같이 갱신한다.
 const REVIEW_PAGE_SIZE = 10;
-const reviewState = { productId: null, page: 1, sort: 'latest', totalPages: 1, loading: false };
+const reviewState = { page: 1, sort: 'latest', totalPages: 1, loading: false };
 
 function updateReviewSummary(summary) {
   const avgEl = document.getElementById('review-average');
@@ -251,7 +251,6 @@ function createReviewCard(review) {
 async function loadProductReviews(productId, { append = false } = {}) {
   if (reviewState.loading) return;
   reviewState.loading = true;
-  reviewState.productId = productId;
   if (!append) reviewState.page = 1;
 
   const listEl = document.getElementById('review-list');
