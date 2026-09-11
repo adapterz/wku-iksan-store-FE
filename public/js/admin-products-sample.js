@@ -300,17 +300,24 @@ function activateTab(tab) {
 }
 
 async function checkAndLoad() {
+  let me;
   try {
-    const result = await window.requestJson('/api/admin/products', { silent401: true });
-    if (!result) return showGate();
-    showApp();
-    await loadCategories();
-    products = result.data;
-    renderProductList();
-    renderProductForm();
+    me = await window.requestJson('/api/auth/me', { silent401: true });
   } catch (err) {
     if (err && err.status === 401) return showGate();
     return showPageError('서버 연결에 실패했습니다.');
+  }
+  if (me.data.role !== 'admin') return showPageError('관리자 권한이 필요합니다.');
+
+  showApp();
+  try {
+    await loadCategories();
+    await loadProducts();
+    renderProductForm();
+  } catch (err) {
+    // loadProducts()는 자체적으로 실패를 처리하므로 여기로는 loadCategories() 실패만 올라온다
+    // (원래 코드가 이 부분까지 하나의 try/catch로 감싸고 있었던 동작을 그대로 유지).
+    showPageError(err.message || '데이터를 불러오지 못했습니다.');
   }
 }
 
