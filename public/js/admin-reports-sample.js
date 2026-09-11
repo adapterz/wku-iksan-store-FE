@@ -108,9 +108,12 @@ async function checkAndLoad() {
   try {
     me = await window.requestJson('/api/auth/me', { silent401: true });
   } catch (err) {
+    // requestJson은 silent401: true여도 401에는 항상 throw한다(전역 리다이렉트만 건너뛸 뿐,
+    // 조용히 undefined를 반환하지는 않는다) — 그래서 401은 여기서 분기해야 하고,
+    // 아래의 `if (!me)`는 절대 참이 될 수 없는 코드다.
+    if (err && err.status === 401) return showGate();
     return showPageError('서버 연결에 실패했습니다.');
   }
-  if (!me) return showGate();
   if (me.data.role !== 'admin') return showPageError('관리자 권한이 필요합니다.');
 
   showApp();
