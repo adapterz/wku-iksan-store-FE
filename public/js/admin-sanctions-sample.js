@@ -166,9 +166,9 @@ async function checkAndLoad() {
     // 조용히 undefined를 반환하지는 않는다) — 그래서 401은 여기서 분기해야 하고,
     // 아래의 `if (!me)`는 절대 참이 될 수 없는 코드다.
     if (err && err.status === 401) return showGate();
-    return showPageError('서버 연결에 실패했습니다.');
+    return showFatalError('서버 연결에 실패했습니다.');
   }
-  if (me.data.role !== 'admin') return showPageError('관리자 권한이 필요합니다.');
+  if (me.data.role !== 'admin') return showFatalError('관리자 권한이 필요합니다.');
 
   showApp();
 }
