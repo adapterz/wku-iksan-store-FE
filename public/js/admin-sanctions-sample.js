@@ -1,48 +1,13 @@
-// Isolated prototype: reuses window.requestJson from js/api.js. No production page scripts are changed.
+// Isolated prototype: reuses window.requestJson from js/api.js and shared helpers from
+// js/admin-sample-common.js (escapeHtml, formatDate, toast, showPageError, showGate, showApp).
+// No production page scripts are changed.
 'use strict';
 
 let currentUserId = null;
 let sanctions = [];
-let toastTimer = null;
-
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-function formatDate(iso) {
-  if (!iso) return '-';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function toast(message) {
-  const el = document.getElementById('toast');
-  el.textContent = message;
-  el.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
-}
-
-function showPageError(message) {
-  const el = document.getElementById('page-error');
-  el.textContent = message;
-  el.hidden = false;
-}
 
 function clearPageError() {
   document.getElementById('page-error').hidden = true;
-}
-
-function showGate() {
-  document.getElementById('login-gate').hidden = false;
-  document.getElementById('app').hidden = true;
-}
-
-function showApp() {
-  document.getElementById('login-gate').hidden = true;
-  document.getElementById('app').hidden = false;
 }
 
 // 정지는 status='active'라도 ends_at이 지났으면 화면에서는 만료로 보여준다
@@ -193,25 +158,17 @@ async function loadSanctions(userId) {
 }
 
 async function checkAndLoad() {
+  let me;
   try {
-    // 관리자 로그인 여부만 가볍게 확인하는 용도로, 관리자 본인(userId 1)의 제재 이력 조회를 사용한다.
-    const result = await window.requestJson('/api/admin/users/1/sanctions?limit=1', { silent401: true });
-    if (!result) return showGate();
-    showApp();
+    me = await window.requestJson('/api/auth/me', { silent401: true });
   } catch (err) {
-    if (err && err.status === 401) return showGate();
     return showPageError('서버 연결에 실패했습니다.');
   }
-}
+  if (!me) return showGate();
+  if (me.data.role !== 'admin') return showPageError('관리자 권한이 필요합니다.');
 
-document.getElementById('sample-login').addEventListener('click', async () => {
-  try {
-    await window.requestJson('/__preview/login', { method: 'POST' });
-    checkAndLoad();
-  } catch (err) {
-    toast('로그인 실패: ' + (err && err.message || ''));
-  }
-});
+  showApp();
+}
 
 document.getElementById('search-form').addEventListener('submit', (e) => {
   e.preventDefault();

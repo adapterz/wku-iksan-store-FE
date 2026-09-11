@@ -57,7 +57,6 @@ async function main() {
     [USER_ACTIVE_SUSPENSION,'suspension','악성 리뷰 반복 작성',ADMIN_ID,future]);
 
   // userId 4: 제재 이력 없음 — 신규 부여 흐름 테스트용 (그대로 둠).
-  void USER_CLEAN;
 
   const app=express();app.use(express.json({limit:'32kb'}));
   app.use((req,res,next)=>{
