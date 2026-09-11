@@ -39,7 +39,7 @@
                     <span class="stars">
                         <i class="fa-solid fa-star" style="color: #191919;"></i>
                     </span>
-                    <span class="review-count"><span style="color: #191919;">0.0</span>&nbsp;&nbsp;&nbsp;&nbsp;리뷰 0</span>
+                    <span class="review-count"><span id="review-average" style="color: #191919;">0.0</span>&nbsp;&nbsp;&nbsp;&nbsp;<span id="review-count-text">리뷰 0</span></span>
                 </div>
                 <div class="product-detail-price-row">
                     <span id="product-price" class="product-detail-price skeleton" style="min-width: 100px; min-height: 22px;"></span>
@@ -76,7 +76,7 @@
             <!-- Tabs Section -->
             <div class="product-tabs-container">
                 <div class="product-tab active" data-tab="description">상품설명</div>
-                <div class="product-tab" data-tab="review">선물후기 (0)</div>
+                <div class="product-tab" data-tab="review">선물후기 (<span id="review-tab-count">0</span>)</div>
                 <div class="product-tab" data-tab="detail">상세정보</div>
             </div>
 
@@ -90,11 +90,21 @@
                 <p id="product-description" class="tab-panel-description-text"></p>
             </div>
 
-            <!-- Tab Panel: 선물후기 (리뷰 기능은 별도 작업 범위, 준비 중 안내만 표시) -->
+            <!-- Tab Panel: 선물후기 -->
             <div class="product-tab-panel" id="tab-panel-review" data-panel="review" hidden>
-                <div class="tab-panel-empty">
+                <div class="review-sort-row" id="review-sort-row" hidden>
+                    <select id="review-sort" class="review-sort-select" aria-label="후기 정렬">
+                        <option value="latest">최신순</option>
+                        <option value="rating_desc">별점 높은순</option>
+                        <option value="rating_asc">별점 낮은순</option>
+                    </select>
+                </div>
+                <div id="review-list" class="review-list"></div>
+                <div class="tab-panel-empty" id="review-empty" hidden>
                     <p>아직 등록된 선물후기가 없습니다.</p>
                 </div>
+                <p class="review-error" id="review-error" role="alert" hidden></p>
+                <button type="button" id="review-more" class="review-more-btn" hidden>후기 더 보기</button>
             </div>
 
             <!-- Tab Panel: 상세정보 -->
@@ -135,6 +145,7 @@
     <script src="js/skeleton.js"></script>
     <script src="js/api.js"></script>
     <script src="js/cache.js"></script>
+    <script src="js/review.js" defer></script>
     <script src="js/component.js" defer></script>
     <script src="js/product.js" defer></script>
 

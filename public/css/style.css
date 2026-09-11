@@ -2198,6 +2198,104 @@ body {
   color: #999999;
 }
 
+/* 선물후기 탭: 정렬 셀렉트, 후기 카드 목록, 더보기 버튼 */
+.review-sort-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.review-sort-select {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-sub);
+  background-color: #FFFFFF;
+}
+
+.review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.review-card {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.review-card:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.review-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.review-card-nickname {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.review-card-date {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.review-card-stars {
+  color: var(--primary-color);
+  font-size: 13px;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.review-card-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-main);
+  white-space: pre-line;
+}
+
+.review-card-actions {
+  margin-top: 8px;
+}
+
+.review-card-edit-btn {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+.review-error {
+  color: #B64535;
+  font-size: 12px;
+  text-align: center;
+  padding: 16px 0;
+}
+
+.review-more-btn {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: #FFFFFF;
+  color: var(--text-sub);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.review-more-btn:disabled {
+  opacity: 0.5;
+}
+
 .product-detail-info-list {
   margin: 0;
 }
@@ -3598,4 +3696,222 @@ body.page-complete {
 /* 찜 완료 하트 아이콘 상태 */
 .wished-icon {
     color: #191919 !important;
+}
+
+/* 리뷰 작성·수정 모달 + 삭제 확인 모달 (review.js가 동적으로 삽입, .gift-arrival-modal과 동일한
+   화면 중앙 팝업 방식). 상품 상세·선물함 등 여러 화면에서 공유한다. */
+.review-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 2200;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.review-modal.open {
+  display: flex;
+}
+
+.review-modal-content {
+  width: 100%;
+  max-width: 400px;
+  max-height: 92dvh;
+  overflow-y: auto;
+  background-color: #FFFFFF;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.review-modal-content-sm {
+  max-width: 320px;
+}
+
+.review-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.review-modal-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.review-modal-close {
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+.review-modal-body {
+  padding: 18px 20px 22px;
+}
+
+.review-editor-product {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background-color: #FAFAFA;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+}
+
+.review-editor-product img {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  object-fit: cover;
+  background-color: #EFEFEF;
+}
+
+.review-editor-product small {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.review-editor-product p {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.review-rating-input {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.review-star-btn {
+  font-size: 26px;
+  color: #E0E0E0;
+}
+
+.review-star-btn.selected {
+  color: var(--primary-color);
+}
+
+.review-rating-label {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-sub);
+  margin-bottom: 14px;
+}
+
+.review-content-input {
+  width: 100%;
+  min-height: 110px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  color: var(--text-main);
+}
+
+.review-content-counter {
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 6px 0 4px;
+}
+
+.review-form-error {
+  color: #B64535;
+  font-size: 12px;
+  min-height: 16px;
+  margin-bottom: 6px;
+}
+
+.review-save-btn {
+  width: 100%;
+  padding: 14px;
+  background-color: var(--primary-color);
+  color: #FFFFFF;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.review-save-btn:disabled {
+  opacity: 0.4;
+}
+
+.review-delete-link {
+  display: block;
+  margin: 14px auto 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+.review-confirm-body {
+  padding: 26px 22px 22px;
+  text-align: center;
+}
+
+.review-confirm-body h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.review-confirm-body > p {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-sub);
+  line-height: 1.6;
+}
+
+.review-confirm-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.review-confirm-actions button {
+  flex: 1;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.review-secondary-btn {
+  background-color: #F5F5F5;
+  color: var(--text-main);
+}
+
+.review-danger-btn {
+  background-color: var(--primary-color);
+  color: #FFFFFF;
+}
+
+.review-secondary-btn:disabled,
+.review-danger-btn:disabled {
+  opacity: 0.5;
+}
+
+.review-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 90%;
+  padding: 12px 20px;
+  background-color: #222222;
+  color: #FFFFFF;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  z-index: 2300;
 }
