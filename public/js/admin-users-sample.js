@@ -39,6 +39,11 @@ document.getElementById('role-form').addEventListener('submit', async (e) => {
   submitBtn.disabled = true;
   try {
     const result = await window.requestJson('/api/admin/users/' + userId + '/role', { method: 'PATCH', body: { role } });
+    // silent401을 안 줬으므로 세션이 만료된 401 응답은 여기서 undefined로 돌아온다
+    // (전역 로그인 리다이렉트가 이미 예약된 상태). 확인 없이 넘어가면 result.data에서
+    // TypeError가 나서 "역할 변경에 실패했습니다"라는 엉뚱한(그러나 다행히 거짓 성공은 아닌)
+    // 에러 메시지로 이어졌다 — 원인을 명확히 하기 위해 여기서 조용히 반환한다.
+    if (!result) return;
     renderResult(result.data);
     toast('역할을 변경했습니다.');
   } catch (err) {
