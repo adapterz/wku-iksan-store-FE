@@ -2203,11 +2203,30 @@ body {
   color: #999999;
 }
 
+/* 선물후기 빈 상태: 탭 패널 하단 칸을 기준으로 가로·세로 모두 가운데 배치.
+   JS가 hidden 속성으로 노출을 제어하므로(product.js), display를 직접 지정하는
+   이 규칙이 [hidden]일 때도 이기지 않도록 아래에서 별도로 꺼준다. */
+#review-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  padding: 0;
+}
+
+#review-empty[hidden] {
+  display: none;
+}
+
 /* 선물후기 탭: 정렬 셀렉트, 후기 카드 목록, 더보기 버튼 */
 .review-sort-row {
   display: flex;
   justify-content: flex-end;
   margin-bottom: 12px;
+}
+
+.review-sort-row[hidden] {
+  display: none;
 }
 
 .review-sort-select {
@@ -2295,6 +2314,10 @@ body {
   color: var(--text-sub);
   font-size: 13px;
   font-weight: 600;
+}
+
+.review-more-btn[hidden] {
+  display: none;
 }
 
 .review-more-btn:disabled {
@@ -3869,6 +3892,10 @@ body.page-complete {
   font-size: 12px;
   color: var(--text-muted);
   text-decoration: underline;
+}
+
+.review-delete-link[hidden] {
+  display: none;
 }
 
 .review-confirm-body {
