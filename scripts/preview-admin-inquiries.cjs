@@ -100,6 +100,7 @@ async function main() {
   app.post('/__preview/login',(req,res,next)=>req.session.regenerate(err=>{
     if(err)return next(err);req.session.userId=ADMIN_ID;req.session.save(err=>err?next(err):res.json({status:'success'}));
   }));
+  app.use('/api/auth',fromBE('./routes/auth')); // checkAndLoad()가 role 확인용으로 /api/auth/me를 호출한다
   app.use('/api/admin/inquiries',fromBE('./routes/admin/inquiries'));
   app.use('/api/admin/dashboard',fromBE('./routes/admin/dashboard'));
   app.use('/api/admin/users',fromBE('./routes/admin/users')); // GET :id/sanctions — 정지 해제 검증용(테스트 스크립트 전용, 샘플 화면은 호출 안 함)

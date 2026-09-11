@@ -19,7 +19,13 @@ async function api(url, method = 'GET', body, authenticated = true) {
 (async () => {
   check((await api('/__preview/status')).body.localPreview === true, 'preview guard');
   check((await api('/api/admin/dashboard', 'GET', undefined, false)).status === 401, 'guest blocked from dashboard');
+  check((await api('/api/auth/me', 'GET', undefined, false)).status === 401, 'guest blocked from auth/me');
   check((await api('/__preview/login', 'POST')).status === 200, 'fixture admin login');
+
+  // checkAndLoad()가 로그인 여부·role 확인용으로 호출하는 API가 실제로 마운트돼 응답하는지 확인
+  // (이 라우트가 안 붙어 있으면 샘플 화면에 로그인 자체가 안 되는데, 화면에서만 봐서는 원인을 알기 어렵다).
+  const me = (await api('/api/auth/me')).body.data;
+  check(me.role === 'admin', 'auth/me reports admin role for the fixture admin');
 
   const dashboard = (await api('/api/admin/dashboard')).body.data;
   check(dashboard.pendingActions.reportCount === 2, 'reportCount fixture');
