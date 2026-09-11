@@ -2,21 +2,29 @@
 // 독립 연동 초안. 기존 상품/주문/선물함 화면은 수정하지 않는다.
 (() => {
   const $ = id => document.getElementById(id);
+  // FE 표시·입력·검증의 단일 기준. 정책 변경 시 BE 상수와 DB CHECK도 함께 변경한다.
+  const limits = Object.freeze({ products:30, perProduct:10, perOrder:50 });
+  $('add-quantity').max = String(limits.perProduct);
+  $('quantity-policy').textContent = `최대 ${limits.products}종 보관 · 상품당 ${limits.perProduct}개 · 한 번에 교환권 ${limits.perOrder}개`;
   const state = { user: null, items: [], selected: new Set(), receiver: null, busy: false, pending: null, needsSync: false, refreshRequested: false };
   const won = value => Number(value).toLocaleString('ko-KR') + '원';
   const node = (tag, text, cls) => { const el = document.createElement(tag); if (text != null) el.textContent = text; if (cls) el.className = cls; return el; };
   const key = () => 'cart-pending-order:' + state.user.userId;
-  const labels = { CART_CHANGED:'다른 화면에서 장바구니가 변경됐어요. 수량을 다시 확인해주세요.', PRODUCT_PRICE_CHANGED:'상품 가격이 변경됐어요. 새 금액을 확인한 뒤 다시 보내주세요.', PRODUCT_UNAVAILABLE:'판매하지 않는 상품이 있어요. 선택을 변경해주세요.', CART_ITEM_NOT_FOUND:'장바구니 항목이 변경됐어요. 다시 확인해주세요.', CART_LIMIT_EXCEEDED:'장바구니에는 최대 30종을 담을 수 있어요.', CART_QUANTITY_EXCEEDED:'같은 상품은 최대 10개까지 담을 수 있어요.', ORDER_QUANTITY_EXCEEDED:'한 번에 교환권 50개까지 보낼 수 있어요.', CART_BUSY:'다른 요청을 처리 중이에요. 잠시 후 다시 시도해주세요.', USER_NOT_FOUND:'해당 닉네임의 회원을 찾지 못했어요.', RECEIVER_NOT_FOUND:'받는 사람이 탈퇴했거나 존재하지 않아요.', CANNOT_GIFT_TO_SELF:'본인에게 보내려면 나에게 선물하기를 선택해주세요.', IDEMPOTENCY_KEY_REUSED:'요청 정보가 일치하지 않아요. 새 주문을 만들지 말고 주문 상태를 확인해주세요.' };
+  const labels = { CART_CHANGED:'다른 화면에서 장바구니가 변경됐어요. 수량을 다시 확인해주세요.', PRODUCT_PRICE_CHANGED:'상품 가격이 변경됐어요. 새 금액을 확인한 뒤 다시 보내주세요.', PRODUCT_UNAVAILABLE:'판매하지 않는 상품이 있어요. 선택을 변경해주세요.', CART_ITEM_NOT_FOUND:'장바구니 항목이 변경됐어요. 다시 확인해주세요.', CART_BUSY:'다른 요청을 처리 중이에요. 잠시 후 다시 시도해주세요.', USER_NOT_FOUND:'해당 닉네임의 회원을 찾지 못했어요.', RECEIVER_NOT_FOUND:'받는 사람이 탈퇴했거나 존재하지 않아요.', CANNOT_GIFT_TO_SELF:'본인에게 보내려면 나에게 선물하기를 선택해주세요.', IDEMPOTENCY_KEY_REUSED:'요청 정보가 일치하지 않아요. 새 주문을 만들지 말고 주문 상태를 확인해주세요.' };
   async function api(path, method = 'GET', body, extra = {}) {
     const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 20000);
     try {
-      const res = await fetch(path, { method, credentials:'same-origin', cache:'no-store', signal:controller.signal, headers:{ ...(body ? {'Content-Type':'application/json'} : {}), ...extra }, body:body ? JSON.stringify(body) : undefined });
-      const data = await res.json();
-      if (!res.ok) throw Object.assign(new Error(labels[data.code] || data.message || '요청을 처리하지 못했어요.'), { status:res.status, code:data.code });
+      // 공통 전송/JSON 오류 처리를 재사용하되 401은 이 화면에서 처리한다.
+      // 자동 이동 전에 주문 키 보존과 이전 계정 정보 제거가 필요하기 때문이다.
+      const data = await window.requestJson(path, { method, body, cache:'no-store', signal:controller.signal, headers:extra, silent401:true });
       return data.data;
+    } catch(error) {
+      const limitLabels = { CART_LIMIT_EXCEEDED:`장바구니에는 최대 ${limits.products}종을 담을 수 있어요.`, CART_QUANTITY_EXCEEDED:`같은 상품은 최대 ${limits.perProduct}개까지 담을 수 있어요.`, ORDER_QUANTITY_EXCEEDED:`한 번에 교환권 ${limits.perOrder}개까지 보낼 수 있어요.` };
+      error.message = limitLabels[error.code] || labels[error.code] || error.message;
+      throw error;
     } finally { clearTimeout(timeout); }
   }
-  function message(text) { $('toast').textContent = text; $('toast').hidden = false; clearTimeout(message.timer); message.timer = setTimeout(() => $('toast').hidden = true, 4500); }
+  const message = text => window.showToast(text);
   function setBusy(value) {
     state.busy = value;
     $('controls').disabled = value || !!state.pending || state.needsSync || !state.user;
@@ -36,8 +44,14 @@
     $('login').textContent = accountChanged ? '현재 계정 장바구니 열기' : '로그인하기';
     $('login').href = accountChanged ? location.pathname : '/login?redirect=' + encodeURIComponent(location.pathname + location.search);
   }
-  function fail(error) {
-    if (error.status === 401) { signedOut(); $('page-error').textContent = '로그인이 만료됐어요. 다시 로그인해주세요. 주문 요청이 있었다면 같은 계정으로 돌아와 결과를 확인해주세요.'; }
+  function fail(error, { initialize = false } = {}) {
+    if (error.status === 401) {
+      const initialSignedOut = initialize && !state.user;
+      const hadPendingOrder = !!state.pending;
+      signedOut();
+      if (initialSignedOut) { $('page-error').textContent = ''; $('page-error').hidden = true; return; }
+      $('page-error').textContent = '로그인이 만료됐어요. 다시 로그인해주세요.' + (hadPendingOrder ? ' 같은 계정으로 돌아와 주문 결과를 확인해주세요.' : '');
+    }
     else $('page-error').textContent = error.message || '연결에 실패했어요. 잠시 후 다시 시도해주세요.';
     $('page-error').hidden = false;
   }
@@ -52,7 +66,7 @@
   async function run(work, { initialize = false } = {}) {
     if (state.busy) return; setBusy(true); $('page-error').hidden = true;
     try { if (!initialize) await ensureIdentity(); await work(); }
-    catch(error) { fail(error); }
+    catch(error) { fail(error, { initialize }); }
     finally {
       setBusy(false);
       if (state.refreshRequested) { state.refreshRequested = false; refreshIdentity(); }
@@ -80,7 +94,7 @@
     const selected = selectedItems(), quantity = selected.reduce((sum,item) => sum + item.quantity, 0);
     $('total').textContent = won(selected.reduce((sum,item) => sum + (item.subtotal || 0), 0));
     $('units').textContent = `${selected.length}종 · 교환권 ${quantity}개`;
-    $('checkout').disabled = !selected.length || quantity > 50 || selected.some(item => !item.canOrder);
+    $('checkout').disabled = !selected.length || quantity > limits.perOrder || selected.some(item => !item.canOrder);
     $('remove-selected').disabled = !selected.length;
     const available = state.items.filter(item => item.canOrder);
     $('select-all').checked = !!available.length && available.every(item => state.selected.has(item.cartItemId));
@@ -98,7 +112,7 @@
       row.append(info); article.append(row);
       if (!item.canOrder) article.append(node('p','현재 주문할 수 없는 상품입니다. 장바구니에서는 삭제할 수 있어요.','unavailable'));
       const controls = node('div',null,'row quantity');
-      for (const delta of [-1,1]) { const button = node('button',delta < 0 ? '−' : '+'); button.type = 'button'; button.disabled = item.quantity + delta < 1 || item.quantity + delta > 10; button.setAttribute('aria-label',item.name + (delta < 0 ? ' 수량 줄이기' : ' 수량 늘리기')); button.onclick = () => run(() => mutate(() => api('/api/cart-items/' + item.cartItemId,'PATCH',{ quantity:item.quantity + delta,version:item.version }))); controls.append(button); if (delta < 0) controls.append(node('span',item.quantity + '개')); }
+      for (const delta of [-1,1]) { const button = node('button',delta < 0 ? '−' : '+'); button.type = 'button'; button.disabled = item.quantity + delta < 1 || item.quantity + delta > limits.perProduct; button.setAttribute('aria-label',item.name + (delta < 0 ? ' 수량 줄이기' : ' 수량 늘리기')); button.onclick = () => run(() => mutate(() => api('/api/cart-items/' + item.cartItemId,'PATCH',{ quantity:item.quantity + delta,version:item.version }))); controls.append(button); if (delta < 0) controls.append(node('span',item.quantity + '개')); }
       const remove = node('button','삭제'); remove.type = 'button'; remove.setAttribute('aria-label',item.name + ' 삭제'); remove.onclick = () => run(() => mutate(() => api('/api/cart-items/' + item.cartItemId,'DELETE'))); controls.append(remove); article.append(controls); $('items').append(article);
     }
     totals();
@@ -139,7 +153,17 @@
   $('remove-selected').onclick = () => run(() => mutate(() => api('/api/cart-items/remove','POST',{itemIds:[...state.selected]})));
   $('nickname').oninput = () => { state.receiver = null; $('recipient-result').textContent = '받는 사람을 다시 확인해주세요.'; };
   $('self').onchange = () => { state.receiver = null; $('recipient-form').hidden = $('self').checked; $('recipient-result').textContent = $('self').checked ? '본인에게 보냅니다.' : '받는 사람을 확인해주세요.'; };
-  $('recipient-form').onsubmit = event => { event.preventDefault(); run(async () => { state.receiver = null; $('recipient-result').textContent = '받는 사람 확인 중…'; const user = await api('/api/users/search?nickname=' + encodeURIComponent($('nickname').value.trim())); if (user.userId === state.user.userId) throw new Error('본인에게 보내려면 나에게 선물하기를 선택해주세요.'); state.receiver = user; $('recipient-result').textContent = user.nickname + '에게 보냅니다.'; }); };
+  $('recipient-form').onsubmit = event => { event.preventDefault(); return run(async () => {
+    state.receiver = null; $('recipient-result').textContent = '받는 사람 확인 중…';
+    try {
+      const user = await api('/api/users/search?nickname=' + encodeURIComponent($('nickname').value.trim()));
+      if (user.userId === state.user.userId) throw new Error('본인에게 보내려면 나에게 선물하기를 선택해주세요.');
+      state.receiver = user; $('recipient-result').textContent = user.nickname + '에게 보냅니다.';
+    } catch(error) {
+      $('recipient-result').textContent = '받는 사람을 다시 확인해주세요.';
+      throw error;
+    }
+  }); };
   $('checkout').onclick = () => {
     if (state.busy || state.pending || state.needsSync || !state.user) return;
     if (!$('self').checked && !state.receiver) return message('받는 사람을 먼저 확인해주세요.');

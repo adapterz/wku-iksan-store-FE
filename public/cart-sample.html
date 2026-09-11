@@ -5,6 +5,7 @@
   <title>장바구니 · 익산 선물</title>
   <link rel="icon" href="/images/favicon.png">
   <link rel="stylesheet" href="/css/cart-sample.css">
+  <script src="/js/api.js" defer></script>
   <script src="/js/cart-sample.js" defer></script>
 </head>
 <body>
@@ -20,7 +21,7 @@
       <div id="pending" class="notice" hidden><strong>이전 주문의 결과를 확인해야 해요.</strong><p>새 주문을 만들지 않고 같은 요청으로 안전하게 확인합니다.</p><button id="retry-order">주문 결과 다시 확인</button></div>
       <div id="sync-needed" class="notice" role="status" hidden><strong>최신 장바구니 확인이 필요해요.</strong><p>이전 요청이 반영됐을 수 있어 추가 조작을 잠시 멈췄어요.</p><button id="sync-cart" type="button">최신 내용 확인</button></div>
       <fieldset id="controls">
-        <section class="add-product"><h2>선물 추가하기</h2><p class="muted">샘플에서는 상품을 골라 바로 담아볼 수 있어요.</p><form id="add-form" class="row"><label class="grow">상품<select id="products" required aria-label="담을 상품"></select></label><label>수량<input id="add-quantity" type="number" min="1" max="10" value="1" required></label><button type="submit">담기</button></form></section>
+        <section class="add-product"><h2>선물 추가하기</h2><p class="muted">샘플에서는 상품을 골라 바로 담아볼 수 있어요.</p><form id="add-form" class="row"><label class="grow">상품<select id="products" required aria-label="담을 상품"></select></label><label>수량<input id="add-quantity" type="number" min="1" value="1" required></label><button type="submit">담기</button></form></section>
         <section aria-labelledby="cart-list-title">
           <h2 id="cart-list-title">담은 상품 <span id="count">0</span></h2>
           <div class="row list-actions"><label class="grow"><input id="select-all" type="checkbox"> 주문 가능 상품 전체 선택</label><button id="remove-selected" class="text-action" type="button">선택 삭제</button></div>
@@ -28,12 +29,11 @@
           <div class="list-footer"><button id="reload" class="text-action" type="button"><span aria-hidden="true">↻</span> 새로고침</button></div>
         </section>
         <section><h2>받는 사람</h2><label><input id="self" type="checkbox"> 나에게 선물하기</label><form id="recipient-form" class="row"><label class="grow">닉네임<input id="nickname" placeholder="받는 사람의 정확한 닉네임" autocomplete="off" required></label><button id="find-recipient" type="submit">확인</button></form><p id="recipient-result" aria-live="polite" class="muted">받는 사람을 확인해주세요.</p><label>함께 보낼 메시지<textarea id="message" maxlength="500" rows="3" placeholder="전하고 싶은 마음을 적어주세요 (선택)"></textarea></label></section>
-        <section class="summary"><div class="row"><h2 class="grow">선택 상품 합계</h2><strong id="total">0원</strong></div><p id="units" class="muted">0종 · 교환권 0개</p><button id="checkout" type="button" class="primary">선물 보내기</button><p class="muted">최대 30종 보관 · 상품당 10개 · 한 번에 교환권 50개</p></section>
+        <section class="summary"><div class="row"><h2 class="grow">선택 상품 합계</h2><strong id="total">0원</strong></div><p id="units" class="muted">0종 · 교환권 0개</p><button id="checkout" type="button" class="primary">선물 보내기</button><p id="quantity-policy" class="muted"></p></section>
       </fieldset>
     </div>
   </main>
 </div>
 <dialog id="confirm-dialog" aria-labelledby="confirm-title"><h2 id="confirm-title">선물을 보낼까요?</h2><p id="confirm-text"></p><p class="muted">실제 결제 없는 데모 주문입니다. 선택한 모든 교환권을 한 번에 발급합니다.</p><div class="row"><button id="cancel-send">취소</button><button id="confirm-send" class="primary">보내기</button></div></dialog>
-<div id="toast" role="status" hidden></div>
 </body>
 </html>

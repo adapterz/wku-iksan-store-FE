@@ -4,10 +4,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname,'../public/js/cart-sample.js'),'utf8');
+const apiSource = fs.readFileSync(path.join(__dirname,'../public/js/api.js'),'utf8');
 
 // Lightweight DOM contract tests, complemented by real browser + local MySQL tests.
 class Element {
-  constructor(tag = 'div') { this.tagName = tag; this.children = []; this.value = ''; this.checked = false; this.disabled = false; this.hidden = false; this.textContent = ''; this.attributes = {}; }
+  constructor(tag = 'div') { this.tagName = tag; this.children = []; this.value = ''; this.checked = false; this.disabled = false; this.hidden = false; this.textContent = ''; this.attributes = {}; this.style = {}; }
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = children; }
   setAttribute(key,value) { this.attributes[key] = value; }
@@ -44,7 +45,9 @@ async function app(options = {}) {
       throw new Error('Unmocked request: '+url);
     }
   };
-  vm.runInNewContext(source,context);
+  vm.createContext(context);
+  vm.runInContext(apiSource,context);
+  vm.runInContext(source,context);
   await flush();
   return {el,calls,storage,location,async event(type){await listeners.get(type)();await flush();},async submit(id){await el(id).onsubmit({preventDefault(){}});await flush();},async click(id){ const pending = el(id).onclick(); await pending; await flush(); },async selectSelf(){el('select-all').checked=true;el('select-all').onchange();el('self').checked=true;el('self').onchange();}};
 }
@@ -150,4 +153,72 @@ test('storage failure must not send an untrackable order',async()=>{
 });
 test('receipt reload and return reloads product choices as well as cart',async()=>{
   const page=await app({url:'http://localhost/cart-sample?orderGroupId=3'});assert.equal(page.el('completed').hidden,false);await page.click('continue');assert.equal(page.el('products').children.length,1);assert.equal(page.el('workspace').hidden,false);assert.equal(page.location.search,'');
+});
+
+test('first anonymous visit shows only sign-in guidance, not expiration or order warnings',async()=>{
+  const page=await app({fetch:async url=>url==='/api/auth/me'?bad(401,'UNAUTHORIZED'):null});
+  assert.equal(page.el('signed-out').hidden,false);
+  assert.equal(page.el('signed-out-title').textContent,'로그인이 필요해요');
+  assert.equal(page.el('page-error').hidden,true);assert.equal(page.el('page-error').textContent,'');
+  assert.equal(page.el('workspace').hidden,true);assert.equal(page.el('controls').disabled,true);
+  assert.equal(page.calls.length,1);assert.equal(page.location.pathname,'/cart-sample');
+});
+
+test('401 after successful initial identity check still reports session expiry',async()=>{
+  const page=await app({fetch:async url=>url==='/api/products'?bad(401,'UNAUTHORIZED'):null});
+  assert.equal(page.el('page-error').hidden,false);assert.match(page.el('page-error').textContent,/만료/);
+  assert.doesNotMatch(page.el('page-error').textContent,/주문/);
+});
+
+for(const failure of ['missing','self','network','server','invalid-json'])test('recipient '+failure+' clears loading state and can recover',async()=>{
+  let fail=true;
+  const page=await app({fetch:async url=>{
+    if(!url.startsWith('/api/users/search')||!fail)return null;
+    if(failure==='network')throw new Error('offline');
+    if(failure==='invalid-json')return {ok:true,status:200,json:async()=>{throw new Error('invalid JSON');}};
+    if(failure==='self')return ok({userId:1,nickname:'Ethan'});
+    return bad(failure==='server'?500:404,failure==='server'?'INTERNAL_ERROR':'USER_NOT_FOUND');
+  }});
+  page.el('select-all').checked=true;page.el('select-all').onchange();
+  await page.submit('recipient-form');
+  assert.equal(page.el('recipient-result').textContent,'받는 사람을 다시 확인해주세요.');
+  assert.equal(page.el('page-error').hidden,false);assert.equal(page.el('controls').disabled,false);
+  await page.click('checkout');assert.notEqual(page.el('confirm-dialog').open,true);
+  assert.equal(page.el('global-toast').textContent,'받는 사람을 먼저 확인해주세요.');
+  fail=false;await page.submit('recipient-form');
+  assert.equal(page.el('recipient-result').textContent,'수신자에게 보냅니다.');
+  assert.equal(page.el('page-error').hidden,true);
+  await page.click('checkout');assert.equal(page.el('confirm-dialog').open,true);
+});
+
+test('recipient 401 clears private form instead of leaving loading state',async()=>{
+  const page=await app({fetch:async url=>url.startsWith('/api/users/search')?bad(401,'UNAUTHORIZED'):null});
+  page.el('nickname').value='private';await page.submit('recipient-form');
+  assert.equal(page.el('recipient-result').textContent,'');assert.equal(page.el('nickname').value,'');
+  assert.equal(page.el('workspace').hidden,true);assert.match(page.el('page-error').textContent,/만료/);
+});
+
+test('shared API preserves credentials, JSON body, idempotency headers and cache control',async()=>{
+  const page=await app();await page.selectSelf();await page.click('confirm-send');
+  const call=page.calls.find(c=>c.url==='/api/order-groups'&&c.method==='POST');
+  assert.equal(call.credentials,'include');assert.equal(call.cache,'no-store');assert.ok(call.signal);
+  assert.equal(call.headers['Content-Type'],'application/json');assert.ok(call.headers['Idempotency-Key']);
+  assert.equal(JSON.parse(call.body).items[0].cartItemId,1);assert.equal(JSON.parse(call.body).isSelfGift,true);
+  assert.equal(page.el('completed').hidden,false);
+});
+
+test('quantity input, labels, item controls and checkout share the current limits',async()=>{
+  const page=await app({items:Array.from({length:6},(_,i)=>sampleItem({cartItemId:i+1,quantity:10,subtotal:45000}))});
+  assert.equal(page.el('add-quantity').max,'10');
+  assert.equal(page.el('quantity-policy').textContent,'최대 30종 보관 · 상품당 10개 · 한 번에 교환권 50개');
+  assert.equal(page.el('items').children[0].children[1].children[2].disabled,true);
+  await page.selectSelf();assert.equal(page.el('checkout').disabled,true);
+  const last=page.el('items').children[5].children[0].children[0];last.checked=false;last.onchange();
+  assert.equal(page.el('checkout').disabled,false);assert.equal(page.el('units').textContent,'5종 · 교환권 50개');
+});
+
+test('HTML loads the shared API before cart initialization and has no duplicate limit literal',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'../public/cart-sample.html'),'utf8');
+  assert.ok(html.indexOf('/js/api.js')<html.indexOf('/js/cart-sample.js'));
+  assert.doesNotMatch(html,/max="10"|상품당 10개|교환권 50개|id="toast"/);
 });
