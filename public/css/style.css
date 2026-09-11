@@ -1246,7 +1246,7 @@ body.page-brand-body {
   transition: none;
 }
 
-/* Stats Row for Interest & Review Counts */
+/* Stats Row for Interest Count */
 .product-card .stats-row {
   font-size: 11px;
   color: #999999;
@@ -1824,14 +1824,13 @@ body {
   background-color: var(--primary-hover);
 }
 
-/* Product Rating Row */
+/* Product Rating Row — 가격 행 오른쪽 끝에 나란히 표시 (.product-detail-price-row가
+   display:flex; justify-content:space-between으로 가격과 분리시킴) */
 .product-rating-row {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  margin-top: 6px;
-  margin-bottom: 8px;
 }
 
 .product-rating-row .stars {
@@ -2157,6 +2156,12 @@ body {
   padding: 20px 16px;
   background-color: #FFFFFF;
   border-bottom: 8px solid #F5F5F5;
+}
+
+/* 선물후기 탭은 더보기 버튼이 마지막 요소라 8px 회색 구분선이 버튼 바로 아래
+   군더더기로 보여서 이 탭만 뺀다. */
+#tab-panel-review {
+  border-bottom: none;
 }
 
 /* 다른 이미지들(.card-img-wrapper.skeleton + .product-img.loaded)과 동일한 스켈레톤·
