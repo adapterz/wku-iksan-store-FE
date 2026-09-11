@@ -99,7 +99,10 @@ async function submitReply(item) {
   }
 
   try {
-    await window.requestJson('/api/admin/inquiries/' + item.inquiryId, { method: 'PATCH', body });
+    const result = await window.requestJson('/api/admin/inquiries/' + item.inquiryId, { method: 'PATCH', body });
+    // silent401을 안 줬으므로 세션이 만료된 401 응답은 여기서 undefined로 돌아온다
+    // (전역 로그인 리다이렉트가 이미 예약된 상태) — 이걸 성공으로 착각해 토스트를 띄우면 안 된다.
+    if (!result) return;
     openId = null;
     toast('답변을 등록했습니다.');
     loadInquiries(inquiryTab);
@@ -147,6 +150,11 @@ function renderCard(item) {
   return card;
 }
 
+// 탭을 빠르게 연속 전환하면 응답이 요청 순서와 다르게 도착해 이전(오래된) 탭 결과가 최신
+// 결과를 덮어쓸 수 있다(search.js abf86c5와 동일 패턴). 새 요청 시작 시 진행 중인 이전
+// 요청을 취소해서 막는다.
+let inquiriesRequest = null;
+
 async function loadInquiries(status) {
   inquiryTab = status;
   document.querySelectorAll('[data-inquiry-tab]').forEach(b => {
@@ -154,8 +162,13 @@ async function loadInquiries(status) {
     else b.removeAttribute('aria-current');
   });
 
+  if (inquiriesRequest) inquiriesRequest.abort();
+  const controller = new AbortController();
+  inquiriesRequest = controller;
+
   try {
-    const result = await window.requestJson(`/api/admin/inquiries?status=${status}&limit=50`);
+    const result = await window.requestJson(`/api/admin/inquiries?status=${status}&limit=50`, { signal: controller.signal });
+    if (controller.signal.aborted) return;
     if (!result) return;
     const listEl = document.getElementById('inquiry-list');
     if (result.data.length === 0) {
@@ -164,6 +177,7 @@ async function loadInquiries(status) {
     }
     listEl.replaceChildren(...result.data.map(renderCard));
   } catch (err) {
+    if (controller.signal.aborted) return;
     showPageError(err.message || '문의 목록을 불러오지 못했습니다.');
   }
 }

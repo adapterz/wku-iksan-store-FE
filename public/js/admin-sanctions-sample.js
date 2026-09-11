@@ -102,7 +102,10 @@ function wireForm() {
 
     errEl.hidden = true;
     try {
-      await window.requestJson(`/api/admin/users/${currentUserId}/sanctions`, { method: 'POST', body });
+      const result = await window.requestJson(`/api/admin/users/${currentUserId}/sanctions`, { method: 'POST', body });
+      // silent401을 안 줬으므로 세션이 만료된 401 응답은 여기서 undefined로 돌아온다
+      // (전역 로그인 리다이렉트가 이미 예약된 상태) — 이걸 성공으로 착각해 토스트를 띄우면 안 된다.
+      if (!result) return;
       toast('제재를 부여했습니다.');
       await loadSanctions(currentUserId);
     } catch (err) {
@@ -128,7 +131,8 @@ function render() {
   resultEl.querySelectorAll('[data-lift]').forEach(btn => {
     btn.addEventListener('click', async () => {
       try {
-        await window.requestJson('/api/admin/sanctions/' + btn.dataset.lift, { method: 'PATCH' });
+        const result = await window.requestJson('/api/admin/sanctions/' + btn.dataset.lift, { method: 'PATCH' });
+        if (!result) return; // 세션 만료(401) — 전역 로그인 리다이렉트에 맡기고 성공 토스트는 띄우지 않는다
         toast('정지를 조기 해제했습니다.');
         await loadSanctions(currentUserId);
       } catch (err) {
@@ -140,15 +144,26 @@ function render() {
   wireForm();
 }
 
+// 조회를 빠르게 연속 제출하면(다른 userId로 재검색 등) 응답이 요청 순서와 다르게 도착해
+// 이전(오래된) 조회 결과가 최신 결과를 덮어쓸 수 있다(search.js abf86c5와 동일 패턴).
+// 새 요청 시작 시 진행 중인 이전 요청을 취소해서 막는다.
+let sanctionsRequest = null;
+
 async function loadSanctions(userId) {
   clearPageError();
+  if (sanctionsRequest) sanctionsRequest.abort();
+  const controller = new AbortController();
+  sanctionsRequest = controller;
+
   try {
-    const result = await window.requestJson(`/api/admin/users/${userId}/sanctions?limit=50`);
+    const result = await window.requestJson(`/api/admin/users/${userId}/sanctions?limit=50`, { signal: controller.signal });
+    if (controller.signal.aborted) return;
     if (!result) return;
     currentUserId = userId;
     sanctions = result.data;
     render();
   } catch (err) {
+    if (controller.signal.aborted) return;
     if (err.code === 'USER_NOT_FOUND') {
       document.getElementById('result').innerHTML = `<p class="as-empty">userId ${userId} 회원을 찾을 수 없습니다.</p>`;
     } else {
