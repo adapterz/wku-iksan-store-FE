@@ -2238,6 +2238,10 @@ body {
   background-color: #FFFFFF;
 }
 
+.review-sort-select:disabled {
+  opacity: 0.5;
+}
+
 .review-list {
   display: flex;
   flex-direction: column;

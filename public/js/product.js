@@ -258,9 +258,13 @@ async function loadProductReviews(productId, { append = false } = {}) {
   const emptyEl = document.getElementById('review-empty');
   const moreBtn = document.getElementById('review-more');
   const sortRow = document.getElementById('review-sort-row');
+  const sortSelect = document.getElementById('review-sort');
   const errorEl = document.getElementById('review-error');
 
   if (moreBtn) moreBtn.disabled = true;
+  // 로딩 중 정렬을 바꾸면 reviewState.loading 가드에 걸려 그 요청이 조용히 버려지고
+  // 드롭다운 표시값만 앞서가는 문제가 있어서, 더보기 버튼과 동일하게 select 자체를 잠근다.
+  if (sortSelect) sortSelect.disabled = true;
   if (errorEl) errorEl.hidden = true;
 
   try {
@@ -289,6 +293,7 @@ async function loadProductReviews(productId, { append = false } = {}) {
   } finally {
     reviewState.loading = false;
     if (moreBtn) moreBtn.disabled = false;
+    if (sortSelect) sortSelect.disabled = false;
   }
 }
 
