@@ -1,4 +1,6 @@
-// Isolated prototype: reuses window.requestJson from js/api.js. No production page scripts are changed.
+// Isolated prototype: reuses window.requestJson from js/api.js and shared helpers from
+// js/admin-sample-common.js (escapeHtml, formatDate, toast, showPageError, showGate, showApp,
+// showFatalError). No production page scripts are changed.
 'use strict';
 
 let categories = [];
@@ -6,7 +8,6 @@ let products = [];
 let statusFilter = '';
 let editingProductId = null; // null = 폼 닫힘, 'new' = 등록, 숫자 = 해당 id 수정
 let editingCategoryId = null; // null = 폼 닫힘, 'new' = 추가, 숫자 = 해당 id 수정
-let toastTimer = null;
 
 const STATUS_LABEL = { active: '판매중', hidden: '숨김', discontinued: '단종' };
 
@@ -20,45 +21,6 @@ const OPTIONAL_FIELDS = [
   { key: 'caution', label: '주의사항', type: 'textarea' }
 ];
 
-function escapeHtml(str) {
-  return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-function toast(message) {
-  const el = document.getElementById('toast');
-  el.textContent = message;
-  el.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
-}
-
-function showPageError(message) {
-  const el = document.getElementById('page-error');
-  el.textContent = message;
-  el.hidden = false;
-}
-
-function showGate() {
-  document.getElementById('login-gate').hidden = false;
-  document.getElementById('app').hidden = true;
-}
-
-function showApp() {
-  document.getElementById('login-gate').hidden = true;
-  document.getElementById('app').hidden = false;
-}
-
-// checkAndLoad()가 앱을 한 번도 보여주기 전에 실패하는 경우(관리자 아님, 그 외 서버 오류) 전용.
-// 이 시점엔 로그인 게이트가 초기 HTML 기본값(보임)인 채로 남아있어서, showPageError()만 부르면
-// "로그인 후 접근할 수 있어요" 안내와 에러 메시지가 동시에 뜬다. 게이트를 확실히 숨겨 에러만 보이게 한다.
-// (앱이 이미 떠 있는 상태에서 데이터 조회 중 실패한 경우는 showPageError()를 그대로 쓴다 —
-// 그때는 게이트가 이미 숨겨져 있고, 잘 쓰고 있던 화면을 이 함수처럼 강제로 가리면 오히려 더 나쁜 UX가 된다.)
-function showFatalError(message) {
-  document.getElementById('login-gate').hidden = true;
-  document.getElementById('app').hidden = true;
-  showPageError(message);
-}
-
 /* ---------- 상품 ---------- */
 
 async function loadCategories() {
@@ -70,14 +32,25 @@ function categoryOptions(selectedId) {
   return categories.map(c => `<option value="${c.id}" ${c.id === selectedId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
 }
 
+// 빠르게 상태 필터를 연속 전환하면 응답이 요청 순서와 다르게 도착해 이전(오래된) 필터 결과가
+// 최신 결과를 덮어쓸 수 있다(search.js abf86c5와 동일 패턴). 새 요청 시작 시 진행 중인 이전
+// 요청을 취소해서 막는다.
+let productsRequest = null;
+
 async function loadProducts() {
+  if (productsRequest) productsRequest.abort();
+  const controller = new AbortController();
+  productsRequest = controller;
+
   const query = statusFilter ? `?status=${statusFilter}` : '';
   try {
-    const result = await window.requestJson('/api/admin/products' + query);
+    const result = await window.requestJson('/api/admin/products' + query, { signal: controller.signal });
+    if (controller.signal.aborted) return;
     if (!result) return;
     products = result.data;
     renderProductList();
   } catch (err) {
+    if (controller.signal.aborted) return;
     showPageError(err.message || '상품 목록을 불러오지 못했습니다.');
   }
 }
@@ -124,7 +97,7 @@ function productFormPanel(mode, product) {
   </div>`;
 }
 
-function readProductForm() {
+function readProductForm(isEdit) {
   const body = {
     name: document.getElementById('pf-name').value.trim(),
     brand: document.getElementById('pf-brand').value.trim(),
@@ -134,7 +107,13 @@ function readProductForm() {
   for (const f of OPTIONAL_FIELDS) {
     const el = document.getElementById('pf-' + f.key);
     const value = el.value.trim();
-    if (value) body[f.key] = value;
+    if (value) {
+      body[f.key] = value;
+    } else if (isEdit) {
+      // 수정 화면에서 선택 필드를 비웠으면 "값을 그대로 둔다"가 아니라 "지운다"는 뜻이므로,
+      // 키 자체를 빼지 않고 null을 명시적으로 보낸다 (BE validateOptionalText가 null을 지원함).
+      body[f.key] = null;
+    }
   }
   return body;
 }
@@ -153,7 +132,8 @@ function renderProductForm() {
   document.getElementById('product-form-cancel').addEventListener('click', () => { editingProductId = null; renderProductForm(); });
   document.getElementById('product-form-submit').addEventListener('click', async () => {
     const errEl = document.getElementById('product-form-error');
-    const body = readProductForm();
+    const isEdit = editingProductId !== 'new';
+    const body = readProductForm(isEdit);
     if (!body.name || !body.brand || !body.price || !body.categoryId) {
       errEl.textContent = '상품명·브랜드·가격·카테고리는 필수입니다.';
       errEl.hidden = false;
@@ -162,15 +142,21 @@ function renderProductForm() {
     errEl.hidden = true;
 
     try {
+      let result;
       if (editingProductId === 'new') {
-        await window.requestJson('/api/admin/products', { method: 'POST', body });
-        toast('상품을 등록했습니다.');
+        result = await window.requestJson('/api/admin/products', { method: 'POST', body });
       } else {
-        await window.requestJson('/api/admin/products/' + editingProductId, { method: 'PATCH', body });
-        toast('상품을 수정했습니다.');
+        result = await window.requestJson('/api/admin/products/' + editingProductId, { method: 'PATCH', body });
       }
+      // silent401을 안 줬으므로 세션이 만료된 401 응답은 여기서 undefined로 돌아온다
+      // (전역 로그인 리다이렉트가 이미 예약된 상태) — 이걸 성공으로 착각해 토스트를 띄우면 안 된다.
+      if (!result) return;
+      toast(editingProductId === 'new' ? '상품을 등록했습니다.' : '상품을 수정했습니다.');
       editingProductId = null;
       await loadProducts();
+      renderProductForm(); // 폼을 닫고 "새 상품 등록" 버튼으로 되돌린다 — 안 하면 이 버튼이 그대로
+                            // "수정 저장"으로 남아있어서, 다시 누르면 editingProductId가 이미 null이라
+                            // PATCH /api/admin/products/null 같은 깨진 요청이 나간다.
     } catch (err) {
       errEl.textContent = err.message || '저장에 실패했습니다.';
       errEl.hidden = false;
@@ -180,7 +166,8 @@ function renderProductForm() {
 
 async function changeProductStatus(id, status) {
   try {
-    await window.requestJson('/api/admin/products/' + id + '/status', { method: 'PATCH', body: { status } });
+    const result = await window.requestJson('/api/admin/products/' + id + '/status', { method: 'PATCH', body: { status } });
+    if (!result) return; // 세션 만료(401) — 전역 로그인 리다이렉트에 맡기고 성공 토스트는 띄우지 않는다
     toast('상태를 "' + STATUS_LABEL[status] + '"(으)로 변경했습니다.');
     await loadProducts();
   } catch (err) {
@@ -265,13 +252,14 @@ function renderCategoryForm() {
     errEl.hidden = true;
 
     try {
+      let result;
       if (editingCategoryId === 'new') {
-        await window.requestJson('/api/admin/categories', { method: 'POST', body: { name } });
-        toast('카테고리를 추가했습니다.');
+        result = await window.requestJson('/api/admin/categories', { method: 'POST', body: { name } });
       } else {
-        await window.requestJson('/api/admin/categories/' + editingCategoryId, { method: 'PATCH', body: { name } });
-        toast('카테고리를 수정했습니다.');
+        result = await window.requestJson('/api/admin/categories/' + editingCategoryId, { method: 'PATCH', body: { name } });
       }
+      if (!result) return; // 세션 만료(401) — 전역 로그인 리다이렉트에 맡기고 성공 토스트는 띄우지 않는다
+      toast(editingCategoryId === 'new' ? '카테고리를 추가했습니다.' : '카테고리를 수정했습니다.');
       editingCategoryId = null;
       await loadCategories();
       renderCategoryList();
@@ -322,8 +310,8 @@ async function checkAndLoad() {
 
   showApp();
   try {
-    await loadCategories();
-    await loadProducts();
+    // loadCategories()와 loadProducts()는 서로 의존관계가 없으므로 병렬로 요청한다.
+    await Promise.all([loadCategories(), loadProducts()]);
     renderProductForm();
   } catch (err) {
     // loadProducts()는 자체적으로 실패를 처리하므로 여기로는 loadCategories() 실패만 올라온다
@@ -331,15 +319,6 @@ async function checkAndLoad() {
     showPageError(err.message || '데이터를 불러오지 못했습니다.');
   }
 }
-
-document.getElementById('sample-login').addEventListener('click', async () => {
-  try {
-    await window.requestJson('/__preview/login', { method: 'POST' });
-    checkAndLoad();
-  } catch (err) {
-    toast('로그인 실패: ' + (err && err.message || ''));
-  }
-});
 
 document.querySelectorAll('nav[aria-label="관리자 화면"] [data-tab]').forEach(btn => {
   btn.addEventListener('click', () => activateTab(btn.dataset.tab));

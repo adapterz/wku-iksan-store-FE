@@ -58,6 +58,14 @@ async function api(url, method = 'GET', body, authenticated = true) {
   const updated = await api('/api/admin/products/' + created.body.data.id, 'PATCH', { price: 21000 });
   check(updated.status === 200 && updated.body.data.price === 21000, 'product price updated');
 
+  // FE의 readProductForm()이 선택 필드를 비웠을 때 키를 생략하지 않고 null을 명시적으로
+  // 보내도록 고쳤는데(관리자가 값을 지워도 서버에 반영 안 되던 버그), 그 전제가 되는
+  // "null을 보내면 실제로 지워지는지"를 API 레벨에서 확인한다.
+  const withCaution = all.find(p => p.caution);
+  check(!!withCaution, 'fixture has a product with a caution value to clear');
+  const cleared = await api('/api/admin/products/' + withCaution.id, 'PATCH', { caution: null });
+  check(cleared.status === 200 && cleared.body.data.caution === null, 'explicit null clears an optional field');
+
   const targetHidden = hidden[0];
   const statusChanged = await api('/api/admin/products/' + targetHidden.id + '/status', 'PATCH', { status: 'active' });
   check(statusChanged.status === 200 && statusChanged.body.data.status === 'active', 'hidden product reactivated');
