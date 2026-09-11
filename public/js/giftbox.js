@@ -121,6 +121,9 @@ document.addEventListener("header:ready", async () => {
       const isUsed = (currentStatus === 'used');
       const senderText = gift.isSelfGift ? "나" : (gift.senderNickname || "친구");
       const dateText = isUsed && gift.usedAt ? `사용일: ${formatDate(gift.usedAt)}` : `받은일: ${formatDate(gift.createdAt)}`;
+      // canReview는 정지 여부를 반영하지 않으므로(BE), 여기선 그냥 노출 조건으로만 쓰고
+      // 실제 작성 가능 여부는 review.js가 저장 시점에 서버 응답으로 다시 확인한다.
+      const reviewBtnLabel = gift.reviewId ? '내 리뷰 수정' : '리뷰 작성';
 
       card.innerHTML = `
         <div class="gift-img-wrapper">
@@ -134,9 +137,10 @@ document.addEventListener("header:ready", async () => {
             <span class="sender-text"></span>
             <span class="gift-date">${dateText}</span>
           </div>
+          ${isUsed ? `<button type="button" class="btn-gift-review">${reviewBtnLabel}</button>` : ''}
         </div>
       `;
-      
+
       const imgEl = card.querySelector('.gift-img');
       if (imgEl) imgEl.src = gift.thumbnailUrl || '';
       const brandEl = card.querySelector('.gift-brand');
@@ -145,6 +149,16 @@ document.addEventListener("header:ready", async () => {
       if (nameEl) nameEl.textContent = gift.productName || '';
       const senderEl = card.querySelector('.sender-text');
       if (senderEl) senderEl.textContent = `보낸사람: ${senderText}`;
+
+      if (isUsed) {
+        const reviewBtn = card.querySelector('.btn-gift-review');
+        if (reviewBtn) {
+          reviewBtn.addEventListener('click', () => {
+            window.openReviewEditor(gift.reviewId ? { reviewId: gift.reviewId } : { giftId: gift.giftId });
+          });
+        }
+      }
+
       listContainer.appendChild(card);
     });
   };
@@ -152,6 +166,12 @@ document.addEventListener("header:ready", async () => {
   // Tab Events
   tabUnused.addEventListener('click', () => loadGifts('unused'));
   tabUsed.addEventListener('click', () => loadGifts('used'));
+
+  // 리뷰 작성·수정·삭제 모달(review.js)이 완료 후 쏘는 이벤트. 지금 보고 있는 탭을
+  // 다시 불러와 canReview/reviewId, 버튼 라벨을 최신 상태로 맞춘다.
+  document.addEventListener('review:changed', () => {
+    loadGifts(currentStatus);
+  });
 
   // Init
   loadGifts(currentStatus);

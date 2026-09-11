@@ -3374,6 +3374,17 @@ body.page-giftbox {
             font-size: 11px;
             color: var(--text-muted);
         }
+.page-giftbox .btn-gift-review {
+            align-self: flex-start;
+            margin-top: 10px;
+            padding: 7px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background-color: #FFFFFF;
+            color: var(--text-main);
+            font-size: 12px;
+            font-weight: 700;
+        }
 .page-giftbox .empty-state {
             padding: 60px 20px;
             text-align: center;

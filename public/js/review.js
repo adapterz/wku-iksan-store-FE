@@ -7,7 +7,10 @@
     REVIEW_ALREADY_EXISTS: '이미 작성한 후기예요. 목록에서 수정해주세요.',
     GIFT_NOT_REVIEWABLE: '사용 완료한 선물만 후기를 작성할 수 있어요.',
     FORBIDDEN_NOT_REVIEW_OWNER: '본인이 작성한 후기만 수정할 수 있어요.',
-    REVIEW_NOT_FOUND: '후기를 찾을 수 없어요. 목록을 다시 확인해주세요.'
+    REVIEW_NOT_FOUND: '후기를 찾을 수 없어요. 목록을 다시 확인해주세요.',
+    // canReview는 정지 여부를 반영하지 않아 목록에서는 버튼이 그대로 활성화돼 있다.
+    // 실제 저장 시점에 BE가 이 코드로 막으므로, 여기서 안내 문구로 바꿔준다.
+    SUSPENDED_FROM_REVIEWS: '정지된 계정은 후기를 작성·수정할 수 없어요.'
   };
 
   function errorMessage(error) {
