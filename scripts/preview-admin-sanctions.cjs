@@ -72,6 +72,7 @@ async function main() {
   app.post('/__preview/login',(req,res,next)=>req.session.regenerate(err=>{
     if(err)return next(err);req.session.userId=ADMIN_ID;req.session.save(err=>err?next(err):res.json({status:'success'}));
   }));
+  app.use('/api/auth',fromBE('./routes/auth')); // checkAndLoad()가 role 확인용으로 /api/auth/me를 호출한다
   app.use('/api/admin/users',fromBE('./routes/admin/users'));
   app.use('/api/admin/sanctions',fromBE('./routes/admin/sanctions'));
   app.use(express.static(path.join(__dirname,'../public')));
