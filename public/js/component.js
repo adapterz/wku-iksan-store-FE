@@ -827,7 +827,7 @@ window.createProductCard = function(product, options = {}) {
           </button>
         </div>
         <div class="stats-row">
-          <span class="interest-count">관심 0</span> · 리뷰 0
+          <span class="interest-count">관심 0</span>
         </div>
       </div>
     `;
