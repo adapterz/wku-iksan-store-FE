@@ -121,8 +121,10 @@ document.addEventListener("header:ready", async () => {
       const isUsed = (currentStatus === 'used');
       const senderText = gift.isSelfGift ? "나" : (gift.senderNickname || "친구");
       const dateText = isUsed && gift.usedAt ? `사용일: ${formatDate(gift.usedAt)}` : `받은일: ${formatDate(gift.createdAt)}`;
-      // canReview는 정지 여부를 반영하지 않으므로(BE), 여기선 그냥 노출 조건으로만 쓰고
-      // 실제 작성 가능 여부는 review.js가 저장 시점에 서버 응답으로 다시 확인한다.
+      // reviewId가 있으면 수정, 없으면 BE가 계산해준 canReview(수신자 본인·결제완료·사용완료·
+      // 미작성)를 그대로 따른다. canReview는 정지 여부는 반영하지 않으므로, 정지된 사용자가
+      // 실제 작성을 시도했을 때의 최종 판단은 review.js가 저장 시점에 서버 응답으로 다시 확인한다.
+      const showReviewButton = isUsed && (gift.reviewId || gift.canReview);
       const reviewBtnLabel = gift.reviewId ? '내 리뷰 수정' : '리뷰 작성';
 
       card.innerHTML = `
@@ -137,7 +139,7 @@ document.addEventListener("header:ready", async () => {
             <span class="sender-text"></span>
             <span class="gift-date">${dateText}</span>
           </div>
-          ${isUsed ? `<button type="button" class="btn-gift-review">${reviewBtnLabel}</button>` : ''}
+          ${showReviewButton ? `<button type="button" class="btn-gift-review">${reviewBtnLabel}</button>` : ''}
         </div>
       `;
 
@@ -150,7 +152,7 @@ document.addEventListener("header:ready", async () => {
       const senderEl = card.querySelector('.sender-text');
       if (senderEl) senderEl.textContent = `보낸사람: ${senderText}`;
 
-      if (isUsed) {
+      if (showReviewButton) {
         const reviewBtn = card.querySelector('.btn-gift-review');
         if (reviewBtn) {
           reviewBtn.addEventListener('click', () => {
