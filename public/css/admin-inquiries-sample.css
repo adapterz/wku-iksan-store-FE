@@ -1,0 +1,39 @@
+/* Domain-specific styles for the admin inquiries sample. Shared rules live in admin-sample-common.css. */
+.ai-tabs{display:flex;gap:4px;border-bottom:1px solid #eee;padding:0 16px;background:#fff;position:sticky;top:0;z-index:2}
+.ai-tabs button{padding:14px 4px;margin-right:16px;color:#999;font-size:14px;border-bottom:2px solid transparent}
+.ai-tabs button[aria-current=page]{color:#191919;border-color:#191919;font-weight:700}
+
+.ai-section-label{padding:20px 16px 10px;font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.04em}
+
+.ai-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 16px}
+.ai-stat-grid.two{grid-template-columns:repeat(2,1fr)}
+.ai-stat-card{background:#fafafa;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:12px;text-align:left}
+.ai-stat-card.pending{background:#fff8ef;border-color:#f3ddb8}
+.ai-stat-card.clickable{cursor:pointer}
+.ai-stat-label{font-size:11.5px;color:#767676;margin-bottom:6px}
+.ai-stat-value{font-size:22px;font-weight:700;color:#191919;font-variant-numeric:tabular-nums}
+
+.ai-panel{margin:20px 16px;padding:16px;background:#fff;border:1px solid var(--border-color);border-radius:var(--radius-md)}
+.ai-brand-row{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.ai-brand-row:last-child{margin-bottom:0}
+.ai-brand-name{width:84px;flex-shrink:0;font-size:12.5px;color:#767676;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ai-brand-track{flex:1;height:7px;border-radius:4px;background:#f0f0f0;overflow:hidden}
+.ai-brand-fill{height:100%;background:var(--primary-color);border-radius:4px}
+.ai-brand-count{width:20px;text-align:right;font-size:13px;font-variant-numeric:tabular-nums}
+
+.ai-list{padding:16px 16px 24px;display:flex;flex-direction:column;gap:10px}
+.ai-card-head-left{display:flex;align-items:center;gap:8px}
+.ai-badge.general{background:#eef6f2;color:#276354}
+.ai-badge.appeal{background:#fbece0;color:#9a4a22}
+.ai-badge.status-pending{background:#fff3d9;color:#8a5a10}
+.ai-badge.status-answered{background:#e9f4e1;color:#3c6b2b}
+.ai-id{font-size:11px;color:#999}
+.ai-content{font-size:14px;color:#191919;margin:10px 0 4px;line-height:1.6}
+.ai-meta{font-size:11px;color:#999;margin:0 0 8px}
+.ai-reply-block{border-top:1px solid #f0f0f0;padding-top:10px;margin-top:6px}
+.ai-reply-label{font-size:12px;color:#767676;margin-bottom:3px}
+.ai-decision-row{display:flex;flex-wrap:wrap;gap:14px 18px;margin:6px 0 10px;font-size:13px;align-items:center}
+.ai-decision-row label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.ai-sanction-input{width:110px;border:1px solid #ddd;border-radius:6px;padding:6px 8px;font-size:12.5px}
+.ai-decision-hint{font-size:11px;color:#999;flex-basis:100%}
+.ai-empty{text-align:center;padding:40px 16px;color:#999;font-size:13px}
