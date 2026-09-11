@@ -1,18 +1,4 @@
-/* Isolated prototype: no production selectors or page scripts are changed. */
-.admin-sample{box-shadow:none;font-size:14px}
-body.admin-sample{padding-bottom:0}
-.admin-sample button,.admin-sample select,.admin-sample textarea{font:inherit}
-.admin-sample button:disabled{opacity:.45;cursor:not-allowed}
-.admin-sample [hidden]{display:none!important}
-.admin-sample button:focus-visible,.admin-sample a:focus-visible{outline:2px solid #191919;outline-offset:3px}
-
-.ai-header{height:60px;display:flex;align-items:center;padding:0 16px;border-bottom:1px solid #f2f2f2;background:#fff}
-.ai-header h1{font-size:17px;font-weight:700}
-.ai-preview{display:flex;align-items:center;justify-content:space-between;background:#f7f7f7;color:#767676;padding:9px 16px;font-size:10px;gap:8px}
-
-.ai-gate{padding:60px 16px;text-align:center;color:#767676;font-size:13px}
-.ai-gate button{margin-top:16px}
-
+/* Domain-specific styles for the admin inquiries sample. Shared rules live in admin-sample-common.css. */
 .ai-tabs{display:flex;gap:4px;border-bottom:1px solid #eee;padding:0 16px;background:#fff;position:sticky;top:0;z-index:2}
 .ai-tabs button{padding:14px 4px;margin-right:16px;color:#999;font-size:14px;border-bottom:2px solid transparent}
 .ai-tabs button[aria-current=page]{color:#191919;border-color:#191919;font-weight:700}
@@ -36,10 +22,7 @@ body.admin-sample{padding-bottom:0}
 .ai-brand-count{width:20px;text-align:right;font-size:13px;font-variant-numeric:tabular-nums}
 
 .ai-list{padding:16px 16px 24px;display:flex;flex-direction:column;gap:10px}
-.ai-card{background:#fff;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:14px 16px}
-.ai-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .ai-card-head-left{display:flex;align-items:center;gap:8px}
-.ai-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:100px}
 .ai-badge.general{background:#eef6f2;color:#276354}
 .ai-badge.appeal{background:#fbece0;color:#9a4a22}
 .ai-badge.status-pending{background:#fff3d9;color:#8a5a10}
@@ -53,15 +36,4 @@ body.admin-sample{padding-bottom:0}
 .ai-decision-row label{display:flex;align-items:center;gap:6px;cursor:pointer}
 .ai-sanction-input{width:110px;border:1px solid #ddd;border-radius:6px;padding:6px 8px;font-size:12.5px}
 .ai-decision-hint{font-size:11px;color:#999;flex-basis:100%}
-.ai-textarea{display:block;width:100%;resize:vertical;min-height:64px;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px;line-height:1.7}
-.ai-textarea:focus{outline:1px solid #191919}
-.ai-field-error{color:#b64535;font-size:12px;margin:6px 0 0}
-.ai-btn-row{display:flex;gap:8px;margin-top:10px}
-.ai-toggle{font-size:12.5px;padding:6px 14px;border:1px solid #ddd;border-radius:6px;color:#555}
-.ai-primary{border-radius:8px;background:var(--primary-color);color:#fff;padding:9px 16px;font-weight:700!important;font-size:13px}
-.ai-secondary{border:1px solid #ddd;padding:9px 16px;border-radius:6px;background:#fff;font-size:13px!important}
 .ai-empty{text-align:center;padding:40px 16px;color:#999;font-size:13px}
-.ai-footer{margin-top:auto;padding:32px 16px 28px;text-align:center;color:#aaa;font-size:10px;background:#fafafa;line-height:2}
-.ai-footer a{color:#888;text-decoration:underline}
-#toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);width:max-content;max-width:90%;padding:12px 20px;background:#222;color:white;border-radius:8px;font-size:12px;z-index:20}
-#page-error{color:#b64535;padding:15px 16px;font-size:12px}

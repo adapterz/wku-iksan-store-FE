@@ -1,44 +1,10 @@
-// Isolated prototype: reuses window.requestJson from js/api.js. No production page scripts are changed.
+// Isolated prototype: reuses window.requestJson from js/api.js and shared helpers from
+// js/admin-sample-common.js (escapeHtml, formatDate, toast, showPageError, showGate, showApp).
+// No production page scripts are changed.
 'use strict';
 
 let inquiryTab = 'pending';
 let openId = null;
-let toastTimer = null;
-
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-function formatDate(iso) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function toast(message) {
-  const el = document.getElementById('toast');
-  el.textContent = message;
-  el.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
-}
-
-function showPageError(message) {
-  const el = document.getElementById('page-error');
-  el.textContent = message;
-  el.hidden = false;
-}
-
-function showGate() {
-  document.getElementById('login-gate').hidden = false;
-  document.getElementById('app').hidden = true;
-}
-
-function showApp() {
-  document.getElementById('login-gate').hidden = true;
-  document.getElementById('app').hidden = false;
-}
 
 function statCard(label, value, { pending = false, onClick = null } = {}) {
   const el = document.createElement(onClick ? 'button' : 'div');
@@ -214,30 +180,18 @@ function activateTab(tab) {
 }
 
 async function checkAndLoad() {
-  let result;
+  let me;
   try {
-    result = await window.requestJson('/api/admin/dashboard', { silent401: true });
+    me = await window.requestJson('/api/auth/me', { silent401: true });
   } catch (err) {
-    if (err && err.status === 401) return showGate();
     return showPageError('서버 연결에 실패했습니다.');
   }
-  if (!result) return showGate();
-  showApp();
-  document.querySelectorAll('nav[aria-label="관리자 화면"] [data-tab]').forEach(b => {
-    if (b.dataset.tab === 'dashboard') b.setAttribute('aria-current', 'page');
-    else b.removeAttribute('aria-current');
-  });
-  renderDashboard(result.data);
-}
+  if (!me) return showGate();
+  if (me.data.role !== 'admin') return showPageError('관리자 권한이 필요합니다.');
 
-document.getElementById('sample-login').addEventListener('click', async () => {
-  try {
-    await window.requestJson('/__preview/login', { method: 'POST' });
-    checkAndLoad();
-  } catch (err) {
-    toast('로그인 실패: ' + (err && err.message || ''));
-  }
-});
+  showApp();
+  activateTab('dashboard');
+}
 
 document.querySelectorAll('nav[aria-label="관리자 화면"] [data-tab]').forEach(btn => {
   btn.addEventListener('click', () => activateTab(btn.dataset.tab));

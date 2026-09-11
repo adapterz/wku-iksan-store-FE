@@ -54,7 +54,15 @@ async function api(url, method = 'GET', body, authenticated = true) {
   const retryDifferent = await api('/api/admin/inquiries/' + generalInquiry.inquiryId, 'PATCH', { adminReply: '다른 답변' });
   check(retryDifferent.status === 409 && retryDifferent.body.code === 'INQUIRY_ALREADY_PROCESSED', 'mismatched retry rejected');
 
-  // 제재 이의제기 승인 — sanctionId를 함께 보내면 같은 트랜잭션에서 정지가 해제되어야 한다
+  // 존재하지 않는 sanctionId로 승인 시도 시 거부 — appealInquiry가 아직 'pending'인 시점에 확인해야
+  // 실패 사유가 "잘못된 sanctionId" 때문임을 "이미 처리된 문의"와 섞이지 않고 검증할 수 있다.
+  const badSanctionAttempt = await api('/api/admin/inquiries/' + appealInquiry.inquiryId, 'PATCH', {
+    adminReply: '확인 결과 정지 사유가 잘못 적용되어 해제합니다.',
+    sanctionId: 999999
+  });
+  check(badSanctionAttempt.status !== 200, 'nonexistent sanctionId rejected while inquiry is still pending');
+
+  // 제재 이의제기 승인 — 올바른 sanctionId를 함께 보내면 같은 트랜잭션에서 정지가 해제되어야 한다
   const sanctionsBefore = (await api('/api/admin/users/' + APPELLANT_ID + '/sanctions')).body.data;
   const targetSanction = sanctionsBefore.find(s => s.status === 'active');
   check(!!targetSanction, 'appellant has an active suspension to lift');
@@ -72,13 +80,6 @@ async function api(url, method = 'GET', body, authenticated = true) {
   const dashboardAfter = (await api('/api/admin/dashboard')).body.data;
   check(dashboardAfter.pendingActions.inquiryCount === 0, 'inquiryCount drops to 0 after both pending inquiries answered');
   check(dashboardAfter.pendingActions.activeSuspensionCount === 1, 'activeSuspensionCount drops by one after the lift');
-
-  // 다른 유저(제재 없는 유저)의 sanctionId로 승인 시도 시 거부
-  const wrongUserAttempt = await api('/api/admin/inquiries/' + appealInquiry.inquiryId, 'PATCH', {
-    adminReply: '다시 처리',
-    sanctionId: 999999
-  });
-  check(wrongUserAttempt.status !== 200, 'nonexistent sanctionId rejected even though inquiry is already answered');
 
   console.log('PASS: ' + checks + ' local admin-inquiries preview API checks');
 })().catch(e => { console.error(e); process.exitCode = 1; });
