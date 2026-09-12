@@ -95,9 +95,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const allGifts = allGiftsResult.data || [];
 
             // 3. 탭별 카운트 계산 및 갱신
-            if (historyCountAll) historyCountAll.textContent = allGifts.length;
+            // "전체"는 사용완료를 제외한 전체(자기+받은 선물 모두), "나에게 선물"은 사용 여부와
+            // 무관한 자기선물 전체, "받은 선물"은 미사용인 것 중 다른 사람에게 받은 것만 센다.
+            // (각 카드가 연결되는 giftbox.html 목록 필터와 반드시 같은 기준이어야 배지 숫자와
+            // 실제로 보이는 목록 건수가 어긋나지 않는다.)
+            if (historyCountAll) historyCountAll.textContent = allGifts.filter(g => g.status !== 'used').length;
             if (historyCountSelf) historyCountSelf.textContent = allGifts.filter(g => g.isSelfGift).length;
-            if (historyCountReceived) historyCountReceived.textContent = allGifts.filter(g => !g.isSelfGift).length;
+            if (historyCountReceived) historyCountReceived.textContent = allGifts.filter(g => !g.isSelfGift && g.status === 'unused').length;
             if (historyCountUsed) historyCountUsed.textContent = allGifts.filter(g => g.status === 'used').length;
 
             // 4. 미사용 선물 필터링 및 리스트 렌더링

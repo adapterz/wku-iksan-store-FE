@@ -39,6 +39,12 @@ document.addEventListener("header:ready", async () => {
   const initialTab = urlParams.get('tab') === 'used' ? 'used' : 'unused';
   let currentStatus = initialTab;
 
+  // 마이페이지 "나에게 선물"/"받은 선물" 카드에서 넘어올 때만 쓰는 구분 필터.
+  // 화면에 이걸 바꾸는 탭 UI가 없어서 최초 진입 시의 값을 탭(미사용/사용완료) 전환과
+  // 무관하게 그대로 유지한다.
+  const requestedType = urlParams.get('type');
+  const currentType = (requestedType === 'self' || requestedType === 'received') ? requestedType : null;
+
   // Render skeleton placeholders that mirror .gift-card layout
   const renderGiftSkeleton = () => {
     listContainer.innerHTML = '';
@@ -67,7 +73,8 @@ document.addEventListener("header:ready", async () => {
     }, 1500);
 
     try {
-      const result = await requestJson(`/api/gifts?status=${status}`);
+      const query = currentType ? `?status=${status}&type=${currentType}` : `?status=${status}`;
+      const result = await requestJson(`/api/gifts${query}`);
       settle();
       renderGiftList(result.data || []);
     } catch (error) {
