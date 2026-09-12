@@ -191,6 +191,121 @@ function initProductTabs() {
   });
 }
 
+// 선물후기 목록: 정렬·더보기 상태를 들고 있다가 GET /api/products/:id/reviews를 호출한다.
+// 상단 요약(평균 별점·리뷰수)과 탭 라벨도 이 응답 하나로 같이 갱신한다.
+const REVIEW_PAGE_SIZE = 10;
+const reviewState = { page: 1, sort: 'latest', totalPages: 1, loading: false, pendingRefresh: false };
+
+function updateReviewSummary(summary) {
+  const avgEl = document.getElementById('review-average');
+  const countEl = document.getElementById('review-count-text');
+  const tabCountEl = document.getElementById('review-tab-count');
+  if (avgEl) avgEl.textContent = summary.averageRating.toFixed(1);
+  if (countEl) countEl.textContent = `리뷰 ${summary.reviewCount}`;
+  if (tabCountEl) tabCountEl.textContent = summary.reviewCount;
+}
+
+// 리뷰 내용은 사용자가 작성한 텍스트이므로 XSS 방지를 위해 textContent로만 채운다.
+function createReviewCard(review) {
+  const card = document.createElement('article');
+  card.className = 'review-card';
+
+  const head = document.createElement('div');
+  head.className = 'review-card-head';
+  const nickname = document.createElement('span');
+  nickname.className = 'review-card-nickname';
+  nickname.textContent = review.nickname;
+  const date = document.createElement('time');
+  date.className = 'review-card-date';
+  date.dateTime = review.createdAt;
+  date.textContent = new Date(review.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  head.append(nickname, date);
+  card.appendChild(head);
+
+  const stars = document.createElement('div');
+  stars.className = 'review-card-stars';
+  stars.setAttribute('aria-label', `5점 만점에 ${review.rating}점`);
+  stars.textContent = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
+  card.appendChild(stars);
+
+  const content = document.createElement('p');
+  content.className = 'review-card-content';
+  content.textContent = review.content;
+  card.appendChild(content);
+
+  if (review.isMine) {
+    const actions = document.createElement('div');
+    actions.className = 'review-card-actions';
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'review-card-edit-btn';
+    editBtn.textContent = '수정 · 삭제';
+    editBtn.addEventListener('click', () => window.openReviewEditor({ reviewId: review.reviewId }));
+    actions.appendChild(editBtn);
+    card.appendChild(actions);
+  }
+
+  return card;
+}
+
+async function loadProductReviews(productId, { append = false } = {}) {
+  if (reviewState.loading) {
+    // 더보기(append) 요청은 그대로 버려도 되지만, review:changed로 인한 새로고침
+    // 요청까지 버리면 저장·삭제 직후에도 목록에 이전 상태가 남는다. 진행 중인
+    // 조회가 끝난 뒤 최신 목록을 다시 받아오도록 예약해둔다.
+    if (!append) reviewState.pendingRefresh = true;
+    return;
+  }
+  reviewState.loading = true;
+  if (!append) reviewState.page = 1;
+
+  const listEl = document.getElementById('review-list');
+  const emptyEl = document.getElementById('review-empty');
+  const moreBtn = document.getElementById('review-more');
+  const sortRow = document.getElementById('review-sort-row');
+  const sortSelect = document.getElementById('review-sort');
+  const errorEl = document.getElementById('review-error');
+
+  if (moreBtn) moreBtn.disabled = true;
+  // 로딩 중 정렬을 바꾸면 reviewState.loading 가드에 걸려 그 요청이 조용히 버려지고
+  // 드롭다운 표시값만 앞서가는 문제가 있어서, 더보기 버튼과 동일하게 select 자체를 잠근다.
+  if (sortSelect) sortSelect.disabled = true;
+  if (errorEl) errorEl.hidden = true;
+
+  try {
+    const result = await requestJson(
+      `/api/products/${productId}/reviews?page=${reviewState.page}&limit=${REVIEW_PAGE_SIZE}&sort=${reviewState.sort}`
+    );
+    if (!result) return;
+
+    const { summary, reviews } = result.data;
+    updateReviewSummary(summary);
+
+    if (!append && listEl) listEl.replaceChildren();
+    if (listEl) reviews.forEach(review => listEl.appendChild(createReviewCard(review)));
+
+    reviewState.totalPages = result.meta.totalPages;
+    if (emptyEl) emptyEl.hidden = summary.reviewCount > 0;
+    if (sortRow) sortRow.hidden = summary.reviewCount === 0;
+    if (moreBtn) moreBtn.hidden = reviewState.page >= reviewState.totalPages;
+  } catch (error) {
+    console.error('선물후기 목록을 불러오지 못했습니다:', error);
+    if (append) reviewState.page -= 1;
+    if (errorEl) {
+      errorEl.textContent = '후기를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
+      errorEl.hidden = false;
+    }
+  } finally {
+    reviewState.loading = false;
+    if (moreBtn) moreBtn.disabled = false;
+    if (sortSelect) sortSelect.disabled = false;
+    if (reviewState.pendingRefresh) {
+      reviewState.pendingRefresh = false;
+      loadProductReviews(productId);
+    }
+  }
+}
+
 // DOM이 로드된 후 데이터 로드 실행
 document.addEventListener("DOMContentLoaded", () => {
   initProductTabs();
@@ -200,6 +315,31 @@ document.addEventListener("DOMContentLoaded", () => {
   const productId = urlParams.get('id') || 1;
 
   loadProductDetail(productId);
+  loadProductReviews(productId);
+
+  const reviewSortSelect = document.getElementById('review-sort');
+  if (reviewSortSelect) {
+    reviewSortSelect.addEventListener('change', () => {
+      reviewState.sort = reviewSortSelect.value;
+      loadProductReviews(productId);
+    });
+  }
+
+  const reviewMoreBtn = document.getElementById('review-more');
+  if (reviewMoreBtn) {
+    reviewMoreBtn.addEventListener('click', () => {
+      reviewState.page += 1;
+      loadProductReviews(productId, { append: true });
+    });
+  }
+
+  // 리뷰 작성·수정·삭제 모달(review.js)이 완료 후 쏘는 이벤트. 이 상품 페이지와
+  // 관련된 변경일 때만 목록을 새로고침한다.
+  document.addEventListener('review:changed', (e) => {
+    if (String(e.detail.productId) === String(productId)) {
+      loadProductReviews(productId);
+    }
+  });
 
   // 뒤로가기 버튼은 component.js의 bindHeaderBackButton()이 공통으로 처리한다.
   // (여기서 별도로 또 바인딩하면 클릭 한 번에 history.back()이 두 번 호출되어

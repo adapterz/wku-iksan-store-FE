@@ -121,6 +121,11 @@ document.addEventListener("header:ready", async () => {
       const isUsed = (currentStatus === 'used');
       const senderText = gift.isSelfGift ? "나" : (gift.senderNickname || "친구");
       const dateText = isUsed && gift.usedAt ? `사용일: ${formatDate(gift.usedAt)}` : `받은일: ${formatDate(gift.createdAt)}`;
+      // reviewId가 있으면 수정, 없으면 BE가 계산해준 canReview(수신자 본인·결제완료·사용완료·
+      // 미작성)를 그대로 따른다. canReview는 정지 여부는 반영하지 않으므로, 정지된 사용자가
+      // 실제 작성을 시도했을 때의 최종 판단은 review.js가 저장 시점에 서버 응답으로 다시 확인한다.
+      const showReviewButton = isUsed && (gift.reviewId || gift.canReview);
+      const reviewBtnLabel = gift.reviewId ? '내 리뷰 수정' : '리뷰 작성';
 
       card.innerHTML = `
         <div class="gift-img-wrapper">
@@ -134,9 +139,10 @@ document.addEventListener("header:ready", async () => {
             <span class="sender-text"></span>
             <span class="gift-date">${dateText}</span>
           </div>
+          ${showReviewButton ? `<button type="button" class="btn-gift-review">${reviewBtnLabel}</button>` : ''}
         </div>
       `;
-      
+
       const imgEl = card.querySelector('.gift-img');
       if (imgEl) imgEl.src = gift.thumbnailUrl || '';
       const brandEl = card.querySelector('.gift-brand');
@@ -145,6 +151,16 @@ document.addEventListener("header:ready", async () => {
       if (nameEl) nameEl.textContent = gift.productName || '';
       const senderEl = card.querySelector('.sender-text');
       if (senderEl) senderEl.textContent = `보낸사람: ${senderText}`;
+
+      if (showReviewButton) {
+        const reviewBtn = card.querySelector('.btn-gift-review');
+        if (reviewBtn) {
+          reviewBtn.addEventListener('click', () => {
+            window.openReviewEditor(gift.reviewId ? { reviewId: gift.reviewId } : { giftId: gift.giftId });
+          });
+        }
+      }
+
       listContainer.appendChild(card);
     });
   };
@@ -152,6 +168,12 @@ document.addEventListener("header:ready", async () => {
   // Tab Events
   tabUnused.addEventListener('click', () => loadGifts('unused'));
   tabUsed.addEventListener('click', () => loadGifts('used'));
+
+  // 리뷰 작성·수정·삭제 모달(review.js)이 완료 후 쏘는 이벤트. 지금 보고 있는 탭을
+  // 다시 불러와 canReview/reviewId, 버튼 라벨을 최신 상태로 맞춘다.
+  document.addEventListener('review:changed', () => {
+    loadGifts(currentStatus);
+  });
 
   // Init
   loadGifts(currentStatus);
