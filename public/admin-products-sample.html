@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>상품·카테고리 관리 · Iksan Store 샘플</title>
+<link rel="icon" href="images/favicon.png"><link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/admin-sample-common.css">
+<link rel="stylesheet" href="css/admin-products-sample.css">
+<script src="js/api.js" defer></script><script src="js/admin-sample-common.js" defer></script><script src="js/admin-products-sample.js" defer></script>
+</head>
+<body class="admin-sample">
+<header class="ai-header"><h1>상품·카테고리 관리</h1></header>
+<div class="ai-preview">LOCAL SAMPLE · 예시 상품·카테고리 데이터</div>
+
+<section id="login-gate" class="ai-gate">
+<p>이 화면은 관리자 로그인 후 접근할 수 있어요.</p>
+<button id="sample-login" class="ai-primary">샘플 관리자 계정으로 로그인</button>
+</section>
+
+<div id="app" hidden>
+<nav class="ai-tabs" aria-label="관리자 화면">
+<button data-tab="products" aria-current="page">상품 관리</button>
+<button data-tab="categories">카테고리 관리</button>
+</nav>
+
+<section id="products-view">
+<div class="ap-status-filter" role="tablist" aria-label="상품 상태 필터">
+<button data-status="" aria-current="page">전체</button>
+<button data-status="active">판매중</button>
+<button data-status="hidden">숨김</button>
+<button data-status="discontinued">단종</button>
+</div>
+<div id="product-list" class="ai-list"></div>
+<div id="product-form-container"></div>
+</section>
+
+<section id="categories-view" hidden>
+<div id="category-list" class="ai-list"></div>
+<div id="category-form-container"></div>
+</section>
+</div>
+
+<p id="page-error" role="alert" hidden></p>
+<footer class="ai-footer">이슈 #90 관리자 페이지 검토용 · 운영 서비스에는 반영되지 않습니다.<br>
+<span>설계: <a href="https://github.com/adapterz/wku-iksan-store-BE/issues/90">issue #90</a></span></footer>
+<div id="toast" role="status" hidden></div>
+</body>
+</html>
