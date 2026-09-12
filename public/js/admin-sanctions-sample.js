@@ -105,16 +105,20 @@ function wireForm() {
     }
 
     errEl.hidden = true;
+    const targetUserId = currentUserId; // 이 요청이 어느 유저에 대한 것인지 시작 시점에 고정해둔다
     try {
-      const result = await window.requestJson(`/api/admin/users/${currentUserId}/sanctions`, { method: 'POST', body });
+      const result = await window.requestJson(`/api/admin/users/${targetUserId}/sanctions`, { method: 'POST', body });
       // silent401을 안 줬으므로 세션이 만료된 401 응답은 여기서 undefined로 돌아온다
       // (전역 로그인 리다이렉트가 이미 예약된 상태) — 이걸 성공으로 착각해 토스트를 띄우면 안 된다.
       if (!result) return;
       toast('제재를 부여했습니다.');
-      // currentUserId가 아니라 intendedUserId로 재조회한다 — 이 요청이 오래 걸리는 동안 관리자가
-      // 이미 다른 userId를 검색했다면 currentUserId는 아직 갱신 전(옛 값)이라, 그걸로 재조회하면
-      // 방금 시작된 더 최신 검색을 덮어써 버린다(#89 리뷰에서 지적된 race condition).
-      await loadSanctions(intendedUserId);
+      // 요청이 오래 걸리는 동안 관리자가 이미 다른 userId를 조회 중이면(intendedUserId !== targetUserId)
+      // 재조회를 건너뛴다. currentUserId로 무조건 재조회하면 그사이 시작된 더 최신 검색을 덮어쓰고
+      // (#89 리뷰 지적), intendedUserId로 무조건 재조회하면 관리자가 오타 등으로 존재하지 않는
+      // userId를 조회 중일 때 방금 성공한 제재 결과 대신 "찾을 수 없음" 화면을 다시 띄우게 된다 —
+      // 두 경우 모두 방금 처리한 결과를 화면에서 확인할 수 없게 되므로, 관리자가 여전히 같은 유저를
+      // 보고 있을 때만 재조회한다.
+      if (targetUserId === intendedUserId) await loadSanctions(targetUserId);
     } catch (err) {
       if (err.code === 'WARNING_LIMIT_EXCEEDED') {
         errEl.textContent = '이미 경고 이력이 있어 정지로 처리해야 합니다.';
@@ -137,12 +141,13 @@ function render() {
 
   resultEl.querySelectorAll('[data-lift]').forEach(btn => {
     btn.addEventListener('click', async () => {
+      const targetUserId = currentUserId; // 이 버튼이 속한 화면이 어느 유저 것인지 클릭 시점에 고정해둔다
       try {
         const result = await window.requestJson('/api/admin/sanctions/' + btn.dataset.lift, { method: 'PATCH' });
         if (!result) return; // 세션 만료(401) — 전역 로그인 리다이렉트에 맡기고 성공 토스트는 띄우지 않는다
         toast('정지를 조기 해제했습니다.');
-        // currentUserId 대신 intendedUserId를 쓰는 이유는 위 submit-sanction 핸들러 주석 참고.
-        await loadSanctions(intendedUserId);
+        // 재조회 조건은 위 submit-sanction 핸들러 주석 참고.
+        if (targetUserId === intendedUserId) await loadSanctions(targetUserId);
       } catch (err) {
         toast(err.message || '해제에 실패했습니다.');
       }
