@@ -1254,7 +1254,7 @@ body.page-brand-body {
   transition: none;
 }
 
-/* Stats Row for Interest & Review Counts */
+/* Stats Row for Interest Count */
 .product-card .stats-row {
   font-size: 11px;
   color: #999999;
@@ -1755,8 +1755,12 @@ body {
   line-height: 1.4;
 }
 
+/* 가격과 별점/리뷰수(.product-rating-row)를 한 행 양 끝에 배치 */
 .product-detail-price-row {
   margin-top: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .product-detail-price {
@@ -1832,14 +1836,13 @@ body {
   background-color: var(--primary-hover);
 }
 
-/* Product Rating Row */
+/* Product Rating Row — 가격 행 오른쪽 끝에 나란히 표시 (.product-detail-price-row가
+   display:flex; justify-content:space-between으로 가격과 분리시킴) */
 .product-rating-row {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  margin-top: 6px;
-  margin-bottom: 8px;
 }
 
 .product-rating-row .stars {
@@ -1850,14 +1853,6 @@ body {
 
 .product-rating-row .review-count {
   color: var(--text-muted);
-}
-
-/* Product Actions Next to Price */
-.product-detail-price-row {
-  margin-top: 4px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
 .product-actions {
@@ -2167,6 +2162,12 @@ body {
   border-bottom: 8px solid #F5F5F5;
 }
 
+/* 선물후기 탭은 더보기 버튼이 마지막 요소라 8px 회색 구분선이 버튼 바로 아래
+   군더더기로 보여서 이 탭만 뺀다. */
+#tab-panel-review {
+  border-bottom: none;
+}
+
 /* 다른 이미지들(.card-img-wrapper.skeleton + .product-img.loaded)과 동일한 스켈레톤·
    페이드인 패턴. wrapper에 aspect-ratio로 자리를 미리 잡아둬야 로딩 중에도 레이아웃이
    안 튀고 스켈레톤 shimmer가 정상적인 크기로 보인다. */
@@ -2204,6 +2205,131 @@ body {
   text-align: center;
   font-size: 14px;
   color: #999999;
+}
+
+/* 선물후기 빈 상태: 탭 패널 하단 칸을 기준으로 가로·세로 모두 가운데 배치.
+   JS가 hidden 속성으로 노출을 제어하므로(product.js), display를 직접 지정하는
+   이 규칙이 [hidden]일 때도 이기지 않도록 아래에서 별도로 꺼준다. */
+#review-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  padding: 0;
+}
+
+#review-empty[hidden] {
+  display: none;
+}
+
+/* 선물후기 탭: 정렬 셀렉트, 후기 카드 목록, 더보기 버튼 */
+.review-sort-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.review-sort-row[hidden] {
+  display: none;
+}
+
+.review-sort-select {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-sub);
+  background-color: #FFFFFF;
+}
+
+.review-sort-select:disabled {
+  opacity: 0.5;
+}
+
+.review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.review-card {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.review-card:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.review-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.review-card-nickname {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.review-card-date {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.review-card-stars {
+  color: var(--primary-color);
+  font-size: 13px;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.review-card-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-main);
+  white-space: pre-line;
+}
+
+.review-card-actions {
+  margin-top: 8px;
+}
+
+.review-card-edit-btn {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+.review-error {
+  color: #B64535;
+  font-size: 12px;
+  text-align: center;
+  padding: 16px 0;
+}
+
+.review-more-btn {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: #FFFFFF;
+  color: var(--text-sub);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.review-more-btn[hidden] {
+  display: none;
+}
+
+.review-more-btn:disabled {
+  opacity: 0.5;
 }
 
 .product-detail-info-list {
@@ -3254,6 +3380,17 @@ body.page-giftbox {
             font-size: 11px;
             color: var(--text-muted);
         }
+.page-giftbox .btn-gift-review {
+            align-self: flex-start;
+            margin-top: 10px;
+            padding: 7px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background-color: #FFFFFF;
+            color: var(--text-main);
+            font-size: 12px;
+            font-weight: 700;
+        }
 .page-giftbox .empty-state {
             padding: 60px 20px;
             text-align: center;
@@ -3576,4 +3713,226 @@ body.page-complete {
 /* 찜 완료 하트 아이콘 상태 */
 .wished-icon {
     color: #191919 !important;
+}
+
+/* 리뷰 작성·수정 모달 + 삭제 확인 모달 (review.js가 동적으로 삽입, .gift-arrival-modal과 동일한
+   화면 중앙 팝업 방식). 상품 상세·선물함 등 여러 화면에서 공유한다. */
+.review-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 2200;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.review-modal.open {
+  display: flex;
+}
+
+.review-modal-content {
+  width: 100%;
+  max-width: 400px;
+  max-height: 92dvh;
+  overflow-y: auto;
+  background-color: #FFFFFF;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.review-modal-content-sm {
+  max-width: 320px;
+}
+
+.review-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.review-modal-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.review-modal-close {
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+.review-modal-body {
+  padding: 18px 20px 22px;
+}
+
+.review-editor-product {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background-color: #FAFAFA;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+}
+
+.review-editor-product img {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  object-fit: cover;
+  background-color: #EFEFEF;
+}
+
+.review-editor-product small {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.review-editor-product p {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.review-rating-input {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.review-star-btn {
+  font-size: 26px;
+  color: #E0E0E0;
+}
+
+.review-star-btn.selected {
+  color: var(--primary-color);
+}
+
+.review-rating-label {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-sub);
+  margin-bottom: 14px;
+}
+
+.review-content-input {
+  width: 100%;
+  min-height: 110px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  color: var(--text-main);
+}
+
+.review-content-counter {
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 6px 0 4px;
+}
+
+.review-form-error {
+  color: #B64535;
+  font-size: 12px;
+  min-height: 16px;
+  margin-bottom: 6px;
+}
+
+.review-save-btn {
+  width: 100%;
+  padding: 14px;
+  background-color: var(--primary-color);
+  color: #FFFFFF;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.review-save-btn:disabled {
+  opacity: 0.4;
+}
+
+.review-delete-link {
+  display: block;
+  margin: 14px auto 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+.review-delete-link[hidden] {
+  display: none;
+}
+
+.review-confirm-body {
+  padding: 26px 22px 22px;
+  text-align: center;
+}
+
+.review-confirm-body h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.review-confirm-body > p {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-sub);
+  line-height: 1.6;
+}
+
+.review-confirm-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.review-confirm-actions button {
+  flex: 1;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.review-secondary-btn {
+  background-color: #F5F5F5;
+  color: var(--text-main);
+}
+
+.review-danger-btn {
+  background-color: var(--primary-color);
+  color: #FFFFFF;
+}
+
+.review-secondary-btn:disabled,
+.review-danger-btn:disabled {
+  opacity: 0.5;
+}
+
+.review-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 90%;
+  padding: 12px 20px;
+  background-color: #222222;
+  color: #FFFFFF;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  z-index: 2300;
 }

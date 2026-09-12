@@ -1,0 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Outfit:wght@400;500;600;700&display=swap');
+/* 기존 사이트의 430px 프레임·폰트·색상 체계. 공통 CSS는 수정하지 않는다. */
+:root{font-family:'Outfit','Noto Sans KR',sans-serif;color:#191919;background:#eaeaea;font-size:14px;line-height:1.6}
+*{box-sizing:border-box}body{margin:0}.shell{max-width:430px;min-height:100vh;margin:auto;background:#fff;box-shadow:0 0 30px #00000012}
+header{height:60px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f2f2f2;padding:0 16px;background:#fff}
+header a{display:grid;place-items:center;width:32px;height:40px;text-decoration:none;color:#191919;font-size:26px}.header-spacer{width:32px}
+h1{font-size:18px;margin:0;font-weight:700}h2{font-size:16px;margin:0 0 12px}main{padding:0 16px 32px}
+.cart-intro{padding:26px 0 18px}.eyebrow{color:#666;font-size:12px;font-weight:500;margin:0 0 9px}.intro{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1.4;margin:0 0 10px}
+.muted{color:#767676;font-size:12px;line-height:1.8;margin:5px 0 12px}.sample-note{font-size:11px;color:#767676;background:#f7f7f7;border-radius:8px;padding:10px 12px;margin:0 0 6px}
+.notice{padding:14px;border-radius:10px;background:#f5f5f5;color:#444;font-size:13px;line-height:1.8;margin:16px 0}.notice p{margin:6px 0 12px}
+section{padding:22px 0;border-bottom:1px solid #f2f2f2}.row{display:flex;align-items:center;gap:8px}.grow{flex:1;min-width:0}
+button,.button{border:1px solid #e5e5e5;background:#fff;color:#191919;padding:10px 12px;border-radius:8px;cursor:pointer;font:inherit;font-weight:500;text-decoration:none;white-space:nowrap;min-height:40px}
+button:hover{background:#f5f5f5}.primary,.button{background:#191919;color:#fff;border-color:#191919}.primary:hover{background:#333}button:disabled{opacity:.4;cursor:not-allowed}
+input,select,textarea{font:inherit;color:inherit;border:1px solid #e5e5e5;border-radius:8px;padding:10px;background:#fff;max-width:100%;min-width:0}
+label{font-size:12px;line-height:1.8}input:not([type=checkbox]),select,textarea{display:block;width:100%}input[type=checkbox]{accent-color:#191919;width:18px;height:18px;vertical-align:middle}input[type=number]{width:54px}textarea{resize:vertical;margin-top:6px}
+fieldset{border:0;padding:0;margin:0;min-width:0}#add-form,#recipient-form{align-items:flex-end}#add-form{flex-wrap:wrap}#add-form .grow{flex-basis:100%}#add-form button{flex:1}#recipient-form{margin-top:16px}
+select{overflow:hidden;text-overflow:ellipsis}#items article{padding:18px 0;border-top:1px solid #f2f2f2}#items h3{font-size:14px;line-height:1.6;margin:3px 0 6px;overflow-wrap:anywhere}#items img{width:68px;height:68px;object-fit:cover;border-radius:10px;background:#f6f4f0}
+#items .price{font-size:15px;font-weight:700}#items .quantity{margin-top:12px;justify-content:flex-end}.quantity button{padding:4px 12px;min-height:36px}.quantity span{min-width:30px;text-align:center}.unavailable{color:#b65332;font-size:12px}
+.list-actions{font-size:12px;margin-bottom:12px}.text-action{border:0;background:transparent;color:#666;font-size:12px;font-weight:400;min-height:36px;padding:6px 8px;border-radius:4px}.text-action:hover:not(:disabled){background:#f5f5f5;color:#191919}.list-footer{display:flex;justify-content:flex-end;margin-top:8px;padding-top:8px;border-top:1px solid #f2f2f2}.list-footer .text-action span{font-size:16px;vertical-align:-1px;margin-right:3px}#count{color:#191919;margin-left:4px}.summary{border:0}.summary .primary{width:100%;padding:15px;font-size:15px}#total{font-size:24px;letter-spacing:-.5px}.empty{text-align:center;padding:36px 8px;color:#999;font-size:13px}
+#page-error{border:1px solid #f3cccc;border-radius:8px;padding:12px;color:#a63737;font-size:13px;line-height:1.8;overflow-wrap:anywhere}
+dialog{font-family:inherit;color:#191919;border:0;border-radius:16px;padding:24px;width:min(360px,calc(100vw - 32px));box-shadow:0 16px 60px #0003}dialog::backdrop{background:#0007}dialog p{line-height:1.8;font-size:13px}dialog .row button{flex:1}dialog h2{font-size:18px}
+#receipt p{line-height:1.8;overflow-wrap:anywhere}#receipt article{padding:16px 0;border-bottom:1px solid #f2f2f2}#completed #continue{margin-top:20px;width:100%}:focus-visible{outline:3px solid #666;outline-offset:3px}[hidden]{display:none!important}
+@media(max-width:359px){#items img{width:52px;height:52px}.row{gap:6px}main{padding-inline:14px}.intro{font-size:24px}button{padding-inline:10px}}

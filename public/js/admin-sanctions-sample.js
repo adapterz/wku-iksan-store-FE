@@ -4,6 +4,10 @@
 'use strict';
 
 let currentUserId = null;
+// 관리자가 실제로 보고 싶어하는 userId. 검색 제출 시 즉시(응답을 기다리지 않고) 갱신되는 반면,
+// currentUserId는 그 조회가 실제로 성공해서 화면에 반영된 뒤에만 갱신된다 — 그래서 제재 부여/해제
+// 후 재조회 대상은 반드시 이 값을 써야 한다(아래 loadSanctions 주석 참고).
+let intendedUserId = null;
 let sanctions = [];
 
 function clearPageError() {
@@ -101,10 +105,20 @@ function wireForm() {
     }
 
     errEl.hidden = true;
+    const targetUserId = currentUserId; // 이 요청이 어느 유저에 대한 것인지 시작 시점에 고정해둔다
     try {
-      await window.requestJson(`/api/admin/users/${currentUserId}/sanctions`, { method: 'POST', body });
+      const result = await window.requestJson(`/api/admin/users/${targetUserId}/sanctions`, { method: 'POST', body });
+      // silent401을 안 줬으므로 세션이 만료된 401 응답은 여기서 undefined로 돌아온다
+      // (전역 로그인 리다이렉트가 이미 예약된 상태) — 이걸 성공으로 착각해 토스트를 띄우면 안 된다.
+      if (!result) return;
       toast('제재를 부여했습니다.');
-      await loadSanctions(currentUserId);
+      // 요청이 오래 걸리는 동안 관리자가 이미 다른 userId를 조회 중이면(intendedUserId !== targetUserId)
+      // 재조회를 건너뛴다. currentUserId로 무조건 재조회하면 그사이 시작된 더 최신 검색을 덮어쓰고
+      // (#89 리뷰 지적), intendedUserId로 무조건 재조회하면 관리자가 오타 등으로 존재하지 않는
+      // userId를 조회 중일 때 방금 성공한 제재 결과 대신 "찾을 수 없음" 화면을 다시 띄우게 된다 —
+      // 두 경우 모두 방금 처리한 결과를 화면에서 확인할 수 없게 되므로, 관리자가 여전히 같은 유저를
+      // 보고 있을 때만 재조회한다.
+      if (targetUserId === intendedUserId) await loadSanctions(targetUserId);
     } catch (err) {
       if (err.code === 'WARNING_LIMIT_EXCEEDED') {
         errEl.textContent = '이미 경고 이력이 있어 정지로 처리해야 합니다.';
@@ -127,10 +141,13 @@ function render() {
 
   resultEl.querySelectorAll('[data-lift]').forEach(btn => {
     btn.addEventListener('click', async () => {
+      const targetUserId = currentUserId; // 이 버튼이 속한 화면이 어느 유저 것인지 클릭 시점에 고정해둔다
       try {
-        await window.requestJson('/api/admin/sanctions/' + btn.dataset.lift, { method: 'PATCH' });
+        const result = await window.requestJson('/api/admin/sanctions/' + btn.dataset.lift, { method: 'PATCH' });
+        if (!result) return; // 세션 만료(401) — 전역 로그인 리다이렉트에 맡기고 성공 토스트는 띄우지 않는다
         toast('정지를 조기 해제했습니다.');
-        await loadSanctions(currentUserId);
+        // 재조회 조건은 위 submit-sanction 핸들러 주석 참고.
+        if (targetUserId === intendedUserId) await loadSanctions(targetUserId);
       } catch (err) {
         toast(err.message || '해제에 실패했습니다.');
       }
@@ -140,15 +157,26 @@ function render() {
   wireForm();
 }
 
+// 조회를 빠르게 연속 제출하면(다른 userId로 재검색 등) 응답이 요청 순서와 다르게 도착해
+// 이전(오래된) 조회 결과가 최신 결과를 덮어쓸 수 있다(search.js abf86c5와 동일 패턴).
+// 새 요청 시작 시 진행 중인 이전 요청을 취소해서 막는다.
+let sanctionsRequest = null;
+
 async function loadSanctions(userId) {
   clearPageError();
+  if (sanctionsRequest) sanctionsRequest.abort();
+  const controller = new AbortController();
+  sanctionsRequest = controller;
+
   try {
-    const result = await window.requestJson(`/api/admin/users/${userId}/sanctions?limit=50`);
+    const result = await window.requestJson(`/api/admin/users/${userId}/sanctions?limit=50`, { signal: controller.signal });
+    if (controller.signal.aborted) return;
     if (!result) return;
     currentUserId = userId;
     sanctions = result.data;
     render();
   } catch (err) {
+    if (controller.signal.aborted) return;
     if (err.code === 'USER_NOT_FOUND') {
       document.getElementById('result').innerHTML = `<p class="as-empty">userId ${userId} 회원을 찾을 수 없습니다.</p>`;
     } else {
@@ -181,6 +209,7 @@ document.getElementById('search-form').addEventListener('submit', (e) => {
     toast('올바른 userId를 입력하세요.');
     return;
   }
+  intendedUserId = userId;
   loadSanctions(userId);
 });
 
