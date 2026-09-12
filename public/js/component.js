@@ -1336,3 +1336,234 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
 
     return { load, renderMessage: renderFallbackState };
 };
+
+// 공용 "둘러보기형" 상품 캐러셀: 페이지당 6개(3열x2행 고정) + 하단 좌우 페이지네이션 +
+// 페이지 전환 슬라이딩 애니메이션. home.js(둘러보기 상품)와 product.js(추천 상품)가 동일하게 사용한다.
+// rootEl 안에는 아래 마크업이 이미 있어야 한다(index.html의 #browse-section 구조 참고):
+//   .browse-cards-viewport > .ranking-cards-row.browse-cards-row
+//   .browse-pagination > .browse-page-prev, .browse-page-indicator, .browse-page-next
+// rootEl의 id는 style.css에서 --browse-slide-duration/--browse-slide-easing을 정의하는
+// 선택자(현재 #browse-section, #product-recommend-section)에 포함되어 있어야 슬라이드
+// 애니메이션 속도/이징이 적용된다. 새 화면에 재사용할 때는 그 선택자에 id를 추가해야 한다.
+// 같은 rootEl로 다시 호출하면(상품 목록 갱신 등) 기존 컨트롤러를 재사용해 1페이지부터 다시 그린다.
+// pageSize/loop 옵션은 매 호출마다 새로 반영되므로, 같은 rootEl를 다른 옵션으로 재사용해도 된다.
+window.createBrowseCarousel = function(rootEl, products, options = {}) {
+    if (!rootEl) return;
+
+    let controller = rootEl._browseCarouselController;
+    if (!controller) {
+        controller = createBrowseCarouselController(rootEl);
+        if (!controller) return;
+        rootEl._browseCarouselController = controller;
+    }
+    controller.setProducts(products || [], options);
+};
+
+function createBrowseCarouselController(rootEl) {
+    const viewport = rootEl.querySelector('.browse-cards-viewport');
+    let currentRow = viewport ? viewport.querySelector('.browse-cards-row') : null;
+    const pagination = rootEl.querySelector('.browse-pagination');
+    const btnPrev = rootEl.querySelector('.browse-page-prev');
+    const btnNext = rootEl.querySelector('.browse-page-next');
+    const indicator = rootEl.querySelector('.browse-page-indicator');
+    if (!viewport || !currentRow) return null;
+
+    let items = [];
+    let pageSize = 6;
+    let loop = false;
+    let pageIndex = 0;
+    let animating = false;
+    // 진행 중인 슬라이드 애니메이션을 transitionend를 기다리지 않고 즉시 마무리하는 함수.
+    // setProducts가 애니메이션 도중 다시 호출되는 경합 상황(예: 짧은 새로고침 간격)에서
+    // 뒤늦게 도착한 transitionend 콜백이 방금 그린 새 화면을 지워버리는 것을 막는다.
+    let finishAnimation = null;
+
+    // createSkeletonCard()의 자리표시자는 실제 카드와 높이가 달라 마지막 페이지에서 그리드
+    // 크기가 흔들리는 원인이 되므로, 실제 카드와 동일한 빈 마크업으로 남은 칸을 채운다.
+    function createPlaceholder() {
+        const card = document.createElement('div');
+        card.className = 'product-card browse-card-placeholder';
+        card.setAttribute('aria-hidden', 'true');
+        card.innerHTML = `
+          <div class="card-img-wrapper"></div>
+          <div class="card-body">
+            <span class="brand-name">&nbsp;</span>
+            <h4 class="product-title">&nbsp;</h4>
+            <div class="price-info" style="display: flex; justify-content: space-between; align-items: center;">
+              <div><span class="price">&nbsp;</span></div>
+              <button class="btn-save-bookmark" tabindex="-1" disabled style="background:none; border:none; padding:4px;">
+                <i class="fa-regular fa-bookmark" style="font-size: 20px; color: #999;"></i>
+              </button>
+            </div>
+            <div class="stats-row">&nbsp;</div>
+          </div>
+        `;
+        return card;
+    }
+
+    function appendCards(row, pageProducts) {
+        pageProducts.forEach(product => {
+            row.appendChild(createProductCard(product));
+        });
+        for (let i = pageProducts.length; i < pageSize; i++) {
+            row.appendChild(createPlaceholder());
+        }
+    }
+
+    function createCardsRow(pageProducts) {
+        const row = document.createElement('div');
+        row.className = 'ranking-cards-row browse-cards-row';
+        appendCards(row, pageProducts);
+        return row;
+    }
+
+    function updateControls(totalPages, direction) {
+        if (pagination) pagination.style.display = totalPages > 1 ? '' : 'none';
+
+        const indicatorText = `${pageIndex + 1} / ${totalPages}`;
+        if (indicator) {
+            if (direction && indicator.textContent !== indicatorText) {
+                indicator.classList.add('browse-indicator-fading');
+                indicator.addEventListener('transitionend', function onFadeOut() {
+                    indicator.removeEventListener('transitionend', onFadeOut);
+                    indicator.textContent = indicatorText;
+                    indicator.classList.remove('browse-indicator-fading');
+                }, { once: true });
+            } else if (!direction) {
+                indicator.textContent = indicatorText;
+            }
+        }
+
+        if (btnPrev) btnPrev.disabled = animating || (!loop && pageIndex === 0);
+        if (btnNext) btnNext.disabled = animating || (!loop && pageIndex >= totalPages - 1);
+    }
+
+    // direction('next'|'prev')이 주어지면 기존 카드(outgoing)와 다음 카드(incoming)를 뷰포트 안에
+    // 나란히 배치한 뒤 같은 방향으로 함께 이동시켜, 두 페이지가 슬라이드되며 전환되는 모션을 만든다.
+    // 없으면(최초 렌더 등) 애니메이션 없이 즉시 반영한다.
+    function renderPage(direction) {
+        const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+        pageIndex = Math.min(Math.max(pageIndex, 0), totalPages - 1);
+        const start = pageIndex * pageSize;
+        const pageProducts = items.slice(start, start + pageSize);
+
+        if (!direction) {
+            currentRow.innerHTML = '';
+            appendCards(currentRow, pageProducts);
+            updateControls(totalPages, direction);
+            return;
+        }
+
+        animating = true;
+
+        const outgoingRow = currentRow;
+        const incomingRow = createCardsRow(pageProducts);
+
+        // 캐러셀 바깥의 코드(예: 스켈레톤/에러 상태를 getElementById로 직접 그리는 호출부)가
+        // 페이지 전환 이후에도 계속 같은 id로 "현재 보이는 행"을 찾을 수 있도록, 요소가 아니라
+        // id 자체를 새 행으로 옮긴다.
+        if (outgoingRow.id) {
+            incomingRow.id = outgoingRow.id;
+            outgoingRow.removeAttribute('id');
+        }
+
+        const outgoingHeight = outgoingRow.offsetHeight;
+        // outgoingRow를 absolute로 빼기 전에 뷰포트 높이를 먼저 고정해둔다. 순서를 바꾸면
+        // outgoingRow가 문서 흐름에서 빠지는 순간 뷰포트가 잠깐 0으로 붕괴했다가 다시 커지는데,
+        // 이 사이에 페이지가 스크롤 하단 근처에 있으면 스크롤 위치가 아래로 밀렸다가 복구되지
+        // 않아 화면이 위로 올라간 것처럼 보이는 문제가 있었다.
+        viewport.style.height = `${outgoingHeight}px`;
+        outgoingRow.classList.add('browse-panel', 'browse-no-transition');
+        outgoingRow.style.transform = 'translateX(0)';
+
+        const enterFrom = direction === 'next' ? '100%' : '-100%';
+        incomingRow.classList.add('browse-panel', 'browse-no-transition');
+        incomingRow.style.transform = `translateX(${enterFrom})`;
+        viewport.appendChild(incomingRow);
+
+        const incomingHeight = incomingRow.offsetHeight;
+        viewport.style.height = `${Math.max(outgoingHeight, incomingHeight)}px`;
+
+        // 강제 리플로우: 두 패널의 시작 위치(transform)를 트랜지션 없이 먼저 확정한 뒤 트랜지션을 켠다
+        void incomingRow.offsetWidth;
+        outgoingRow.classList.remove('browse-no-transition');
+        incomingRow.classList.remove('browse-no-transition');
+
+        // 페이지 인디케이터/버튼은 슬라이드가 시작되는 시점에 목적지 페이지 기준으로 갱신한다
+        updateControls(totalPages, direction);
+
+        function settle() {
+            outgoingRow.remove();
+            incomingRow.classList.remove('browse-panel');
+            incomingRow.style.transform = '';
+            viewport.style.height = '';
+
+            currentRow = incomingRow;
+            animating = false;
+            finishAnimation = null;
+            updateControls(Math.max(1, Math.ceil(items.length / pageSize)));
+        }
+        finishAnimation = settle;
+
+        requestAnimationFrame(() => {
+            const exitTo = direction === 'next' ? '-100%' : '100%';
+            outgoingRow.style.transform = `translateX(${exitTo})`;
+            incomingRow.style.transform = 'translateX(0)';
+            viewport.style.height = `${incomingHeight}px`;
+
+            incomingRow.addEventListener('transitionend', function onSlideEnd() {
+                incomingRow.removeEventListener('transitionend', onSlideEnd);
+                // finishAnimation이 settle이 아니면 setProducts가 이미 즉시 마무리 처리한 것이므로 다시 실행하지 않는다.
+                if (finishAnimation === settle) {
+                    finishAnimation = null;
+                    settle();
+                }
+            }, { once: true });
+        });
+    }
+
+    if (btnPrev) {
+        btnPrev.addEventListener('click', () => {
+            const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+            if (animating) return;
+            if (pageIndex <= 0) {
+                // loop가 켜져 있으면 1페이지에서 한 번 더 누를 때 마지막 페이지로 순환한다.
+                if (!loop || totalPages <= 1) return;
+                pageIndex = totalPages - 1;
+            } else {
+                pageIndex -= 1;
+            }
+            renderPage('prev');
+        });
+    }
+
+    if (btnNext) {
+        btnNext.addEventListener('click', () => {
+            const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+            if (animating) return;
+            if (pageIndex >= totalPages - 1) {
+                // loop가 켜져 있으면 마지막 페이지에서 한 번 더 누를 때 1페이지로 순환한다.
+                if (!loop || totalPages <= 1) return;
+                pageIndex = 0;
+            } else {
+                pageIndex += 1;
+            }
+            renderPage('next');
+        });
+    }
+
+    return {
+        setProducts(products, options = {}) {
+            if (typeof options.pageSize === 'number' && options.pageSize > 0) pageSize = options.pageSize;
+            loop = !!options.loop;
+
+            // 애니메이션 도중 다시 호출된 경우, transitionend를 기다리지 않고 지금 바로
+            // 마무리해서 뒤늦게 도착할 콜백이 아래에서 새로 그리는 화면을 지우지 않게 한다.
+            if (finishAnimation) finishAnimation();
+
+            items = products;
+            pageIndex = 0;
+            renderPage();
+        }
+    };
+}

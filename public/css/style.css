@@ -1223,13 +1223,14 @@ body.page-brand-body {
   pointer-events: none;
 }
 
-/* 둘러보기 상품 페이지 전환 슬라이딩 애니메이션 (두 패널이 동시에 화면에 보이며 나란히 이동).
-   JS(home.js renderBrowsePage)가 애니메이션 중에는 기존 카드(.browse-panel-outgoing)와 다음
-   카드(.browse-panel-incoming)를 뷰포트 안에 절대위치로 나란히 배치하고, 같은 방향으로 함께
-   translateX시킨 뒤 transitionend 시점에 기존 패널을 제거하고 새 패널을 원래 레이아웃으로 되돌린다.
-   지속시간/커브를 #browse-section에 한 번만 정의해, 슬라이드(transform)·높이·페이지 인디케이터
+/* 둘러보기/추천 상품 페이지 전환 슬라이딩 애니메이션 (두 패널이 동시에 화면에 보이며 나란히 이동).
+   JS(component.js의 공용 createBrowseCarousel)가 애니메이션 중에는 기존 카드(.browse-panel + 이동 중
+   transform)와 다음 카드를 뷰포트 안에 절대위치로 나란히 배치하고, 같은 방향으로 함께 translateX시킨 뒤
+   transitionend 시점에 기존 패널을 제거하고 새 패널을 원래 레이아웃으로 되돌린다.
+   지속시간/커브를 이 선택자들에 한 번만 정의해, 슬라이드(transform)·높이·페이지 인디케이터
    페이드가 전부 같은 리듬으로 움직이고 값 하나만 바꿔도 셋이 같이 조정되게 한다. */
-#browse-section {
+#browse-section,
+#product-recommend-section {
   --browse-slide-duration: 1.0s;
   --browse-slide-easing: cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1381,6 +1382,14 @@ body.page-brand-body {
 /* Bottom Nav Bar */
 body {
     padding-bottom: 70px;
+}
+
+/* 상품 상세 페이지의 하단 액션바(.product-bottom-nav)는 height:80px로 다른 화면의 기본
+   .bottom-nav보다 커서, 위 70px만으로는 스크롤 맨 아래 콘텐츠 일부가 가려질 수 있다.
+   페이지 전용으로 10px을 더 보정한다(box-sizing: border-box라 세이프에어리어 여부와 무관하게
+   .product-bottom-nav 높이는 항상 80px로 고정된다). */
+body.page-product {
+    padding-bottom: 80px;
 }
 .bottom-nav {
     position: fixed;
@@ -1959,7 +1968,7 @@ body {
 
 /* Clear bottom space in product page */
 .product-detail-card {
-  padding-bottom: 80px;
+  padding-bottom: 0;
 }
 
 .bottom-action-item#btn-wish.active i {
@@ -2048,6 +2057,11 @@ body {
 /* 매장 이동 행 삭제로 사라진 상단 구분선을 상품정보 섹션 앞에 복원 */
 .product-info-container + .product-detail-section {
   border-top: 8px solid #F5F5F5;
+}
+
+/* 추천 상품은 상품 상세 카드의 마지막 섹션이라 하단 구분선이 불필요 */
+#product-recommend-section {
+  border-bottom: none;
 }
 
 .detail-section-title {

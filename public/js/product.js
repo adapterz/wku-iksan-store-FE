@@ -146,6 +146,54 @@ async function loadProductDetail(id) {
   }
 }
 
+// 추천 상품: 전용 추천 API가 없어, 전체 상품 목록(home.js와 동일한 GET /api/products,
+// sessionCache 공유)에서 현재 상품을 제외한 뒤 무작위로 섞어 보여준다. 현재 상품 id는 URL
+// 쿼리에서 바로 알 수 있으므로, 상품 상세 응답을 기다리지 않고 병렬로 조회를 시작한다.
+// 화면 구조(3열x2행 + 좌우 페이지네이션)는 홈 화면 둘러보기 상품과 동일하게, component.js의
+// 공용 캐러셀(createBrowseCarousel)을 그대로 재사용한다.
+const PRODUCT_RECOMMEND_PAGE_SIZE = 6;
+const PRODUCT_RECOMMEND_MAX_PAGES = 3;
+const PRODUCT_RECOMMEND_MAX_COUNT = PRODUCT_RECOMMEND_PAGE_SIZE * PRODUCT_RECOMMEND_MAX_PAGES;
+
+// Fisher-Yates를 필요한 개수(count)만큼만 진행하는 부분 셔플. 상품 수가 많아져도
+// 실제로 보여줄 개수만큼만 뒤섞으면 되므로, 후보 전체를 섞는 것보다 저렴하다.
+function pickRandomProducts(products, count) {
+  const pool = products.slice();
+  const limit = Math.min(count, pool.length);
+  for (let i = 0; i < limit; i += 1) {
+    const j = i + Math.floor(Math.random() * (pool.length - i));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, limit);
+}
+
+async function loadRecommendedProducts(currentProductId) {
+  const sectionEl = document.getElementById('product-recommend-section');
+  if (!sectionEl) return;
+
+  try {
+    const result = await window.fetchListWithCache(
+      '/api/products',
+      window.PRODUCT_CACHE_KEY,
+      window.PRODUCT_CACHE_TTL_MS
+    );
+    const candidates = (result && Array.isArray(result.data) ? result.data : [])
+      .filter(product => String(product.id) !== String(currentProductId));
+
+    if (candidates.length === 0) {
+      sectionEl.hidden = true;
+      return;
+    }
+
+    sectionEl.hidden = false;
+    const picked = pickRandomProducts(candidates, PRODUCT_RECOMMEND_MAX_COUNT);
+    window.createBrowseCarousel(sectionEl, picked, { pageSize: PRODUCT_RECOMMEND_PAGE_SIZE, loop: true });
+  } catch (error) {
+    console.error('추천 상품을 불러오지 못했습니다:', error);
+    sectionEl.hidden = true;
+  }
+}
+
 
 async function goToOrder(productId, type) {
   try {
@@ -316,6 +364,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   loadProductDetail(productId);
   loadProductReviews(productId);
+  loadRecommendedProducts(productId);
 
   const reviewSortSelect = document.getElementById('review-sort');
   if (reviewSortSelect) {
