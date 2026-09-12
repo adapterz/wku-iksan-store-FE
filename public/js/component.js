@@ -1246,22 +1246,20 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
 // 선택자(현재 #browse-section, #product-recommend-section)에 포함되어 있어야 슬라이드
 // 애니메이션 속도/이징이 적용된다. 새 화면에 재사용할 때는 그 선택자에 id를 추가해야 한다.
 // 같은 rootEl로 다시 호출하면(상품 목록 갱신 등) 기존 컨트롤러를 재사용해 1페이지부터 다시 그린다.
+// pageSize/loop 옵션은 매 호출마다 새로 반영되므로, 같은 rootEl를 다른 옵션으로 재사용해도 된다.
 window.createBrowseCarousel = function(rootEl, products, options = {}) {
     if (!rootEl) return;
-    const pageSize = options.pageSize || 6;
-    const cardOptions = typeof options.cardOptions === 'function' ? options.cardOptions : null;
-    const loop = !!options.loop;
 
     let controller = rootEl._browseCarouselController;
     if (!controller) {
-        controller = createBrowseCarouselController(rootEl, pageSize, cardOptions, loop);
+        controller = createBrowseCarouselController(rootEl);
         if (!controller) return;
         rootEl._browseCarouselController = controller;
     }
-    controller.setProducts(products || []);
+    controller.setProducts(products || [], options);
 };
 
-function createBrowseCarouselController(rootEl, pageSize, cardOptions, loop) {
+function createBrowseCarouselController(rootEl) {
     const viewport = rootEl.querySelector('.browse-cards-viewport');
     let currentRow = viewport ? viewport.querySelector('.browse-cards-row') : null;
     const pagination = rootEl.querySelector('.browse-pagination');
@@ -1271,8 +1269,14 @@ function createBrowseCarouselController(rootEl, pageSize, cardOptions, loop) {
     if (!viewport || !currentRow) return null;
 
     let items = [];
+    let pageSize = 6;
+    let loop = false;
     let pageIndex = 0;
     let animating = false;
+    // 진행 중인 슬라이드 애니메이션을 transitionend를 기다리지 않고 즉시 마무리하는 함수.
+    // setProducts가 애니메이션 도중 다시 호출되는 경합 상황(예: 짧은 새로고침 간격)에서
+    // 뒤늦게 도착한 transitionend 콜백이 방금 그린 새 화면을 지워버리는 것을 막는다.
+    let finishAnimation = null;
 
     // createSkeletonCard()의 자리표시자는 실제 카드와 높이가 달라 마지막 페이지에서 그리드
     // 크기가 흔들리는 원인이 되므로, 실제 카드와 동일한 빈 마크업으로 남은 칸을 채운다.
@@ -1298,8 +1302,8 @@ function createBrowseCarouselController(rootEl, pageSize, cardOptions, loop) {
     }
 
     function appendCards(row, pageProducts) {
-        pageProducts.forEach((product, idx) => {
-            row.appendChild(createProductCard(product, cardOptions ? cardOptions(product, idx) : undefined));
+        pageProducts.forEach(product => {
+            row.appendChild(createProductCard(product));
         });
         for (let i = pageProducts.length; i < pageSize; i++) {
             row.appendChild(createPlaceholder());
@@ -1355,6 +1359,14 @@ function createBrowseCarouselController(rootEl, pageSize, cardOptions, loop) {
         const outgoingRow = currentRow;
         const incomingRow = createCardsRow(pageProducts);
 
+        // 캐러셀 바깥의 코드(예: 스켈레톤/에러 상태를 getElementById로 직접 그리는 호출부)가
+        // 페이지 전환 이후에도 계속 같은 id로 "현재 보이는 행"을 찾을 수 있도록, 요소가 아니라
+        // id 자체를 새 행으로 옮긴다.
+        if (outgoingRow.id) {
+            incomingRow.id = outgoingRow.id;
+            outgoingRow.removeAttribute('id');
+        }
+
         const outgoingHeight = outgoingRow.offsetHeight;
         outgoingRow.classList.add('browse-panel', 'browse-no-transition');
         outgoingRow.style.transform = 'translateX(0)';
@@ -1375,6 +1387,19 @@ function createBrowseCarouselController(rootEl, pageSize, cardOptions, loop) {
         // 페이지 인디케이터/버튼은 슬라이드가 시작되는 시점에 목적지 페이지 기준으로 갱신한다
         updateControls(totalPages, direction);
 
+        function settle() {
+            outgoingRow.remove();
+            incomingRow.classList.remove('browse-panel');
+            incomingRow.style.transform = '';
+            viewport.style.height = '';
+
+            currentRow = incomingRow;
+            animating = false;
+            finishAnimation = null;
+            updateControls(Math.max(1, Math.ceil(items.length / pageSize)));
+        }
+        finishAnimation = settle;
+
         requestAnimationFrame(() => {
             const exitTo = direction === 'next' ? '-100%' : '100%';
             outgoingRow.style.transform = `translateX(${exitTo})`;
@@ -1383,15 +1408,11 @@ function createBrowseCarouselController(rootEl, pageSize, cardOptions, loop) {
 
             incomingRow.addEventListener('transitionend', function onSlideEnd() {
                 incomingRow.removeEventListener('transitionend', onSlideEnd);
-
-                outgoingRow.remove();
-                incomingRow.classList.remove('browse-panel');
-                incomingRow.style.transform = '';
-                viewport.style.height = '';
-
-                currentRow = incomingRow;
-                animating = false;
-                updateControls(totalPages);
+                // finishAnimation이 settle이 아니면 setProducts가 이미 즉시 마무리 처리한 것이므로 다시 실행하지 않는다.
+                if (finishAnimation === settle) {
+                    finishAnimation = null;
+                    settle();
+                }
             }, { once: true });
         });
     }
@@ -1427,7 +1448,14 @@ function createBrowseCarouselController(rootEl, pageSize, cardOptions, loop) {
     }
 
     return {
-        setProducts(products) {
+        setProducts(products, options = {}) {
+            if (typeof options.pageSize === 'number' && options.pageSize > 0) pageSize = options.pageSize;
+            loop = !!options.loop;
+
+            // 애니메이션 도중 다시 호출된 경우, transitionend를 기다리지 않고 지금 바로
+            // 마무리해서 뒤늦게 도착할 콜백이 아래에서 새로 그리는 화면을 지우지 않게 한다.
+            if (finishAnimation) finishAnimation();
+
             items = products;
             pageIndex = 0;
             renderPage();
