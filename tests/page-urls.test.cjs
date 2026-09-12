@@ -98,7 +98,12 @@ for (const method of ['GET', 'POST']) test(`API proxy path and cookie remain unc
 test('shared page matching and login return URL support clean and legacy paths', async () => {
   const link = {};
   const context = {
-    window: { location: { pathname: '/brand', href: 'https://iksan.store/brand?brand=%EB%AF%B8%EB%A5%B5%EC%82%B0' } },
+    window: {
+      location: { pathname: '/brand', href: 'https://iksan.store/brand?brand=%EB%AF%B8%EB%A5%B5%EC%82%B0' },
+      // 주소 검사에서는 공통 UI 이벤트를 실행하지 않는다. component.js 로딩 시
+      // 이벤트 등록만 받아주며, 실제 주소 판별·로그인 복귀 검사는 그대로 수행한다.
+      addEventListener() {},
+    },
     document: {
       body: null,
       addEventListener() {},
