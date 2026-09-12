@@ -50,167 +50,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   let cachedProducts = [];
   let activeFilteredProducts = [];
-  let browsePageIndex = 0;
   let rankingVisibleCount = 6;
-  const BROWSE_PAGE_SIZE = 6; // 고정 2열x3행
+  const BROWSE_PAGE_SIZE = 6; // 고정 3열x2행
   const RECOMMEND_INITIAL_COUNT = 6;
   const RECOMMEND_PAGE_SIZE = 10;
-
-  // createSkeletonCard()는 스켈레톤 전용 마크업(줄 3개)이라 실제 카드의 .product-title(고정
-  // 34px)/.price-info(북마크 버튼 포함)/.stats-row 높이와 정확히 맞지 않아, 자리표시자 행의
-  // 높이가 실제 카드 행과 달라져 마지막 페이지에서 박스 크기가 달라지는 원인이 됐다.
-  // 대신 실제 카드와 동일한 클래스 구조를 빈 내용으로 그대로 재사용해 높이를 정확히 맞춘다.
-  function createBrowseCardPlaceholder() {
-    const card = document.createElement('div');
-    card.className = 'product-card browse-card-placeholder';
-    card.setAttribute('aria-hidden', 'true');
-    card.innerHTML = `
-      <div class="card-img-wrapper"></div>
-      <div class="card-body">
-        <span class="brand-name">&nbsp;</span>
-        <h4 class="product-title">&nbsp;</h4>
-        <div class="price-info" style="display: flex; justify-content: space-between; align-items: center;">
-          <div><span class="price">&nbsp;</span></div>
-          <button class="btn-save-bookmark" tabindex="-1" disabled style="background:none; border:none; padding:4px;">
-            <i class="fa-regular fa-bookmark" style="font-size: 20px; color: #999;"></i>
-          </button>
-        </div>
-        <div class="stats-row">&nbsp;</div>
-      </div>
-    `;
-    return card;
-  }
-
-  // 실제 상품 카드를 채운 뒤, 마지막 페이지처럼 6개(3x2)를 못 채우는 경우에도 그리드 크기가
-  // 줄어들지 않도록 보이지 않는 자리표시자로 남은 칸을 채운다.
-  function appendBrowseCards(row, products) {
-    products.forEach(product => {
-      row.appendChild(createProductCard(product));
-    });
-    for (let i = products.length; i < BROWSE_PAGE_SIZE; i++) {
-      row.appendChild(createBrowseCardPlaceholder());
-    }
-  }
-
-  // 둘러보기 상품 카드 그리드(.ranking-cards-row.browse-cards-row) 엘리먼트를 새로 만들어 반환한다.
-  // 페이지 전환 애니메이션 중에는 기존/다음 페이지 카드를 각각 별도 엘리먼트로 띄워 나란히 이동시켜야 하므로 분리했다.
-  function createBrowseCardsRow(products) {
-    const row = document.createElement('div');
-    row.className = 'ranking-cards-row browse-cards-row';
-    appendBrowseCards(row, products);
-    return row;
-  }
-
-  // 둘러보기 상품: 현재 페이지(browsePageIndex)의 6개만 그려 넣고, 좌우 버튼/인디케이터 상태를 갱신한다.
-  // direction('next'|'prev')이 주어지면 기존 카드(outgoing)와 다음 카드(incoming) 패널을 뷰포트 안에
-  // 나란히 배치한 뒤 같은 방향으로 함께 이동시켜, 두 페이지가 동시에 보이며 전환되는 모션을 만든다.
-  // 없으면(최초 렌더 등) 애니메이션 없이 즉시 반영한다.
-  let browseAnimating = false;
-
-  function renderBrowsePage(direction) {
-    const viewport = document.getElementById('browse-cards-viewport');
-    const currentRow = document.getElementById('browse-product-list');
-    const browsePagination = document.getElementById('browse-pagination');
-    const pageIndicator = document.getElementById('browse-page-indicator');
-    const btnPrev = document.getElementById('btn-browse-prev');
-    const btnNext = document.getElementById('btn-browse-next');
-    if (!viewport || !currentRow) return;
-
-    const totalPages = Math.max(1, Math.ceil(activeFilteredProducts.length / BROWSE_PAGE_SIZE));
-    browsePageIndex = Math.min(Math.max(browsePageIndex, 0), totalPages - 1);
-    // 페이지마다 겹침 없이 순서대로 6개씩 자른다. 마지막 페이지의 나머지(전체 개수 % 6)가
-    // 6개 미만이어도 박스 크기(3x2)는 appendBrowseCards의 자리표시자로 항상 고정 유지한다.
-    const start = browsePageIndex * BROWSE_PAGE_SIZE;
-    const pageProducts = activeFilteredProducts.slice(start, start + BROWSE_PAGE_SIZE);
-
-    const updateControls = () => {
-      if (browsePagination) browsePagination.style.display = totalPages > 1 ? '' : 'none';
-
-      const indicatorText = `${browsePageIndex + 1} / ${totalPages}`;
-      if (pageIndicator) {
-        if (direction && pageIndicator.textContent !== indicatorText) {
-          // 카드 슬라이드와 함께 숫자가 뚝 바뀌지 않도록, 짧게 흐려졌다가 새 값으로 살아나게 한다.
-          pageIndicator.classList.add('browse-indicator-fading');
-          pageIndicator.addEventListener('transitionend', function onIndicatorFadeOut() {
-            pageIndicator.removeEventListener('transitionend', onIndicatorFadeOut);
-            pageIndicator.textContent = indicatorText;
-            pageIndicator.classList.remove('browse-indicator-fading');
-          }, { once: true });
-        } else if (!direction) {
-          // 최초 렌더 등 애니메이션 없이 바로 반영하는 경우는 페이드 없이 즉시 반영한다.
-          pageIndicator.textContent = indicatorText;
-        }
-      }
-
-      if (btnPrev) btnPrev.disabled = browseAnimating || browsePageIndex === 0;
-      if (btnNext) btnNext.disabled = browseAnimating || browsePageIndex >= totalPages - 1;
-    };
-
-    if (!direction) {
-      currentRow.innerHTML = '';
-      appendBrowseCards(currentRow, pageProducts);
-      updateControls();
-      return;
-    }
-
-    // 애니메이션 도중 중복 클릭 방지
-    browseAnimating = true;
-
-    const outgoingRow = currentRow;
-    const incomingRow = createBrowseCardsRow(pageProducts);
-    incomingRow.id = 'browse-product-list';
-    outgoingRow.removeAttribute('id');
-
-    // 패널로 전환하기 전, 절대위치가 되어도 뷰포트 높이가 무너지지 않도록 현재 높이를 먼저 재둔다.
-    const outgoingHeight = outgoingRow.offsetHeight;
-    outgoingRow.classList.add('browse-panel', 'browse-no-transition');
-    outgoingRow.style.transform = 'translateX(0)';
-
-    const enterFrom = direction === 'next' ? '100%' : '-100%';
-    incomingRow.classList.add('browse-panel', 'browse-no-transition');
-    incomingRow.style.transform = `translateX(${enterFrom})`;
-    viewport.appendChild(incomingRow);
-
-    const incomingHeight = incomingRow.offsetHeight;
-    viewport.style.height = `${Math.max(outgoingHeight, incomingHeight)}px`;
-
-    // 강제 리플로우: 두 패널의 시작 위치(transform)를 트랜지션 없이 먼저 확정한 뒤 트랜지션을 켠다
-    void incomingRow.offsetWidth;
-    outgoingRow.classList.remove('browse-no-transition');
-    incomingRow.classList.remove('browse-no-transition');
-
-    // 페이지 인디케이터/버튼은 슬라이드가 시작되는 시점에 목적지 페이지 기준으로 갱신한다
-    updateControls();
-
-    requestAnimationFrame(() => {
-      const exitTo = direction === 'next' ? '-100%' : '100%';
-      outgoingRow.style.transform = `translateX(${exitTo})`;
-      incomingRow.style.transform = 'translateX(0)';
-      // 가로 슬라이드와 동시에 뷰포트 높이도 목표 높이로 이징시켜, 슬라이드가 끝나는 순간
-      // 높이가 뚝 끊겨 줄어들지 않고 함께 자연스럽게 마무리되게 한다.
-      viewport.style.height = `${incomingHeight}px`;
-
-      incomingRow.addEventListener('transitionend', function onSlideEnd() {
-        incomingRow.removeEventListener('transitionend', onSlideEnd);
-
-        outgoingRow.remove();
-        incomingRow.classList.remove('browse-panel');
-        incomingRow.style.transform = '';
-        viewport.style.height = '';
-
-        browseAnimating = false;
-        updateControls();
-      }, { once: true });
-    });
-  }
 
   // Helper to render products into layout elements
   function renderProductsData(products) {
     activeFilteredProducts = products;
-    browsePageIndex = 0;
     rankingVisibleCount = Math.min(RECOMMEND_INITIAL_COUNT, products.length);
 
-    renderBrowsePage();
+    // 둘러보기 상품: component.js의 공용 캐러셀(페이지당 6개, 3열x2행 + 좌우 페이지네이션)을 재사용한다.
+    window.createBrowseCarousel(document.getElementById('browse-section'), products, { pageSize: BROWSE_PAGE_SIZE });
 
     // Render recommend products (초기에는 RECOMMEND_INITIAL_COUNT개까지만 노출)
     const recommendRow = document.getElementById('recommend-product-list');
@@ -361,27 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.classList.add('active');
         pillSelector.style.setProperty('--active-index', idx);
       });
-    });
-  }
-
-  // 둘러보기 상품 좌우 페이지 이동 Click Logic
-  const btnBrowsePrev = document.getElementById('btn-browse-prev');
-  const btnBrowseNext = document.getElementById('btn-browse-next');
-
-  if (btnBrowsePrev) {
-    btnBrowsePrev.addEventListener('click', () => {
-      if (browseAnimating || browsePageIndex <= 0) return;
-      browsePageIndex -= 1;
-      renderBrowsePage('prev');
-    });
-  }
-
-  if (btnBrowseNext) {
-    btnBrowseNext.addEventListener('click', () => {
-      const totalPages = Math.max(1, Math.ceil(activeFilteredProducts.length / BROWSE_PAGE_SIZE));
-      if (browseAnimating || browsePageIndex >= totalPages - 1) return;
-      browsePageIndex += 1;
-      renderBrowsePage('next');
     });
   }
 

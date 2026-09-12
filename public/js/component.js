@@ -1236,3 +1236,200 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
 
     return { load, renderMessage: renderFallbackState };
 };
+
+// 공용 "둘러보기형" 상품 캐러셀: 페이지당 6개(3열x2행 고정) + 하단 좌우 페이지네이션 +
+// 페이지 전환 슬라이딩 애니메이션. home.js(둘러보기 상품)와 product.js(추천 상품)가 동일하게 사용한다.
+// rootEl 안에는 아래 마크업이 이미 있어야 한다(index.html의 #browse-section 구조 참고):
+//   .browse-cards-viewport > .ranking-cards-row.browse-cards-row
+//   .browse-pagination > .browse-page-prev, .browse-page-indicator, .browse-page-next
+// rootEl(또는 조상)에는 --browse-slide-duration/--browse-slide-easing을 정의하는
+// .browse-carousel-root 클래스가 있어야 슬라이드 애니메이션 속도/이징이 적용된다.
+// 같은 rootEl로 다시 호출하면(상품 목록 갱신 등) 기존 컨트롤러를 재사용해 1페이지부터 다시 그린다.
+window.createBrowseCarousel = function(rootEl, products, options = {}) {
+    if (!rootEl) return;
+    const pageSize = options.pageSize || 6;
+    const cardOptions = typeof options.cardOptions === 'function' ? options.cardOptions : null;
+    const loop = !!options.loop;
+
+    let controller = rootEl._browseCarouselController;
+    if (!controller) {
+        controller = createBrowseCarouselController(rootEl, pageSize, cardOptions, loop);
+        if (!controller) return;
+        rootEl._browseCarouselController = controller;
+    }
+    controller.setProducts(products || []);
+};
+
+function createBrowseCarouselController(rootEl, pageSize, cardOptions, loop) {
+    const viewport = rootEl.querySelector('.browse-cards-viewport');
+    let currentRow = viewport ? viewport.querySelector('.browse-cards-row') : null;
+    const pagination = rootEl.querySelector('.browse-pagination');
+    const btnPrev = rootEl.querySelector('.browse-page-prev');
+    const btnNext = rootEl.querySelector('.browse-page-next');
+    const indicator = rootEl.querySelector('.browse-page-indicator');
+    if (!viewport || !currentRow) return null;
+
+    let items = [];
+    let pageIndex = 0;
+    let animating = false;
+
+    // createSkeletonCard()의 자리표시자는 실제 카드와 높이가 달라 마지막 페이지에서 그리드
+    // 크기가 흔들리는 원인이 되므로, 실제 카드와 동일한 빈 마크업으로 남은 칸을 채운다.
+    function createPlaceholder() {
+        const card = document.createElement('div');
+        card.className = 'product-card browse-card-placeholder';
+        card.setAttribute('aria-hidden', 'true');
+        card.innerHTML = `
+          <div class="card-img-wrapper"></div>
+          <div class="card-body">
+            <span class="brand-name">&nbsp;</span>
+            <h4 class="product-title">&nbsp;</h4>
+            <div class="price-info" style="display: flex; justify-content: space-between; align-items: center;">
+              <div><span class="price">&nbsp;</span></div>
+              <button class="btn-save-bookmark" tabindex="-1" disabled style="background:none; border:none; padding:4px;">
+                <i class="fa-regular fa-bookmark" style="font-size: 20px; color: #999;"></i>
+              </button>
+            </div>
+            <div class="stats-row">&nbsp;</div>
+          </div>
+        `;
+        return card;
+    }
+
+    function appendCards(row, pageProducts) {
+        pageProducts.forEach((product, idx) => {
+            row.appendChild(createProductCard(product, cardOptions ? cardOptions(product, idx) : undefined));
+        });
+        for (let i = pageProducts.length; i < pageSize; i++) {
+            row.appendChild(createPlaceholder());
+        }
+    }
+
+    function createCardsRow(pageProducts) {
+        const row = document.createElement('div');
+        row.className = 'ranking-cards-row browse-cards-row';
+        appendCards(row, pageProducts);
+        return row;
+    }
+
+    function updateControls(totalPages, direction) {
+        if (pagination) pagination.style.display = totalPages > 1 ? '' : 'none';
+
+        const indicatorText = `${pageIndex + 1} / ${totalPages}`;
+        if (indicator) {
+            if (direction && indicator.textContent !== indicatorText) {
+                indicator.classList.add('browse-indicator-fading');
+                indicator.addEventListener('transitionend', function onFadeOut() {
+                    indicator.removeEventListener('transitionend', onFadeOut);
+                    indicator.textContent = indicatorText;
+                    indicator.classList.remove('browse-indicator-fading');
+                }, { once: true });
+            } else if (!direction) {
+                indicator.textContent = indicatorText;
+            }
+        }
+
+        if (btnPrev) btnPrev.disabled = animating || (!loop && pageIndex === 0);
+        if (btnNext) btnNext.disabled = animating || (!loop && pageIndex >= totalPages - 1);
+    }
+
+    // direction('next'|'prev')이 주어지면 기존 카드(outgoing)와 다음 카드(incoming)를 뷰포트 안에
+    // 나란히 배치한 뒤 같은 방향으로 함께 이동시켜, 두 페이지가 슬라이드되며 전환되는 모션을 만든다.
+    // 없으면(최초 렌더 등) 애니메이션 없이 즉시 반영한다.
+    function renderPage(direction) {
+        const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+        pageIndex = Math.min(Math.max(pageIndex, 0), totalPages - 1);
+        const start = pageIndex * pageSize;
+        const pageProducts = items.slice(start, start + pageSize);
+
+        if (!direction) {
+            currentRow.innerHTML = '';
+            appendCards(currentRow, pageProducts);
+            updateControls(totalPages, direction);
+            return;
+        }
+
+        animating = true;
+
+        const outgoingRow = currentRow;
+        const incomingRow = createCardsRow(pageProducts);
+
+        const outgoingHeight = outgoingRow.offsetHeight;
+        outgoingRow.classList.add('browse-panel', 'browse-no-transition');
+        outgoingRow.style.transform = 'translateX(0)';
+
+        const enterFrom = direction === 'next' ? '100%' : '-100%';
+        incomingRow.classList.add('browse-panel', 'browse-no-transition');
+        incomingRow.style.transform = `translateX(${enterFrom})`;
+        viewport.appendChild(incomingRow);
+
+        const incomingHeight = incomingRow.offsetHeight;
+        viewport.style.height = `${Math.max(outgoingHeight, incomingHeight)}px`;
+
+        // 강제 리플로우: 두 패널의 시작 위치(transform)를 트랜지션 없이 먼저 확정한 뒤 트랜지션을 켠다
+        void incomingRow.offsetWidth;
+        outgoingRow.classList.remove('browse-no-transition');
+        incomingRow.classList.remove('browse-no-transition');
+
+        // 페이지 인디케이터/버튼은 슬라이드가 시작되는 시점에 목적지 페이지 기준으로 갱신한다
+        updateControls(totalPages, direction);
+
+        requestAnimationFrame(() => {
+            const exitTo = direction === 'next' ? '-100%' : '100%';
+            outgoingRow.style.transform = `translateX(${exitTo})`;
+            incomingRow.style.transform = 'translateX(0)';
+            viewport.style.height = `${incomingHeight}px`;
+
+            incomingRow.addEventListener('transitionend', function onSlideEnd() {
+                incomingRow.removeEventListener('transitionend', onSlideEnd);
+
+                outgoingRow.remove();
+                incomingRow.classList.remove('browse-panel');
+                incomingRow.style.transform = '';
+                viewport.style.height = '';
+
+                currentRow = incomingRow;
+                animating = false;
+                updateControls(totalPages);
+            }, { once: true });
+        });
+    }
+
+    if (btnPrev) {
+        btnPrev.addEventListener('click', () => {
+            const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+            if (animating) return;
+            if (pageIndex <= 0) {
+                // loop가 켜져 있으면 1페이지에서 한 번 더 누를 때 마지막 페이지로 순환한다.
+                if (!loop || totalPages <= 1) return;
+                pageIndex = totalPages - 1;
+            } else {
+                pageIndex -= 1;
+            }
+            renderPage('prev');
+        });
+    }
+
+    if (btnNext) {
+        btnNext.addEventListener('click', () => {
+            const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+            if (animating) return;
+            if (pageIndex >= totalPages - 1) {
+                // loop가 켜져 있으면 마지막 페이지에서 한 번 더 누를 때 1페이지로 순환한다.
+                if (!loop || totalPages <= 1) return;
+                pageIndex = 0;
+            } else {
+                pageIndex += 1;
+            }
+            renderPage('next');
+        });
+    }
+
+    return {
+        setProducts(products) {
+            items = products;
+            pageIndex = 0;
+            renderPage();
+        }
+    };
+}
