@@ -194,7 +194,7 @@ function initProductTabs() {
 // 선물후기 목록: 정렬·더보기 상태를 들고 있다가 GET /api/products/:id/reviews를 호출한다.
 // 상단 요약(평균 별점·리뷰수)과 탭 라벨도 이 응답 하나로 같이 갱신한다.
 const REVIEW_PAGE_SIZE = 10;
-const reviewState = { page: 1, sort: 'latest', totalPages: 1, loading: false };
+const reviewState = { page: 1, sort: 'latest', totalPages: 1, loading: false, pendingRefresh: false };
 
 function updateReviewSummary(summary) {
   const avgEl = document.getElementById('review-average');
@@ -249,7 +249,13 @@ function createReviewCard(review) {
 }
 
 async function loadProductReviews(productId, { append = false } = {}) {
-  if (reviewState.loading) return;
+  if (reviewState.loading) {
+    // 더보기(append) 요청은 그대로 버려도 되지만, review:changed로 인한 새로고침
+    // 요청까지 버리면 저장·삭제 직후에도 목록에 이전 상태가 남는다. 진행 중인
+    // 조회가 끝난 뒤 최신 목록을 다시 받아오도록 예약해둔다.
+    if (!append) reviewState.pendingRefresh = true;
+    return;
+  }
   reviewState.loading = true;
   if (!append) reviewState.page = 1;
 
@@ -293,6 +299,10 @@ async function loadProductReviews(productId, { append = false } = {}) {
     reviewState.loading = false;
     if (moreBtn) moreBtn.disabled = false;
     if (sortSelect) sortSelect.disabled = false;
+    if (reviewState.pendingRefresh) {
+      reviewState.pendingRefresh = false;
+      loadProductReviews(productId);
+    }
   }
 }
 
