@@ -817,8 +817,28 @@ async function ensureWishlistLoaded() {
     return window._wishlistCache;
 }
 
+// 같은 상품에 대한 토글 요청이 겹치는 것을 막는 진행 중 요청 맵.
+// 응답 전에 같은 카드(또는 같은 상품의 다른 카드)를 연속 클릭하면, 각 호출이 요청 전
+// 캐시 스냅샷으로 찜 여부를 판단하므로 똑같이 DELETE(또는 POST)를 중복 전송하게 된다.
+// BE가 이미 해제된 찜의 DELETE도 성공으로 응답하기 때문에 요청 자체는 실패하지 않지만,
+// 성공 이벤트가 두 번 발생해 관심 수가 실제보다 더 감소/증가해 보이는 문제로 이어진다.
+const pendingWishlistToggles = new Map();
+
 // 공통 관심상품(북마크) 토글 유틸리티
-window.toggleSavedProduct = async function(productId) {
+window.toggleSavedProduct = function(productId) {
+    const key = productId.toString();
+    if (pendingWishlistToggles.has(key)) {
+        return pendingWishlistToggles.get(key);
+    }
+
+    const request = performWishlistToggle(productId).finally(() => {
+        pendingWishlistToggles.delete(key);
+    });
+    pendingWishlistToggles.set(key, request);
+    return request;
+};
+
+async function performWishlistToggle(productId) {
     // 초기 목록 조회가 진행 중이라면 완료를 기다려, 늦게 도착한 조회 결과가
     // 이후의 토글 결과를 덮어쓰는 레이스 컨디션을 방지
     const wishlist = await ensureWishlistLoaded();
@@ -857,7 +877,69 @@ window.toggleSavedProduct = async function(productId) {
     // UI 업데이트 이벤트를 발생시키고 결과를 반환
     window.dispatchEvent(new CustomEvent('saved-products-updated', { detail: { productId, isSaved } }));
     return isSaved;
-};
+}
+
+// 홈/카테고리/브랜드 화면은 각자 sessionStorage에 상품 목록을 캐싱해두고, 캐시가 유효한 동안은
+// 재조회 없이 그 배열로 카드를 다시 그린다(예: 다른 화면에 갔다가 캐시 만료 전에 돌아오는 경우).
+// 화면의 카드 DOM만 갱신하고 이 원본 배열을 그대로 두면, 카드가 다시 그려질 때 토글 이전 숫자로
+// 되돌아간다. 화면마다 캐시 키가 달라 전부 알 수 없으므로, sessionStorage 전체를 훑어 상품 배열이
+// 들어있는 항목을 찾아 wishlistCount를 함께 보정한다. 캐시 형태는 두 가지가 섞여 있다:
+// - home.js(fetchListWithCache): 캐시 값이 상품 배열 그 자체
+// - category.js/brand.js(자체 캐시): 캐시 값이 API 응답 전체({ data: [...] })
+function patchCachedInterestCounts(productId, delta) {
+    const targetId = Number(productId);
+    for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (!key || !key.startsWith('iksanstore:')) continue;
+
+        try {
+            const parsed = JSON.parse(sessionStorage.getItem(key));
+            if (!parsed || typeof parsed !== 'object') continue;
+
+            const list = Array.isArray(parsed.data) ? parsed.data
+                : (parsed.data && Array.isArray(parsed.data.data)) ? parsed.data.data
+                : null;
+            if (!list) continue;
+
+            let changed = false;
+            list.forEach(item => {
+                if (item && item.id === targetId && item.wishlistCount !== undefined) {
+                    item.wishlistCount = Math.max(0, item.wishlistCount + delta);
+                    changed = true;
+                }
+            });
+            if (changed) sessionStorage.setItem(key, JSON.stringify(parsed));
+        } catch (error) {
+            // 손상된 JSON 등은 건너뛰고 다음 캐시 항목을 계속 처리한다.
+        }
+    }
+}
+
+// 같은 상품이 홈 화면 등에서 여러 카드로 동시에 노출되는 경우까지 전부 반영하기 위해,
+// 클릭된 카드 하나만 갱신하는 대신 전역 이벤트를 통해 같은 productId를 가진 모든 카드를 갱신한다.
+// 실제 카운트를 받은 카드(data-has-count)만 대상으로 하여, 값이 없어 "관심 0"으로만 표시되는
+// 검색/카테고리 카드가 잘못된 숫자로 바뀌지 않도록 한다.
+// component.js는 tests/page-urls.test.cjs에서 addEventListener가 없는 최소 mock window로도
+// 로드되므로, 실제 브라우저가 아닌 환경에서 모듈 로드 자체가 깨지지 않도록 방어한다.
+if (typeof window.addEventListener === 'function') {
+    window.addEventListener('saved-products-updated', (e) => {
+        const { productId, isSaved } = e.detail;
+        const delta = isSaved ? 1 : -1;
+
+        document.querySelectorAll(`.btn-save-bookmark[data-product-id="${productId}"]`).forEach(btn => {
+            const card = btn.closest('.product-card');
+            const countEl = card && card.querySelector('.interest-count');
+            if (!countEl || countEl.dataset.hasCount !== 'true') return;
+
+            const current = Number(countEl.dataset.count || 0);
+            const next = Math.max(0, current + delta);
+            countEl.dataset.count = next;
+            countEl.textContent = `관심 ${next}`;
+        });
+
+        patchCachedInterestCounts(productId, delta);
+    });
+}
 
 // 공통 관심상품 여부 확인 유틸리티 (비동기 및 캐싱 처리)
 window.isProductSaved = async function(productOrId) {
@@ -1020,9 +1102,14 @@ window.createProductCard = function(product, options = {}) {
 
     // 랭킹 화면(GET /api/products/ranking)처럼 응답에 wishlistCount가 포함된 경우에만 실제 찜 개수로 대체.
     // 검색/카테고리 등 이 필드가 없는 화면은 기존과 동일하게 "관심 0"으로 표시된다.
+    // data-count/data-has-count는 찜 토글 시 실제 값을 가진 카드만 낙관적으로 +/-1 하기 위한 표시다.
     if (product.wishlistCount !== undefined) {
         const interestCountEl = card.querySelector('.interest-count');
-        if (interestCountEl) interestCountEl.textContent = `관심 ${product.wishlistCount}`;
+        if (interestCountEl) {
+            interestCountEl.textContent = `관심 ${product.wishlistCount}`;
+            interestCountEl.dataset.count = product.wishlistCount;
+            interestCountEl.dataset.hasCount = 'true';
+        }
     }
 
     const imgEl = card.querySelector('.product-img');
