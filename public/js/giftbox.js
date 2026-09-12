@@ -39,6 +39,19 @@ document.addEventListener("header:ready", async () => {
   const initialTab = urlParams.get('tab') === 'used' ? 'used' : 'unused';
   let currentStatus = initialTab;
 
+  // 마이페이지 "나에게 선물"/"받은 선물" 카드에서 넘어올 때만 쓰는 구분 필터.
+  // /api/gifts 응답에 이미 항목마다 isSelfGift가 들어있어서 서버에 새 쿼리를 추가할 필요 없이
+  // 받은 목록을 여기서 한 번 더 걸러내면 된다. 화면에 이걸 바꾸는 탭 UI가 없어서 최초 진입
+  // 시의 값을 탭(미사용/사용완료) 전환과 무관하게 그대로 유지한다.
+  const requestedType = urlParams.get('type');
+  const currentType = (requestedType === 'self' || requestedType === 'received') ? requestedType : null;
+
+  const filterByType = (gifts) => {
+    if (currentType === 'self') return gifts.filter(g => g.isSelfGift);
+    if (currentType === 'received') return gifts.filter(g => !g.isSelfGift);
+    return gifts;
+  };
+
   // Render skeleton placeholders that mirror .gift-card layout
   const renderGiftSkeleton = () => {
     listContainer.innerHTML = '';
@@ -69,7 +82,7 @@ document.addEventListener("header:ready", async () => {
     try {
       const result = await requestJson(`/api/gifts?status=${status}`);
       settle();
-      renderGiftList(result.data || []);
+      renderGiftList(filterByType(result.data || []));
     } catch (error) {
       settle();
       // 401은 api.js 전역 인터셉터가 처리하므로 여기선 403 등 나머지 오류만 다룬다.
