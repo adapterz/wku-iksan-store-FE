@@ -1,4 +1,4 @@
-/* Shared styles for the admin sample prototypes (admin-inquiries-sample.html, admin-sanctions-sample.html). */
+/* Shared styles for the admin sample prototypes (admin-inquiries-sample.html, admin-sanctions-sample.html, admin-products-sample.html, admin-reports-sample.html). */
 .admin-sample{box-shadow:none;font-size:14px}
 body.admin-sample{padding-bottom:0}
 .admin-sample button,.admin-sample select,.admin-sample textarea,.admin-sample input{font:inherit}
@@ -13,9 +13,21 @@ body.admin-sample{padding-bottom:0}
 .ai-gate{padding:60px 16px;text-align:center;color:#767676;font-size:13px}
 .ai-gate button{margin-top:16px}
 
+.ai-tabs{display:flex;gap:4px;border-bottom:1px solid #eee;padding:0 16px;background:#fff;position:sticky;top:0;z-index:2}
+.ai-tabs button{padding:14px 4px;margin-right:16px;color:#999;font-size:14px;border-bottom:2px solid transparent}
+.ai-tabs button[aria-current=page]{color:#191919;border-color:#191919;font-weight:700}
+
+.ai-section-label{padding:20px 16px 10px;font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.04em}
+
+.ai-list{padding:16px;display:flex;flex-direction:column;gap:10px}
 .ai-card{background:#fff;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:14px 16px}
-.ai-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ai-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.ai-card-head-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .ai-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:100px}
+.ai-id{font-size:11px;color:#999}
+.ai-content{font-size:14px;color:#191919;margin:10px 0 4px;line-height:1.6}
+.ai-meta{font-size:11px;color:#999;margin:0 0 8px;line-height:1.7}
+.ai-empty{text-align:center;padding:40px 16px;color:#999;font-size:13px}
 
 .ai-textarea{display:block;width:100%;resize:vertical;min-height:64px;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px;line-height:1.7}
 .ai-textarea:focus{outline:1px solid #191919}

@@ -1,5 +1,6 @@
-// Shared UI helpers for the admin sample prototypes (admin-inquiries-sample.js, admin-sanctions-sample.js).
-// Reuses window.requestJson from js/api.js; must load before the page-specific script.
+// Shared UI helpers for the admin sample prototypes (admin-inquiries-sample.js, admin-sanctions-sample.js,
+// admin-products-sample.js, admin-reports-sample.js). Reuses window.requestJson from js/api.js; must load
+// before the page-specific script.
 'use strict';
 
 let toastTimer = null;

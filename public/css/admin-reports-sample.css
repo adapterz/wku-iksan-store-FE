@@ -1,0 +1,13 @@
+/* Domain-specific styles for the admin reports sample. Shared rules live in admin-sample-common.css. */
+.ar-rating{color:#e0a125;font-size:13px;letter-spacing:1px}
+
+.ai-badge.status-pending{background:#fff3d9;color:#8a5a10}
+.ai-badge.status-dismissed{background:#eef1ec;color:#5f6b5a}
+.ai-badge.status-actioned{background:#fbece0;color:#9a4a22}
+
+.ar-reason{background:#faf7f2;border-radius:8px;padding:10px 12px;margin:2px 0 8px;font-size:13px;color:#5a4632;line-height:1.6}
+.ar-reason-label{font-size:11px;color:#9a815f;font-weight:700;margin-bottom:3px}
+
+.ar-deleted{color:#b8b8b8;font-style:italic}
+
+.ar-danger{border:1px solid #f3c6c0;padding:9px 16px;border-radius:6px;background:#fff0ee;color:#b64535;font-weight:700!important;font-size:13px}
