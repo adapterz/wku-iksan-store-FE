@@ -128,6 +128,28 @@
                     </div>
                 </dl>
             </div>
+
+            <!-- Recommended Products: 전체 상품 중 무작위 추천 (product.js에서 채움).
+                 홈 화면 둘러보기 상품과 동일한 구조 + 공용 캐러셀(component.js createBrowseCarousel) 재사용 -->
+            <div class="product-detail-section" id="product-recommend-section" hidden>
+                <h3 class="detail-section-title">추천 상품</h3>
+
+                <div class="browse-cards-viewport" id="product-recommend-viewport">
+                    <div class="ranking-cards-row browse-cards-row" id="product-recommend-list">
+                        <!-- Dynamically loaded -->
+                    </div>
+                </div>
+
+                <div class="browse-pagination" id="product-recommend-pagination">
+                    <button type="button" class="browse-page-btn browse-page-prev" aria-label="이전 페이지">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <span class="browse-page-indicator">1 / 1</span>
+                    <button type="button" class="browse-page-btn browse-page-next" aria-label="다음 페이지">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
         </div>
     </main>
 
