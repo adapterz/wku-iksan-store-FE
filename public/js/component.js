@@ -859,6 +859,24 @@ window.toggleSavedProduct = async function(productId) {
     return isSaved;
 };
 
+// 같은 상품이 홈 화면 등에서 여러 카드로 동시에 노출되는 경우까지 전부 반영하기 위해,
+// 클릭된 카드 하나만 갱신하는 대신 전역 이벤트를 통해 같은 productId를 가진 모든 카드를 갱신한다.
+// 실제 카운트를 받은 카드(data-has-count)만 대상으로 하여, 값이 없어 "관심 0"으로만 표시되는
+// 검색/카테고리 카드가 잘못된 숫자로 바뀌지 않도록 한다.
+window.addEventListener('saved-products-updated', (e) => {
+    const { productId, isSaved } = e.detail;
+    document.querySelectorAll(`.btn-save-bookmark[data-product-id="${productId}"]`).forEach(btn => {
+        const card = btn.closest('.product-card');
+        const countEl = card && card.querySelector('.interest-count');
+        if (!countEl || countEl.dataset.hasCount !== 'true') return;
+
+        const current = Number(countEl.dataset.count || 0);
+        const next = Math.max(0, current + (isSaved ? 1 : -1));
+        countEl.dataset.count = next;
+        countEl.textContent = `관심 ${next}`;
+    });
+});
+
 // 공통 관심상품 여부 확인 유틸리티 (비동기 및 캐싱 처리)
 window.isProductSaved = async function(productOrId) {
     const productId = typeof productOrId === 'object' ? productOrId.id : productOrId;
@@ -1020,9 +1038,14 @@ window.createProductCard = function(product, options = {}) {
 
     // 랭킹 화면(GET /api/products/ranking)처럼 응답에 wishlistCount가 포함된 경우에만 실제 찜 개수로 대체.
     // 검색/카테고리 등 이 필드가 없는 화면은 기존과 동일하게 "관심 0"으로 표시된다.
+    // data-count/data-has-count는 찜 토글 시 실제 값을 가진 카드만 낙관적으로 +/-1 하기 위한 표시다.
     if (product.wishlistCount !== undefined) {
         const interestCountEl = card.querySelector('.interest-count');
-        if (interestCountEl) interestCountEl.textContent = `관심 ${product.wishlistCount}`;
+        if (interestCountEl) {
+            interestCountEl.textContent = `관심 ${product.wishlistCount}`;
+            interestCountEl.dataset.count = product.wishlistCount;
+            interestCountEl.dataset.hasCount = 'true';
+        }
     }
 
     const imgEl = card.querySelector('.product-img');
