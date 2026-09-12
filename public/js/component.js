@@ -1368,6 +1368,11 @@ function createBrowseCarouselController(rootEl) {
         }
 
         const outgoingHeight = outgoingRow.offsetHeight;
+        // outgoingRow를 absolute로 빼기 전에 뷰포트 높이를 먼저 고정해둔다. 순서를 바꾸면
+        // outgoingRow가 문서 흐름에서 빠지는 순간 뷰포트가 잠깐 0으로 붕괴했다가 다시 커지는데,
+        // 이 사이에 페이지가 스크롤 하단 근처에 있으면 스크롤 위치가 아래로 밀렸다가 복구되지
+        // 않아 화면이 위로 올라간 것처럼 보이는 문제가 있었다.
+        viewport.style.height = `${outgoingHeight}px`;
         outgoingRow.classList.add('browse-panel', 'browse-no-transition');
         outgoingRow.style.transform = 'translateX(0)';
 
