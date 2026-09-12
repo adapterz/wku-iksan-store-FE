@@ -343,6 +343,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('saved-products-updated', syncSaveButtons);
 
+  // component.js가 화면에 보이는 카드 DOM과 sessionStorage 캐시는 이미 갱신해주지만,
+  // cachedProducts/activeFilteredProducts는 이 화면이 메모리에 들고 있는 원본 배열이라
+  // 거기까진 손대지 못한다. 이 배열을 그대로 두면 "다음 목록 → 이전 목록"처럼 같은
+  // 페이지 안에서 카드를 다시 그릴 때(renderBrowsePage/둘러보기 더보기 등) 토글 이전
+  // wishlistCount로 되돌아간다. 두 배열이 항상 같은 상품 객체를 참조하므로(loadProducts에서
+  // activeFilteredProducts = cachedProducts로 대입), 한 객체를 두 번 세지 않도록 Set으로
+  // 이미 처리한 객체를 걸러내고 각 배열을 순회해 원본 wishlistCount 자체를 보정한다.
+  function patchLocalProductCounts(productId, delta) {
+    const targetId = Number(productId);
+    const patched = new Set();
+    [cachedProducts, activeFilteredProducts].forEach(list => {
+      list.forEach(item => {
+        if (item && item.id === targetId && item.wishlistCount !== undefined && !patched.has(item)) {
+          item.wishlistCount = Math.max(0, item.wishlistCount + delta);
+          patched.add(item);
+        }
+      });
+    });
+  }
+
+  window.addEventListener('saved-products-updated', (e) => {
+    const { productId, isSaved } = e.detail;
+    patchLocalProductCounts(productId, isSaved ? 1 : -1);
+  });
+
 
 
 
