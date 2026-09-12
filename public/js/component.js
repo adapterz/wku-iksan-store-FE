@@ -1242,8 +1242,9 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
 // rootEl 안에는 아래 마크업이 이미 있어야 한다(index.html의 #browse-section 구조 참고):
 //   .browse-cards-viewport > .ranking-cards-row.browse-cards-row
 //   .browse-pagination > .browse-page-prev, .browse-page-indicator, .browse-page-next
-// rootEl(또는 조상)에는 --browse-slide-duration/--browse-slide-easing을 정의하는
-// .browse-carousel-root 클래스가 있어야 슬라이드 애니메이션 속도/이징이 적용된다.
+// rootEl의 id는 style.css에서 --browse-slide-duration/--browse-slide-easing을 정의하는
+// 선택자(현재 #browse-section, #product-recommend-section)에 포함되어 있어야 슬라이드
+// 애니메이션 속도/이징이 적용된다. 새 화면에 재사용할 때는 그 선택자에 id를 추가해야 한다.
 // 같은 rootEl로 다시 호출하면(상품 목록 갱신 등) 기존 컨트롤러를 재사용해 1페이지부터 다시 그린다.
 window.createBrowseCarousel = function(rootEl, products, options = {}) {
     if (!rootEl) return;
