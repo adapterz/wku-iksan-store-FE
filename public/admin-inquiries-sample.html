@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>관리자 콘솔 · Iksan Store 샘플</title>
+<link rel="icon" href="images/favicon.png"><link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/admin-sample-common.css">
+<link rel="stylesheet" href="css/admin-inquiries-sample.css">
+<script src="js/api.js" defer></script><script src="js/admin-sample-common.js" defer></script><script src="js/admin-inquiries-sample.js" defer></script>
+</head>
+<body class="admin-sample">
+<header class="ai-header"><h1>관리자 콘솔</h1></header>
+<div class="ai-preview">LOCAL SAMPLE · 예시 문의·제재·상품 데이터</div>
+<main>
+<section id="login-gate" class="ai-gate">
+<p>이 화면은 관리자 로그인 후 접근할 수 있어요.</p>
+<button id="sample-login" class="ai-primary">샘플 관리자 계정으로 로그인</button>
+</section>
+
+<div id="app" hidden>
+<nav class="ai-tabs" aria-label="관리자 화면">
+<button data-tab="dashboard" aria-current="page">대시보드</button>
+<button data-tab="inquiries">문의하기</button>
+</nav>
+
+<section id="dashboard-view">
+<p class="ai-section-label">처리 대기</p>
+<div class="ai-stat-grid" id="pending-stats"></div>
+<p class="ai-section-label">상품 현황</p>
+<div class="ai-stat-grid two" id="product-stats"></div>
+<div class="ai-panel">
+<p class="ai-section-label" style="padding:0 0 12px">브랜드별 상품 수</p>
+<div id="brand-rows"></div>
+</div>
+</section>
+
+<section id="inquiries-view" hidden>
+<div class="ai-tabs" style="padding:0 24px" role="tablist" aria-label="문의 상태">
+<button data-inquiry-tab="pending" aria-current="page">대기 중</button>
+<button data-inquiry-tab="answered">답변 완료</button>
+</div>
+<div class="ai-list" id="inquiry-list"></div>
+</section>
+</div>
+
+<p id="page-error" role="alert" hidden></p>
+</main>
+<footer class="ai-footer">이슈 #90 관리자 페이지 검토용 · 운영 서비스에는 반영되지 않습니다.<br>
+<span>의존 BE: <a href="https://github.com/adapterz/wku-iksan-store-BE/pull/105">PR #105</a> · 설계: <a href="https://github.com/adapterz/wku-iksan-store-BE/issues/90">issue #90</a></span></footer>
+<div id="toast" role="status" hidden></div>
+</body>
+</html>

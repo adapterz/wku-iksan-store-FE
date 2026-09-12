@@ -99,11 +99,21 @@ test('shared page matching and login return URL support clean and legacy paths',
   const link = {};
   const context = {
     window: { location: { pathname: '/brand', href: 'https://iksan.store/brand?brand=%EB%AF%B8%EB%A5%B5%EC%82%B0' } },
-    document: { body: null, addEventListener() {}, getElementById: () => link },
+    document: {
+      body: null,
+      addEventListener() {},
+      // 이 테스트에는 하단 로그인 링크만 존재한다. 없는 모달/버튼은 실제 DOM처럼
+      // null을 반환해야 공통 컴포넌트가 링크 객체를 모달 버튼으로 오인하지 않는다.
+      getElementById: id => id === 'btn-bottom-my' ? link : null,
+    },
     localStorage: { getItem: () => null },
   };
   const code = await fs.readFile(path.join(__dirname, '../public/js/component.js'), 'utf8');
   vm.runInNewContext(code, context);
+  assert.equal(context.document.getElementById('btn-bottom-my'), link);
+  for (const id of ['gift-arrival-modal', 'btn-gift-arrival-confirm', 'btn-gift-arrival-giftbox']) {
+    assert.equal(context.document.getElementById(id), null);
+  }
   for (const page of ['index', 'mypage', 'search', 'product', 'brand', 'category', 'wishlist']) {
     assert.equal(context.getPageFile('/' + page), page + '.html');
     assert.equal(context.getPageFile(page + '.html?x=1#section'), page + '.html');

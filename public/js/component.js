@@ -199,6 +199,192 @@ function bindHeaderBackButton() {
     }
 }
 
+// 서브 헤더에 페이지 제목만 필요한 화면(category.js/brand.js/profile.js 등) 공통 헬퍼.
+// header:ready 이후 우측 검색·홈 아이콘을 지우고 그 자리에 제목을 넣는다.
+window.setSubHeaderTitle = function(titleText) {
+    document.addEventListener('header:ready', () => {
+        const headerContainer = document.querySelector('header.main-header .header-container');
+        const rightIcons = document.querySelector('header.main-header .header-right-icons');
+        if (rightIcons) rightIcons.remove();
+
+        if (headerContainer) {
+            const title = document.createElement('h1');
+            title.className = 'header-title';
+            title.textContent = titleText;
+            headerContainer.appendChild(title);
+        }
+    });
+};
+
+// signup.js/profile.js가 각자 들고 있던 동일한 폼 에러 표시/초기화 로직의 공통 버전.
+// login.js는 component.js 자체를 로드하지 않아(자체 커스텀 헤더를 직접 관리) 대상에서 제외했다 —
+// component.js를 추가하면 index/mypage/search 외 모든 페이지에 자동 주입되는 공통 서브헤더 로직이
+// login.html의 커스텀 헤더(#btn-home)를 덮어써 버리기 때문에, 그 쪽은 로컬 구현을 그대로 둔다.
+// focusElement가 있으면 그 input이 속한 .form-group 안의 .auth-error에 인라인으로 표시하고,
+// 없으면 globalErrorEl(폼 전역 에러 문구)에 표시한다.
+window.showFieldError = function(globalErrorEl, message, focusElement = null) {
+    if (focusElement) {
+        const parentGroup = focusElement.closest('.form-group');
+        const inlineErrorEl = parentGroup ? parentGroup.querySelector('.auth-error') : null;
+        if (inlineErrorEl) {
+            if (inlineErrorEl.textContent !== message) {
+                inlineErrorEl.textContent = message;
+            }
+            inlineErrorEl.hidden = false;
+            inlineErrorEl.setAttribute('aria-live', 'polite');
+        }
+        focusElement.setAttribute('aria-invalid', 'true');
+        if (document.activeElement !== focusElement) {
+            focusElement.focus();
+        }
+    } else if (globalErrorEl) {
+        if (globalErrorEl.textContent !== message) {
+            globalErrorEl.textContent = message;
+        }
+        globalErrorEl.hidden = false;
+        globalErrorEl.setAttribute('aria-live', 'polite');
+    }
+};
+
+// form 안 모든 input의 에러 상태(aria-invalid, 인라인 .auth-error)와 전역 에러 요소를 초기화한다.
+window.clearFieldErrors = function(form, globalErrorEl) {
+    if (globalErrorEl) {
+        globalErrorEl.hidden = true;
+        globalErrorEl.textContent = '';
+    }
+    if (!form) return;
+    Array.from(form.querySelectorAll('input')).forEach((input) => {
+        input.removeAttribute('aria-invalid');
+        const parentGroup = input.closest('.form-group');
+        const inlineErrorEl = parentGroup ? parentGroup.querySelector('.auth-error') : null;
+        if (inlineErrorEl) {
+            inlineErrorEl.hidden = true;
+            inlineErrorEl.textContent = '';
+        }
+    });
+};
+
+// signup.js/profile.js가 거의 동일하게 들고 있던 인증 관련 에러 코드 메시지의 공통 버전.
+// (login.js는 위와 같은 이유로 대상에서 제외)
+window.ERROR_MESSAGES = Object.freeze({
+    // 닉네임 오류
+    REQUIRED_NICKNAME: '닉네임을 입력해 주세요.',
+    INVALID_NICKNAME_TYPE: '닉네임 입력값을 확인해주세요',
+    INVALID_NICKNAME_FORMAT: '한글·영문·숫자만 사용할 수 있습니다.',
+    NICKNAME_TOO_SHORT: '닉네임은 2자 이상 입력해 주세요.',
+    NICKNAME_TOO_LONG: '닉네임은 8자 이하로 입력해 주세요',
+    NICKNAME_ALREADY_EXISTS: '이미 사용 중인 닉네임입니다.',
+    // 이메일 오류
+    REQUIRED_EMAIL: '이메일을 입력해 주세요.',
+    INVALID_EMAIL_TYPE: '이메일 입력값을 확인해 주세요.',
+    INVALID_EMAIL_FORMAT: '이메일 형식을 확인해 주세요',
+    EMAIL_TOO_LONG: '이메일이 너무 깁니다.',
+    EMAIL_ALREADY_EXISTS: '이미 가입된 이메일 입니다.',
+    // 비밀번호 오류
+    REQUIRED_PASSWORD: '비밀번호를 입력해 주세요.',
+    INVALID_PASSWORD_TYPE: '비밀번호 입력값을 확인해주세요.',
+    INVALID_PASSWORD_FORMAT: '비밀번호에는 공백을 사용할 수 없습니다.',
+    PASSWORD_TOO_SHORT: '비밀번호는 8자 이상 입력해 주세요',
+    PASSWORD_TOO_LONG: '비밀번호는 15자 이하로 입력해주세요',
+    COMMON_PASSWORD: '다른 비밀번호를 사용해 주세요.',
+    INVALID_PASSWORD: '비밀번호가 일치하지 않습니다.',
+    // 계정 삭제 오류
+    ACCOUNT_HAS_UNUSED_GIFTS: '미사용 선물이 남아있어 계정을 삭제할 수 없습니다.',
+    // BE PR #103(adapterz/wku-iksan-store-BE): 활성 정지 중인 회원이 탈퇴로 제재를 회피하지 못하도록
+    // 계정 삭제 자체를 막는다(403). 재시도로 해결되는 문제가 아니므로 이유를 명시해서 안내한다.
+    ACCOUNT_HAS_ACTIVE_SANCTION: '이용 정지 중에는 계정을 삭제할 수 없습니다.',
+    // 공통 오류
+    UNAUTHORIZED: '로그인이 필요합니다.',
+    NETWORK_ERROR: '네트워크 연결을 확인해 주세요.',
+    INVALID_JSON_RESPONSE: '서버 응답을 처리할 수 없습니다.',
+    INTERNAL_SERVER_ERROR: '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
+});
+
+// signup.js/profile.js가 각각 들고 있던 닉네임/이메일/(새) 비밀번호 유효성 검사 규칙의 공통 버전.
+// 모두 { isValid, message?, element? } 형태로 반환한다.
+window.validateNicknameValue = function(nickname, nicknameInput) {
+    if (!nickname) {
+        return { isValid: false, message: window.ERROR_MESSAGES.REQUIRED_NICKNAME, element: nicknameInput };
+    }
+    if (/\s/.test(nickname)) {
+        return { isValid: false, message: window.ERROR_MESSAGES.INVALID_NICKNAME_FORMAT, element: nicknameInput };
+    }
+    if (nickname.length < 2) {
+        return { isValid: false, message: window.ERROR_MESSAGES.NICKNAME_TOO_SHORT, element: nicknameInput };
+    }
+    if (nickname.length > 8) {
+        return { isValid: false, message: window.ERROR_MESSAGES.NICKNAME_TOO_LONG, element: nicknameInput };
+    }
+    if (!/^[가-힣a-zA-Z0-9]+$/.test(nickname)) {
+        return { isValid: false, message: window.ERROR_MESSAGES.INVALID_NICKNAME_FORMAT, element: nicknameInput };
+    }
+    return { isValid: true };
+};
+
+window.validateEmailValue = function(email, emailInput) {
+    if (!email) {
+        return { isValid: false, message: window.ERROR_MESSAGES.REQUIRED_EMAIL, element: emailInput };
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return { isValid: false, message: window.ERROR_MESSAGES.INVALID_EMAIL_FORMAT, element: emailInput };
+    }
+    if (email.length > 255) {
+        return { isValid: false, message: window.ERROR_MESSAGES.EMAIL_TOO_LONG, element: emailInput };
+    }
+    return { isValid: true };
+};
+
+window.validateNewPasswordValue = function(password, passwordInput) {
+    if (!password) {
+        return { isValid: false, message: window.ERROR_MESSAGES.REQUIRED_PASSWORD, element: passwordInput };
+    }
+    if (/\s/.test(password)) {
+        return { isValid: false, message: window.ERROR_MESSAGES.INVALID_PASSWORD_FORMAT, element: passwordInput };
+    }
+    if (password.length < 8) {
+        return { isValid: false, message: window.ERROR_MESSAGES.PASSWORD_TOO_SHORT, element: passwordInput };
+    }
+    if (password.length > 15) {
+        return { isValid: false, message: window.ERROR_MESSAGES.PASSWORD_TOO_LONG, element: passwordInput };
+    }
+    return { isValid: true };
+};
+
+// 비밀번호 강도 판정만 담당하는 순수 함수(DOM 미접촉). signup.js는 빈 값일 때 즉시 "필수" 인라인
+// 에러를 띄우고, profile.js는 조용히 지우기만 하는 등 화면별로 실제 표시 방식이 달라서, 그 부분은
+// 호출부가 반환값(level/reason)을 보고 각자 처리하고 여기서는 판정 로직만 공유한다.
+window.getPasswordStrength = function(value, { minLength = 8, maxLength = 15 } = {}) {
+    if (!value) {
+        return { level: 'empty' };
+    }
+    if (/\s/.test(value)) {
+        return { level: 'invalid', reason: 'whitespace' };
+    }
+    if (value.length < minLength) {
+        return { level: 'invalid', reason: 'tooShort' };
+    }
+    if (value.length > maxLength) {
+        return { level: 'invalid', reason: 'tooLong' };
+    }
+
+    const hasLetter = /[a-zA-Z]/.test(value);
+    const hasNumber = /\d/.test(value);
+    const hasSpecial = /[^a-zA-Z0-9\s]/.test(value);
+    const typesCount = [hasLetter, hasNumber, hasSpecial].filter(Boolean).length;
+
+    if (typesCount <= 1) return { level: 'weak' };
+    if (typesCount === 2) return { level: 'medium' };
+    return { level: 'strong' };
+};
+
+// 로그아웃(mypage.js)과 계정 삭제(profile.js)가 공통으로 수행하던 클라이언트 측 로그인 흔적 정리.
+// 서버 세션 종료(로그아웃 API 호출 등)는 호출부 책임이고, 이 함수는 클라이언트에 남는 상태만 지운다.
+window.clearClientSession = function() {
+    localStorage.removeItem('isLoggedIn');
+    window._wishlistCache = null;
+    window._wishlistFetchPromise = null;
+};
+
 // 검색 결과 페이지(search.html) 전용 헤더 HTML 반환 함수
 // index.html의 회색 검색 인라인 박스(.header-search-box)를 재사용하되, 오버레이 대신
 // 이 자리에서 바로 입력·재검색할 수 있도록 실제 <input>으로 구성한다.
