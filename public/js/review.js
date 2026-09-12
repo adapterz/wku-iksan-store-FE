@@ -121,8 +121,10 @@
     updateSaveState();
   }
 
-  function closeEditor() {
-    if (state.busy) return;
+  // force: 저장·삭제 성공 처리에서 부르는 경우. 그 시점엔 아직 setBusy(false)
+  // 전이라 일반 닫기(사용자가 임의로 닫는 경우)와 달리 busy 여부와 무관하게 닫아야 한다.
+  function closeEditor(force) {
+    if (state.busy && !force) return;
     $('review-editor-modal').classList.remove('open');
   }
 
@@ -206,7 +208,7 @@
         ? await window.requestJson('/api/reviews/' + reviewId, { method: 'PATCH', body })
         : await window.requestJson('/api/reviews', { method: 'POST', body: { ...body, giftId } });
       if (!result) return;
-      closeEditor();
+      closeEditor(true);
       toast(reviewId ? '후기가 수정되었어요.' : '후기가 등록되었어요.');
       document.dispatchEvent(new CustomEvent('review:changed', {
         detail: { type: reviewId ? 'updated' : 'created', reviewId: reviewId || (result.data && result.data.reviewId), giftId, productId }
@@ -224,8 +226,8 @@
     $('review-delete-confirm-modal').classList.add('open');
   }
 
-  function closeDeleteConfirm() {
-    if (state.busy) return;
+  function closeDeleteConfirm(force) {
+    if (state.busy && !force) return;
     $('review-delete-confirm-modal').classList.remove('open');
   }
 
@@ -239,8 +241,8 @@
     try {
       const result = await window.requestJson('/api/reviews/' + reviewId, { method: 'DELETE' });
       if (!result) return;
-      closeDeleteConfirm();
-      closeEditor();
+      closeDeleteConfirm(true);
+      closeEditor(true);
       toast('후기가 삭제되었어요.');
       document.dispatchEvent(new CustomEvent('review:changed', {
         detail: { type: 'deleted', reviewId, giftId, productId }
