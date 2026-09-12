@@ -62,8 +62,10 @@ function productOptionalFieldsForm(product) {
       <div class="as-field">
         <label for="pf-${f.key}">${f.label}</label>
         ${f.type === 'textarea'
-          ? `<textarea id="pf-${f.key}" rows="2">${escapeHtml(product ? product[f.key] : '')}</textarea>`
-          : `<input type="text" id="pf-${f.key}" value="${escapeHtml(product ? product[f.key] : '')}">`}
+          // escapeHtml(null)이 문자열 "null"을 반환하므로, 필드를 지워서 백엔드에 null로 저장된
+          // 값을 다시 열면 "null" 글자가 그대로 채워져 있었다 — ?? ''로 null/undefined만 빈 값 처리.
+          ? `<textarea id="pf-${f.key}" rows="2">${escapeHtml(product?.[f.key] ?? '')}</textarea>`
+          : `<input type="text" id="pf-${f.key}" value="${escapeHtml(product?.[f.key] ?? '')}">`}
       </div>`).join('')}
   </details>`;
 }
