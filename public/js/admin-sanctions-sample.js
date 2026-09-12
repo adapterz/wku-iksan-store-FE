@@ -4,6 +4,10 @@
 'use strict';
 
 let currentUserId = null;
+// 관리자가 실제로 보고 싶어하는 userId. 검색 제출 시 즉시(응답을 기다리지 않고) 갱신되는 반면,
+// currentUserId는 그 조회가 실제로 성공해서 화면에 반영된 뒤에만 갱신된다 — 그래서 제재 부여/해제
+// 후 재조회 대상은 반드시 이 값을 써야 한다(아래 loadSanctions 주석 참고).
+let intendedUserId = null;
 let sanctions = [];
 
 function clearPageError() {
@@ -107,7 +111,10 @@ function wireForm() {
       // (전역 로그인 리다이렉트가 이미 예약된 상태) — 이걸 성공으로 착각해 토스트를 띄우면 안 된다.
       if (!result) return;
       toast('제재를 부여했습니다.');
-      await loadSanctions(currentUserId);
+      // currentUserId가 아니라 intendedUserId로 재조회한다 — 이 요청이 오래 걸리는 동안 관리자가
+      // 이미 다른 userId를 검색했다면 currentUserId는 아직 갱신 전(옛 값)이라, 그걸로 재조회하면
+      // 방금 시작된 더 최신 검색을 덮어써 버린다(#89 리뷰에서 지적된 race condition).
+      await loadSanctions(intendedUserId);
     } catch (err) {
       if (err.code === 'WARNING_LIMIT_EXCEEDED') {
         errEl.textContent = '이미 경고 이력이 있어 정지로 처리해야 합니다.';
@@ -134,7 +141,8 @@ function render() {
         const result = await window.requestJson('/api/admin/sanctions/' + btn.dataset.lift, { method: 'PATCH' });
         if (!result) return; // 세션 만료(401) — 전역 로그인 리다이렉트에 맡기고 성공 토스트는 띄우지 않는다
         toast('정지를 조기 해제했습니다.');
-        await loadSanctions(currentUserId);
+        // currentUserId 대신 intendedUserId를 쓰는 이유는 위 submit-sanction 핸들러 주석 참고.
+        await loadSanctions(intendedUserId);
       } catch (err) {
         toast(err.message || '해제에 실패했습니다.');
       }
@@ -196,6 +204,7 @@ document.getElementById('search-form').addEventListener('submit', (e) => {
     toast('올바른 userId를 입력하세요.');
     return;
   }
+  intendedUserId = userId;
   loadSanctions(userId);
 });
 
