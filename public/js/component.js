@@ -427,6 +427,9 @@ window.renderSearchHeader = function(keyword) {
         if (!searchPageInput) return;
         const trimmed = searchPageInput.value.trim();
         if (!trimmed) return;
+        // 여기는 pushState만 쓰고 페이지를 새로 로드하지 않아서(위 주석 참고), blur()를 명시적으로
+        // 호출하지 않으면 모바일 가상 키보드가 계속 떠 있는다.
+        searchPageInput.blur();
         if (typeof window.onSearchPageKeywordSubmit === 'function') {
             window.onSearchPageKeywordSubmit(trimmed);
         } else {
@@ -436,7 +439,10 @@ window.renderSearchHeader = function(keyword) {
 
     if (searchPageInput) {
         searchPageInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
+            // isComposing 체크 없이 Enter를 바로 가로채면, 한글 등 조합형 입력 중 키보드의
+            // "이동" 키를 눌렀을 때(조합 커밋용 keydown) IME의 자체 제출 처리와 충돌해
+            // 가상 키보드가 안 내려가는 기기가 있다(삼성 키보드에서 확인됨).
+            if (e.key === 'Enter' && !e.isComposing) {
                 e.preventDefault();
                 submitPageSearch();
             }
@@ -649,12 +655,19 @@ document.addEventListener('DOMContentLoaded', () => {
         // 검색어 제출(Enter 입력 또는 검색 아이콘 클릭) 시 검색 결과 페이지로 이동
         function submitSearch() {
             if (!searchInput) return;
+            // navigateToSearch()가 실제 페이지 이동(location.href)을 하긴 하지만, 새 페이지가
+            // 그려지기 전까지 이전 포커스/가상 키보드 상태를 그대로 유지하는 기기가 있어서
+            // 제출 시점에 명시적으로 닫아준다.
+            searchInput.blur();
             navigateToSearch(searchInput.value);
         }
 
         if (searchInput) {
             searchInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
+                // isComposing 체크 없이 Enter를 바로 가로채면, 한글 등 조합형 입력 중 키보드의
+                // "이동" 키를 눌렀을 때(조합 커밋용 keydown) IME의 자체 제출 처리와 충돌해
+                // 가상 키보드가 안 내려가는 기기가 있다(삼성 키보드에서 확인됨).
+                if (e.key === 'Enter' && !e.isComposing) {
                     e.preventDefault();
                     submitSearch();
                 }
