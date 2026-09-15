@@ -978,6 +978,121 @@ window.updateWishlistIcon = function(icon, isSaved) {
     }
 };
 
+// 전역 장바구니 캐시 및 단일 요청 프라미스
+window._cartCache = null;
+window._cartFetchPromise = null;
+
+// 장바구니 캐시가 없다면 서버에서 최초 1회 전체 조회하여 캐시를 채우는 공통 헬퍼 (Singleflight 패턴 적용)
+async function ensureCartLoaded() {
+    if (!window._cartCache) {
+        if (!window._cartFetchPromise) {
+            window._cartFetchPromise = (async () => {
+                try {
+                    // silent401: 비로그인 상태에서도 홈 화면 등에서 조용히 빈 장바구니로 처리해야 하므로
+                    // 전역 401 리다이렉트를 건너뛴다.
+                    const result = await requestJson('/api/cart-items', { silent401: true });
+                    if (result && result.data) {
+                        return result.data.map(item => ({ cartItemId: item.cartItemId, productId: item.productId.toString() }));
+                    }
+                    return [];
+                } catch (error) {
+                    if (error.status === 401) {
+                        // 비로그인 상태는 정상 상태이므로 빈 배열로 캐시
+                        return [];
+                    }
+                    // 네트워크 오류, 500 등은 캐시를 오염시키지 않고 다음 요청에서 재조회하도록 함
+                    window._cartCache = null;
+                    throw error;
+                } finally {
+                    window._cartFetchPromise = null;
+                }
+            })();
+        }
+        window._cartCache = await window._cartFetchPromise;
+    }
+    return window._cartCache;
+}
+
+// 같은 상품에 대한 토글 요청이 겹치는 것을 막는 진행 중 요청 맵 (찜 토글의 pendingWishlistToggles와 동일 목적)
+const pendingCartToggles = new Map();
+
+// 공통 장바구니 토글 유틸리티
+window.toggleCartItem = function(productId) {
+    const key = productId.toString();
+    if (pendingCartToggles.has(key)) {
+        return pendingCartToggles.get(key);
+    }
+
+    const request = performCartToggle(productId).finally(() => {
+        pendingCartToggles.delete(key);
+    });
+    pendingCartToggles.set(key, request);
+    return request;
+};
+
+async function performCartToggle(productId) {
+    // 초기 목록 조회가 진행 중이라면 완료를 기다려, 늦게 도착한 조회 결과가
+    // 이후의 토글 결과를 덮어쓰는 레이스 컨디션을 방지
+    const cart = await ensureCartLoaded();
+    const productIdStr = productId.toString();
+    const existingItem = cart.find(item => item.productId === productIdStr);
+    let isInCart = !!existingItem;
+
+    try {
+        if (existingItem) {
+            // 이미 담긴 상품이면 해제 요청
+            await requestJson(`/api/cart-items/${existingItem.cartItemId}`, { method: 'DELETE' });
+            window._cartCache = window._cartCache.filter(item => item.productId !== productIdStr);
+            isInCart = false;
+        } else {
+            // 담기지 않은 상품이면 등록 요청
+            const result = await requestJson('/api/cart-items', {
+                method: 'POST',
+                body: { productId: Number(productId), quantity: 1 }
+            });
+            // 등록 성공 후 재조회 대신 캐시에 바로 추가하여, 재조회 실패로 인한 상태 불일치를 방지
+            window._cartCache = [...cart, { cartItemId: result.data.cartItemId, productId: productIdStr }];
+            isInCart = true;
+        }
+    } catch (error) {
+        if (error.status === 401 || error.code === 'UNAUTHORIZED') {
+            // 인증 안됨 에러 처리
+            alert('로그인이 필요합니다.');
+            window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+            throw error;
+        }
+        console.error('장바구니 토글 에러:', error.status, error.code, error);
+        alert(error.message || '장바구니 처리에 실패했습니다.');
+        throw error; // 실패 시 기존 상태 유지를 위해 에러 전달
+    }
+
+    // UI 업데이트 이벤트를 발생시키고 결과를 반환 (헤더 아이콘 뱃지 등 향후 확장 대비)
+    window.dispatchEvent(new CustomEvent('cart-updated', { detail: { productId, isInCart } }));
+    return isInCart;
+}
+
+// 공통 장바구니 포함 여부 확인 유틸리티 (비동기 및 캐싱 처리)
+window.isProductInCart = async function(productOrId) {
+    const productId = typeof productOrId === 'object' ? productOrId.id : productOrId;
+
+    // 캐시가 없다면 서버에서 최초 1회 전체 조회하여 N+1 방지
+    const cart = await ensureCartLoaded();
+
+    return cart.some(item => item.productId === productId.toString());
+};
+
+// 장바구니 아이콘 UI 상태 공통 변경 유틸리티.
+// fa-bag-shopping은 Font Awesome Free에 regular(outline) 스타일이 없어 찜 아이콘처럼
+// fa-regular/fa-solid를 토글할 수 없다. 대신 fa-solid를 항상 유지하고 색상용 class만 토글한다.
+window.updateCartIcon = function(icon, isInCart) {
+    if (!icon || !document.body.contains(icon)) return;
+    if (isInCart) {
+        icon.classList.add('in-cart-icon');
+    } else {
+        icon.classList.remove('in-cart-icon');
+    }
+};
+
 // 정보 아이콘 옆 안내 툴팁을 여닫는 공용 유틸리티.
 // 호버 가능한 기기(데스크톱)에서는 마우스 오버 시 열리고, 클릭은 무시해 깜빡임 없이 유지된다.
 // 호버가 불가능한 터치 기기에서는 mouseenter가 발생하지 않으므로 버튼 클릭으로 토글하고,
@@ -1103,8 +1218,8 @@ window.createProductCard = function(product, options = {}) {
             ${discountHtml}
             <span class="price">${formattedPrice}</span>
           </div>
-          <button class="btn-save-bookmark" data-product-id="${product.id}" title="저장" style="background:none; border:none; padding:4px; cursor:pointer;">
-            <i class="fa-regular fa-bookmark" style="font-size: 20px; color: #999;"></i>
+          <button class="btn-save-bookmark" data-product-id="${product.id}" title="저장" style="background:none; border:none; padding:3px; cursor:pointer;">
+            <i class="fa-regular fa-bookmark" style="font-size: 16px; color: #999;"></i>
           </button>
         </div>
         <div class="stats-row">
