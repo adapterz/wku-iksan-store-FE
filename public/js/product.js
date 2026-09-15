@@ -77,6 +77,98 @@ function renderProduct(product) {
   }
 }
 
+// 수량 선택 Bottom Sheet 상태.
+// quantity는 장바구니 API(POST /api/cart-items)의 상품당 수량 제한(1~10)과 동일하게 맞춘다 —
+// 이 시트의 "장바구니" 담기 버튼이 결국 같은 API를 호출하게 되므로 시트 단계에서 미리 범위를 맞춰둔다.
+const SHEET_MAX_QUANTITY = 10;
+const sheetState = { quantity: 1, orderType: 'self' };
+
+function updateSheetQuantityUI() {
+  const quantityEl = document.getElementById('sheet-quantity');
+  const itemCountEl = document.getElementById('sheet-item-count');
+  const minusBtn = document.getElementById('btn-quantity-minus');
+  const plusBtn = document.getElementById('btn-quantity-plus');
+  if (quantityEl) quantityEl.textContent = sheetState.quantity;
+  if (itemCountEl) itemCountEl.textContent = `총 ${sheetState.quantity}개`;
+  if (minusBtn) minusBtn.disabled = sheetState.quantity <= 1;
+  if (plusBtn) plusBtn.disabled = sheetState.quantity >= SHEET_MAX_QUANTITY;
+}
+
+// renderProduct()가 상품 가격 로드 후 호출하는 훅. 시트가 열려있지 않아도(가격 미리 계산)
+// 안전하게 아무 값도 못 찾으면 조용히 넘어간다.
+window.updateBottomSheetPrice = function() {
+  const priceEl = document.getElementById('sheet-total-price');
+  const cardElement = document.querySelector('.product-detail-card');
+  if (!priceEl || !cardElement) return;
+  const unitPrice = Number(cardElement.dataset.price || 0);
+  const total = unitPrice * sheetState.quantity;
+  priceEl.textContent = `${total.toLocaleString()}원`;
+};
+
+function openBottomSheet(type) {
+  sheetState.quantity = 1;
+  sheetState.orderType = type;
+  updateSheetQuantityUI();
+  window.updateBottomSheetPrice();
+
+  const orderBtnLabel = document.getElementById('btn-sheet-order-label');
+  if (orderBtnLabel) orderBtnLabel.textContent = type === 'gift' ? '선물하기' : '나에게 선물하기';
+
+  const overlay = document.getElementById('quantity-sheet-overlay');
+  if (overlay) overlay.classList.add('active');
+}
+
+function closeBottomSheet() {
+  const overlay = document.getElementById('quantity-sheet-overlay');
+  if (overlay) overlay.classList.remove('active');
+}
+
+function initBottomSheet(productId) {
+  const overlay = document.getElementById('quantity-sheet-overlay');
+  const closeBtn = document.getElementById('btn-sheet-close');
+  const minusBtn = document.getElementById('btn-quantity-minus');
+  const plusBtn = document.getElementById('btn-quantity-plus');
+
+  if (closeBtn) closeBtn.addEventListener('click', closeBottomSheet);
+  if (overlay) {
+    // 배경(오버레이) 클릭 시 닫기 — 시트 내부(.bottom-sheet-content) 클릭은 무시
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeBottomSheet();
+    });
+  }
+  if (minusBtn) {
+    minusBtn.addEventListener('click', () => {
+      if (sheetState.quantity <= 1) return;
+      sheetState.quantity -= 1;
+      updateSheetQuantityUI();
+      window.updateBottomSheetPrice();
+    });
+  }
+  if (plusBtn) {
+    plusBtn.addEventListener('click', () => {
+      if (sheetState.quantity >= SHEET_MAX_QUANTITY) return;
+      sheetState.quantity += 1;
+      updateSheetQuantityUI();
+      window.updateBottomSheetPrice();
+    });
+  }
+
+  // "장바구니 담기"/"선물하기" 버튼의 실제 API 연동(장바구니 추가, 주문 생성)은 다음 단계에서 진행한다.
+  // 지금은 시트 UI(오픈/닫기/수량/금액)만 완성된 상태다.
+  const addCartBtn = document.getElementById('btn-sheet-add-cart');
+  if (addCartBtn) {
+    addCartBtn.addEventListener('click', () => {
+      console.log('[bottom-sheet] 장바구니 담기 클릭 (연동 예정)', { productId, quantity: sheetState.quantity });
+    });
+  }
+  const orderBtn = document.getElementById('btn-sheet-order');
+  if (orderBtn) {
+    orderBtn.addEventListener('click', () => {
+      console.log('[bottom-sheet] 주문 클릭 (연동 예정)', { productId, quantity: sheetState.quantity, type: sheetState.orderType });
+    });
+  }
+}
+
 // 상품 데이터가 없거나 에러 발생 시 처리
 function showErrorAndRedirect() {
   const container = document.querySelector('.product-detail-card');
@@ -194,32 +286,6 @@ async function loadRecommendedProducts(currentProductId) {
   }
 }
 
-
-async function goToOrder(productId, type) {
-  try {
-    const authResult = await requestJson('/api/auth/me');
-
-    // authResult가 없으면(=undefined) api.js 전역 인터셉터가 401을 처리(로그인 페이지 이동)한 것이므로
-    // 그 이동을 order.html로 덮어쓰지 않도록 그대로 반환한다.
-    if (!authResult) {
-      return;
-    }
-
-    // order.html이 뒤로가기 시 history.go()로 이 상품 페이지 항목을 재사용해도 되는지
-    // 판단할 수 있도록, 정상적으로 상품 페이지를 거쳐 진입했다는 표시를 남긴다.
-    sessionStorage.setItem('orderEntryProductId', String(productId));
-    let url = `order.html?productId=${productId}&type=${type}`;
-    window.location.href = url;
-  } catch (error) {
-    if (error.status === 403) {
-      const redirectTarget = encodeURIComponent(window.location.href);
-      window.location.href = `login.html?redirect=${redirectTarget}`;
-      return;
-    }
-    console.error('로그인 상태 확인 실패:', error);
-    window.location.href = 'login.html';
-  }
-}
 
 // 상품설명/선물후기/상세정보 탭 전환. 탭·패널을 data-tab/data-panel 값으로 매칭해서
 // 클릭한 탭만 active 처리하고, 같은 값의 패널만 보이도록 나머지는 hidden 처리한다.
@@ -420,18 +486,22 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 나에게 선물하기 및 선물하기 버튼 클릭 시 로그인 상태를 먼저 확인하고 주문 페이지로 이동
+  // 나에게 선물하기 및 선물하기 버튼 클릭 시 수량 선택 bottom sheet를 연다.
+  // (기존에는 로그인 확인 후 바로 order.html로 이동했으나, 수량 선택이 추가되며
+  //  주문 생성은 시트의 담기/주문 버튼 클릭 시점으로 옮겨간다 — 로그인 확인도 그때 진행)
+  initBottomSheet(productId);
+
   const buyBtn = document.querySelector('.btn-bottom-buy');
   if (buyBtn) {
     buyBtn.addEventListener('click', () => {
-      goToOrder(productId, 'self');
+      openBottomSheet('self');
     });
   }
 
   const giftBtn = document.querySelector('.btn-bottom-gift');
   if (giftBtn) {
     giftBtn.addEventListener('click', () => {
-      goToOrder(productId, 'gift');
+      openBottomSheet('gift');
     });
   }
 
