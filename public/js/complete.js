@@ -2,8 +2,9 @@ document.addEventListener("header:ready", async () => {
 
   const urlParams = new URLSearchParams(window.location.search);
   const orderId = urlParams.get('orderId');
+  const orderGroupId = urlParams.get('orderGroupId');
 
-  if (!orderId) {
+  if (!orderId && !orderGroupId) {
     alert("잘못된 접근입니다.");
     location.href = "index.html";
     return;
@@ -12,7 +13,8 @@ document.addEventListener("header:ready", async () => {
   // bfcache로 페이지가 복원될 때(pageshow, persisted) 재검증할 수 있도록 함수로 분리한다.
   async function checkCompleteAuthAndLoadOrder() {
     try {
-      const result = await requestJson(`/api/orders/${orderId}`);
+      const path = orderGroupId ? `/api/order-groups/${orderGroupId}` : `/api/orders/${orderId}`;
+      const result = await requestJson(path);
 
       // result가 없으면(=undefined) api.js 전역 인터셉터가 401을 처리(로그인 페이지 이동)한 것이므로
       // 그 이동을 다른 리다이렉트로 덮어쓰지 않도록 그대로 반환한다.
@@ -21,7 +23,9 @@ document.addEventListener("header:ready", async () => {
       }
 
       if (result.data) {
-        const order = result.data;
+        // order-groups는 상품 1개 객체가 아니라 items 배열로 온다. bottom-sheet에서 만든 묶음
+        // 주문은 항상 상품 1종류만 담으므로 items[0]만 꺼내 단건 주문과 같은 모양으로 맞춘다.
+        const order = orderGroupId ? mapOrderGroupToOrderView(result.data) : result.data;
         renderCompletePage(order);
         // 인증 및 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
         document.body.style.visibility = "visible";
@@ -52,6 +56,23 @@ document.addEventListener("header:ready", async () => {
 
 });
 
+// order-groups 응답(GET /api/order-groups/:id)을 renderCompletePage가 기대하는
+// 단건 주문 형태({isSelfGift, receiver, product, quantity})로 변환한다.
+function mapOrderGroupToOrderView(group) {
+  const item = group.items && group.items[0];
+  return {
+    isSelfGift: group.isSelfGift,
+    receiver: group.receiver,
+    quantity: item ? item.quantity : 1,
+    product: item ? {
+      thumbnailUrl: item.thumbnailUrl,
+      brand: item.brand,
+      name: item.name
+      // order-groups 응답에는 validPeriod가 없어 renderCompletePage의 기본 문구로 대체된다.
+    } : null
+  };
+}
+
 // "N일" 같은 기간 표기를 볼드로 강조해서 넣는다 (예: "발급일로부터 365일 이내에 사용 가능").
 function renderValidPeriodText(el, text) {
   const match = text.match(/\d+\s*일/);
@@ -71,7 +92,7 @@ function renderValidPeriodText(el, text) {
 }
 
 function renderCompletePage(order) {
-  const { isSelfGift, receiver, product } = order;
+  const { isSelfGift, receiver, product, quantity } = order;
 
   // Title and Badge
   const completeTitle = document.getElementById("complete-title");
@@ -91,6 +112,9 @@ function renderCompletePage(order) {
   const giftBrand = document.getElementById("gift-brand");
   const giftName = document.getElementById("gift-name");
   const giftValidPeriod = document.getElementById("gift-valid-period");
+  const giftQuantity = document.getElementById("gift-quantity");
+
+  if (giftQuantity) giftQuantity.textContent = `수량 : ${quantity || 1}개`;
 
   if (product) {
     if (giftThumbnail) giftThumbnail.src = product.thumbnailUrl || "";
