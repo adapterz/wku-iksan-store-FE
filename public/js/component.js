@@ -199,13 +199,11 @@ function bindHeaderBackButton() {
     }
 }
 
-// 서브 헤더에 페이지 제목만 필요한 화면(category.js/brand.js/profile.js 등) 공통 헬퍼.
-// header:ready 이후 우측 검색·홈 아이콘을 지우고 그 자리에 제목을 넣는다.
+// 서브 헤더에 페이지 제목이 필요한 화면(category.js/brand.js/profile.js 등) 공통 헬퍼.
+// header:ready 이후 제목을 넣는다. title은 absolute 중앙 정렬이라 우측 선물함 아이콘과 겹치지 않는다.
 window.setSubHeaderTitle = function(titleText) {
     document.addEventListener('header:ready', () => {
         const headerContainer = document.querySelector('header.main-header .header-container');
-        const rightIcons = document.querySelector('header.main-header .header-right-icons');
-        if (rightIcons) rightIcons.remove();
 
         if (headerContainer) {
             const title = document.createElement('h1');
@@ -463,11 +461,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <i class="fa-solid fa-arrow-left"></i>
             </a>
             <div class="header-right-icons" style="gap: 16px;">
-                <a href="#" id="btn-search-open" class="header-icon" title="검색">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                </a>
-                <a href="index.html" class="header-icon" title="홈">
-                    <i class="fa-solid fa-house"></i>
+                <a href="giftbox.html" class="header-icon" title="선물함">
+                    <i class="fa-solid fa-gift"></i>
                 </a>
             </div>
         </div>`;

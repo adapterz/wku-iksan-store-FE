@@ -1,4 +1,5 @@
-// 공통 서브 헤더가 기본 제공하는 검색·홈 아이콘을 선물함 페이지에서는 제거한다.
+// 공통 서브 헤더가 기본 제공하는 선물함 아이콘은, 이미 선물함 페이지에 있는 상태라 자기 자신으로
+// 가는 링크가 되어 의미가 없으므로 여기서는 제거한다.
 document.addEventListener('header:ready', () => {
   const rightIcons = document.querySelector('header.main-header .header-right-icons');
   if (rightIcons) rightIcons.remove();
