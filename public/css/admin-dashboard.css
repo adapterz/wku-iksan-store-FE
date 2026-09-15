@@ -18,19 +18,15 @@
 .ai-brand-fill{height:100%;background:var(--primary-color);border-radius:4px}
 .ai-brand-count{width:20px;text-align:right;font-size:13px;font-variant-numeric:tabular-nums}
 
-.ai-list{padding:16px 16px 24px;display:flex;flex-direction:column;gap:10px}
-.ai-card-head-left{display:flex;align-items:center;gap:8px}
+/* 문의 목록은 상단에 여백이 더 필요해 공통 .ai-list 패딩을 오버라이드한다 */
+.ai-list{padding:16px 16px 24px}
 .ai-badge.general{background:#eef6f2;color:#276354}
 .ai-badge.appeal{background:#fbece0;color:#9a4a22}
 .ai-badge.status-pending{background:#fff3d9;color:#8a5a10}
 .ai-badge.status-answered{background:#e9f4e1;color:#3c6b2b}
-.ai-id{font-size:11px;color:#999}
-.ai-content{font-size:14px;color:#191919;margin:10px 0 4px;line-height:1.6}
-.ai-meta{font-size:11px;color:#999;margin:0 0 8px}
 .ai-reply-block{border-top:1px solid #f0f0f0;padding-top:10px;margin-top:6px}
 .ai-reply-label{font-size:12px;color:#767676;margin-bottom:3px}
 .ai-decision-row{display:flex;flex-wrap:wrap;gap:14px 18px;margin:6px 0 10px;font-size:13px;align-items:center}
 .ai-decision-row label{display:flex;align-items:center;gap:6px;cursor:pointer}
 .ai-sanction-input{width:110px;border:1px solid #ddd;border-radius:6px;padding:6px 8px;font-size:12.5px}
 .ai-decision-hint{font-size:11px;color:#999;flex-basis:100%}
-.ai-empty{text-align:center;padding:40px 16px;color:#999;font-size:13px}

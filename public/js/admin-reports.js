@@ -6,9 +6,9 @@ let statusFilter = 'pending';
 
 function statusBadge(status) {
   const map = {
-    pending: ['status-hidden', '대기중'],
-    actioned: ['status-active', '조치완료'],
-    dismissed: ['status-discontinued', '기각됨']
+    pending: ['report-status-pending', '대기중'],
+    actioned: ['report-status-actioned', '조치완료'],
+    dismissed: ['report-status-dismissed', '기각됨']
   };
   const [cls, label] = map[status];
   return `<span class="ai-badge ${cls}">${label}</span>`;
@@ -20,7 +20,7 @@ function statusBadge(status) {
 // BE가 report.authorId를 내려주기 시작하면 이 조건만으로 자동으로 활성화된다.
 function actionButtons(report) {
   const authorButton = report.authorId
-    ? `<a class="ai-toggle danger" href="admin-sanctions.html?userId=${report.authorId}">작성자 제재하기</a>`
+    ? `<a class="ai-toggle danger" href="admin-sanctions.html?userId=${report.authorId}" target="_blank" rel="noopener">작성자 제재하기</a>`
     : `<button class="ai-toggle danger" disabled title="작성자 정보 연동 대기중(BE 응답에 authorId 추가 필요)">작성자 제재하기</button>`;
 
   const buttons = [authorButton];

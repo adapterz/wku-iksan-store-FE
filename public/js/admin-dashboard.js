@@ -126,7 +126,7 @@ function renderCard(item) {
 
   let bodyHtml = `<p class="ai-content">${escapeHtml(item.content)}</p>` +
     `<p class="ai-meta">userId ${item.userId} · ${formatDate(item.createdAt)} · ` +
-    `<a href="admin-sanctions.html?userId=${item.userId}">이 유저 제재 화면으로</a></p>`;
+    `<a href="admin-sanctions.html?userId=${item.userId}" target="_blank" rel="noopener">이 유저 제재 화면으로</a></p>`;
   if (item.status === 'answered') {
     bodyHtml += `<div class="ai-reply-block"><p class="ai-reply-label">관리자 답변</p><p>${escapeHtml(item.adminReply)}</p></div>`;
   } else if (isOpen) {

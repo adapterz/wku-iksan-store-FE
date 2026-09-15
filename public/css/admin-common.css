@@ -16,12 +16,37 @@ body.admin-sample{padding-bottom:0}
 .ai-tabs button,.ai-tabs a{padding:14px 4px;margin-right:16px;color:#999;font-size:14px;border-bottom:2px solid transparent;text-decoration:none;white-space:nowrap}
 .ai-tabs button[aria-current=page],.ai-tabs a[aria-current=page]{color:#191919;border-color:#191919;font-weight:700}
 
+/* 최상단 관리자 네비게이션(.ai-tabs)은 sticky지만, 그 아래에 또 .ai-tabs를 재사용하는
+   화면 내 서브탭(대시보드의 "문의 상태", 상품 페이지의 "상품 관리/카테고리 관리")은
+   sticky면 안 된다 — 둘 다 top:0으로 붙으면 스크롤 시 서로 겹친다. .ai-subtabs로 sticky만 해제한다. */
+.ai-subtabs{position:static}
+
 .ai-gate{padding:60px 16px;text-align:center;color:#767676;font-size:13px}
 .ai-gate button{margin-top:16px}
 
 .ai-card{background:#fff;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:14px 16px}
 .ai-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .ai-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:100px}
+
+/* 목록/카드형 화면(대시보드 문의, 상품, 제재, 신고)에서 공통으로 쓰는 리스트·카드·폼 뼈대.
+   각 페이지 CSS에는 그 화면에만 있는 배지 색상·필드 등만 남긴다. */
+.ai-list{padding:0 16px 16px;display:flex;flex-direction:column;gap:10px}
+.ai-card-head-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ai-id{font-size:11px;color:#999}
+.ai-content{font-size:14px;color:#191919;margin:10px 0 4px;line-height:1.6}
+.ai-meta{font-size:11px;color:#999;margin:0 0 8px;line-height:1.7}
+.ai-empty{text-align:center;padding:40px 16px;color:#999;font-size:13px}
+.ai-toggle.danger{color:#b64535;border-color:#f0c9c0}
+
+.as-form-panel{margin:12px 16px 24px;padding:16px;background:#fff;border:1px solid var(--border-color);border-radius:var(--radius-md)}
+.as-form-title{font-size:13px;font-weight:700;margin-bottom:12px}
+.as-field{margin-bottom:12px}
+.as-field label{display:block;font-size:12px;color:#767676;margin-bottom:5px}
+
+/* 상태별 필터 칩(상품 상태, 신고 상태 등에서 공통 사용) */
+.ap-status-filter{display:flex;gap:6px;padding:12px 16px;flex-wrap:wrap}
+.ap-status-filter button{font-size:12.5px;padding:6px 12px;border:1px solid #ddd;border-radius:100px;color:#555}
+.ap-status-filter button[aria-current=page]{background:var(--primary-color);color:#fff;border-color:var(--primary-color)}
 
 .ai-textarea{display:block;width:100%;resize:vertical;min-height:64px;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px;line-height:1.7}
 .ai-textarea:focus{outline:1px solid #191919}
