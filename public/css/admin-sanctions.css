@@ -1,4 +1,4 @@
-/* Domain-specific styles for the admin sanctions sample. Shared rules live in admin-sample-common.css. */
+/* Domain-specific styles for the admin sanctions page. Shared rules live in admin-common.css. */
 .ai-section-label{padding:20px 16px 10px;font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.04em}
 
 .as-search{display:flex;gap:8px;padding:16px}

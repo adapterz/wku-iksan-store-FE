@@ -1,5 +1,5 @@
 // Isolated prototype: reuses window.requestJson from js/api.js and shared helpers from
-// js/admin-sample-common.js (escapeHtml, formatDate, toast, showPageError, showGate, showApp,
+// js/admin-common.js (escapeHtml, formatDate, toast, showPageError, showGate, showApp,
 // showFatalError). No production page scripts are changed.
 'use strict';
 
@@ -291,7 +291,7 @@ function renderCategoryList() {
 /* ---------- 공통 ---------- */
 
 function activateTab(tab) {
-  document.querySelectorAll('nav[aria-label="관리자 화면"] [data-tab]').forEach(b => {
+  document.querySelectorAll('nav[aria-label="상품 화면 탭"] [data-tab]').forEach(b => {
     if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page');
     else b.removeAttribute('aria-current');
   });
@@ -311,6 +311,7 @@ async function checkAndLoad() {
   if (me.data.role !== 'admin') return showFatalError('관리자 권한이 필요합니다.');
 
   showApp();
+  renderAdminNav('products');
   try {
     // loadCategories()와 loadProducts()는 서로 의존관계가 없으므로 병렬로 요청한다.
     await Promise.all([loadCategories(), loadProducts()]);
@@ -322,7 +323,7 @@ async function checkAndLoad() {
   }
 }
 
-document.querySelectorAll('nav[aria-label="관리자 화면"] [data-tab]').forEach(btn => {
+document.querySelectorAll('nav[aria-label="상품 화면 탭"] [data-tab]').forEach(btn => {
   btn.addEventListener('click', () => activateTab(btn.dataset.tab));
 });
 

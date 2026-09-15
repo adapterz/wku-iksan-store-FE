@@ -1,5 +1,5 @@
 // Isolated prototype: reuses window.requestJson from js/api.js and shared helpers from
-// js/admin-sample-common.js (escapeHtml, formatDate, toast, showPageError, showGate, showApp).
+// js/admin-common.js (escapeHtml, formatDate, toast, showPageError, showGate, showApp).
 // No production page scripts are changed.
 'use strict';
 
@@ -130,6 +130,56 @@ function wireForm() {
   });
 }
 
+// 관리자 승격/해제. 대상 유저의 닉네임/이메일을 조회하는 API가 아직 없어서(추후 BE 추가 예정),
+// userId 숫자만 보고 실수로 엉뚱한 계정을 승격시키는 사고를 막기 위해 confirm()으로 최소한의
+// 확인 절차를 둔다. BE가 단건 프로필 조회 API를 추가하면 이 confirm() 자리를 닉네임/이메일을
+// 보여주는 실제 확인 화면으로 교체하면 된다.
+function roleFormPanel() {
+  return `<div class="as-form-panel">
+    <p class="as-form-title">관리자 권한</p>
+    <div class="as-field">
+      <label for="role-select">userId ${currentUserId}의 역할 변경</label>
+      <select id="role-select">
+        <option value="">선택하세요</option>
+        <option value="admin">관리자로 승격</option>
+        <option value="user">일반 사용자로 해제</option>
+      </select>
+    </div>
+    <p class="ai-field-error" id="role-form-error" hidden></p>
+    <div class="ai-btn-row"><button class="ai-primary" id="submit-role">역할 변경</button></div>
+  </div>`;
+}
+
+function wireRoleForm() {
+  document.getElementById('submit-role').addEventListener('click', async () => {
+    const errEl = document.getElementById('role-form-error');
+    const role = document.getElementById('role-select').value;
+    if (!role) {
+      errEl.textContent = '변경할 역할을 선택하세요.';
+      errEl.hidden = false;
+      return;
+    }
+
+    const targetUserId = currentUserId;
+    const confirmMessage = role === 'admin'
+      ? `userId ${targetUserId} 계정을 관리자로 승격하시겠습니까? (닉네임 확인 기능은 추후 추가 예정)`
+      : `userId ${targetUserId} 계정의 관리자 권한을 해제하시겠습니까?`;
+    if (!confirm(confirmMessage)) return;
+
+    errEl.hidden = true;
+    try {
+      const result = await window.requestJson(`/api/admin/users/${targetUserId}/role`, { method: 'PATCH', body: { role } });
+      if (!result) return; // 세션 만료(401) — 전역 로그인 리다이렉트에 맡기고 성공 토스트는 띄우지 않는다
+      toast(role === 'admin' ? '관리자로 승격했습니다.' : '관리자 권한을 해제했습니다.');
+    } catch (err) {
+      errEl.textContent = err.code === 'CANNOT_DEMOTE_SELF'
+        ? '본인 계정은 강등할 수 없습니다.'
+        : (err.message || '역할 변경에 실패했습니다.');
+      errEl.hidden = false;
+    }
+  });
+}
+
 function render() {
   const resultEl = document.getElementById('result');
   const rows = sanctions.map(sanctionCard).join('');
@@ -137,6 +187,7 @@ function render() {
     <p class="as-user-line">userId ${currentUserId}의 제재 이력 (${sanctions.length}건)</p>
     <div class="ai-list">${rows || '<p class="as-empty">제재 이력이 없습니다.</p>'}</div>
     ${formPanel()}
+    ${roleFormPanel()}
   `;
 
   resultEl.querySelectorAll('[data-lift]').forEach(btn => {
@@ -155,6 +206,7 @@ function render() {
   });
 
   wireForm();
+  wireRoleForm();
 }
 
 // 조회를 빠르게 연속 제출하면(다른 userId로 재검색 등) 응답이 요청 순서와 다르게 도착해
@@ -199,6 +251,16 @@ async function checkAndLoad() {
   if (me.data.role !== 'admin') return showFatalError('관리자 권한이 필요합니다.');
 
   showApp();
+  renderAdminNav('sanctions');
+
+  // 신고·문의 화면에서 "이 유저 제재 화면으로" 링크(admin-sanctions.html?userId=123)로 들어온
+  // 경우, userId 입력란을 채우고 바로 조회까지 실행해서 admin이 다시 입력할 필요가 없게 한다.
+  const linkedUserId = Number(new URLSearchParams(window.location.search).get('userId'));
+  if (Number.isInteger(linkedUserId) && linkedUserId > 0) {
+    document.getElementById('user-id-input').value = linkedUserId;
+    intendedUserId = linkedUserId;
+    loadSanctions(linkedUserId);
+  }
 }
 
 document.getElementById('search-form').addEventListener('submit', (e) => {

@@ -1,9 +1,5 @@
-/* Domain-specific styles for the admin products sample. Shared rules live in admin-sample-common.css. */
+/* Domain-specific styles for the admin products page. Shared rules live in admin-common.css. */
 .admin-sample select:focus-visible{outline:2px solid #191919;outline-offset:3px}
-
-.ai-tabs{display:flex;gap:4px;border-bottom:1px solid #eee;padding:0 16px;background:#fff;position:sticky;top:0;z-index:2}
-.ai-tabs button{padding:14px 4px;margin-right:16px;color:#999;font-size:14px;border-bottom:2px solid transparent}
-.ai-tabs button[aria-current=page]{color:#191919;border-color:#191919;font-weight:700}
 
 .ap-status-filter{display:flex;gap:6px;padding:12px 16px;flex-wrap:wrap}
 .ap-status-filter button{font-size:12.5px;padding:6px 12px;border:1px solid #ddd;border-radius:100px;color:#555}

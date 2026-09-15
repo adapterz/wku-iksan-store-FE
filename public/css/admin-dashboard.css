@@ -1,7 +1,4 @@
-/* Domain-specific styles for the admin inquiries sample. Shared rules live in admin-sample-common.css. */
-.ai-tabs{display:flex;gap:4px;border-bottom:1px solid #eee;padding:0 16px;background:#fff;position:sticky;top:0;z-index:2}
-.ai-tabs button{padding:14px 4px;margin-right:16px;color:#999;font-size:14px;border-bottom:2px solid transparent}
-.ai-tabs button[aria-current=page]{color:#191919;border-color:#191919;font-weight:700}
+/* Domain-specific styles for the admin dashboard page. Shared rules(including .ai-tabs) live in admin-common.css. */
 
 .ai-section-label{padding:20px 16px 10px;font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.04em}
 

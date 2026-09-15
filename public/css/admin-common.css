@@ -1,4 +1,4 @@
-/* Shared styles for the admin sample prototypes (admin-inquiries-sample.html, admin-sanctions-sample.html). */
+/* Shared styles for the admin pages (admin-dashboard.html, admin-products.html, admin-reports.html, admin-sanctions.html). */
 .admin-sample{box-shadow:none;font-size:14px}
 body.admin-sample{padding-bottom:0}
 .admin-sample button,.admin-sample select,.admin-sample textarea,.admin-sample input{font:inherit}
@@ -8,7 +8,13 @@ body.admin-sample{padding-bottom:0}
 
 .ai-header{height:60px;display:flex;align-items:center;padding:0 16px;border-bottom:1px solid #f2f2f2;background:#fff}
 .ai-header h1{font-size:17px;font-weight:700}
-.ai-preview{display:flex;align-items:center;justify-content:space-between;background:#f7f7f7;color:#767676;padding:9px 16px;font-size:10px;gap:8px}
+
+/* 관리자 화면 상단 네비게이션(대시보드/문의하기/상품·카테고리/신고/제재·회원).
+   대시보드 페이지는 button 대신 a를 쓰므로(같은 파일 안 탭 전환 + 다른 페이지 링크 겸용)
+   button/a 둘 다 지원한다. */
+.ai-tabs{display:flex;gap:4px;border-bottom:1px solid #eee;padding:0 16px;background:#fff;position:sticky;top:0;z-index:2}
+.ai-tabs button,.ai-tabs a{padding:14px 4px;margin-right:16px;color:#999;font-size:14px;border-bottom:2px solid transparent;text-decoration:none;white-space:nowrap}
+.ai-tabs button[aria-current=page],.ai-tabs a[aria-current=page]{color:#191919;border-color:#191919;font-weight:700}
 
 .ai-gate{padding:60px 16px;text-align:center;color:#767676;font-size:13px}
 .ai-gate button{margin-top:16px}
