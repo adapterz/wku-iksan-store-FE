@@ -153,12 +153,45 @@ function initBottomSheet(productId) {
     });
   }
 
-  // "장바구니 담기"/"선물하기" 버튼의 실제 API 연동(장바구니 추가, 주문 생성)은 다음 단계에서 진행한다.
-  // 지금은 시트 UI(오픈/닫기/수량/금액)만 완성된 상태다.
+  // "선물하기"/"나에게 선물하기" 버튼의 실제 주문 연동은 다음 단계에서 진행한다.
   const addCartBtn = document.getElementById('btn-sheet-add-cart');
   if (addCartBtn) {
-    addCartBtn.addEventListener('click', () => {
-      console.log('[bottom-sheet] 장바구니 담기 클릭 (연동 예정)', { productId, quantity: sheetState.quantity });
+    addCartBtn.addEventListener('click', async () => {
+      if (addCartBtn.disabled) return;
+      addCartBtn.disabled = true;
+      try {
+        const result = await requestJson('/api/cart-items', {
+          method: 'POST',
+          body: { productId: Number(productId), quantity: sheetState.quantity }
+        });
+        // result가 없으면(=undefined) 401이라 api.js 전역 인터셉터가 이미 토스트를 띄우고
+        // 로그인 페이지로 리다이렉트를 예약해둔 상태다 — 여기서 추가로 처리하지 않는다.
+        if (!result) return;
+
+        // 다른 화면의 담김 상태 캐시(component.js의 _cartCache)를 다음 조회 때 다시 받아오도록
+        // 무효화하고, 헤더 장바구니 뱃지가 새 수량으로 갱신되도록 이벤트를 쏜다.
+        window._cartCache = null;
+        window.dispatchEvent(new CustomEvent('cart-updated', { detail: { productId, isInCart: true } }));
+        window.showToast('장바구니에 담았습니다.');
+        closeBottomSheet();
+      } catch (error) {
+        if (error.code === 'CART_QUANTITY_EXCEEDED') {
+          alert('장바구니에 이미 담긴 수량과 합쳐 상품당 최대 10개까지만 담을 수 있어요.');
+          return;
+        }
+        if (error.code === 'CART_LIMIT_EXCEEDED') {
+          alert('장바구니에 담을 수 있는 상품 종류가 가득 찼어요.');
+          return;
+        }
+        if (error.code === 'PRODUCT_UNAVAILABLE') {
+          alert('판매가 종료된 상품이에요.');
+          return;
+        }
+        console.error('장바구니 담기 실패:', error);
+        alert(error.message || '장바구니에 담지 못했어요. 잠시 후 다시 시도해주세요.');
+      } finally {
+        addCartBtn.disabled = false;
+      }
     });
   }
   const orderBtn = document.getElementById('btn-sheet-order');

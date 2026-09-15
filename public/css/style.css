@@ -131,6 +131,7 @@ input.header-search-text::placeholder {
 }
 
 .header-icon {
+  position: relative;
   font-size: 20px;
   color: #191919;
   width: 24px;
@@ -138,6 +139,23 @@ input.header-search-text::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 헤더 장바구니 아이콘에 얹는 담긴 개수 뱃지 */
+.cart-count-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background-color: #FF5A5F;
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
 }
 
 .header-right-icons {
@@ -2609,10 +2627,10 @@ body.page-product {
 .btn-sheet-buy {
   flex: 1;
   height: 58px;
-  background-color: #FEE500;
+  background-color: #191919;
   border: none;
   border-radius: 16px;
-  color: #191919;
+  color: #FFFFFF;
   font-weight: 700;
   font-size: 16px;
   display: flex;

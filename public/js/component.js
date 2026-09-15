@@ -464,6 +464,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <a href="giftbox.html" class="header-icon" title="선물함">
                     <i class="fa-solid fa-gift"></i>
                 </a>
+                <a href="cart-sample.html" class="header-icon" title="장바구니">
+                    <i class="fa-solid fa-bag-shopping"></i>
+                    <span class="cart-count-badge" hidden>0</span>
+                </a>
             </div>
         </div>`;
     }
@@ -480,6 +484,9 @@ document.addEventListener('DOMContentLoaded', () => {
             bindHeaderBackButton();
         }
     }
+
+    // 헤더에 장바구니 아이콘이 있는 모든 화면(index.html 정적 마크업 포함)에서 담긴 개수 뱃지 갱신
+    window.updateCartBadge();
 
     // 하단 네비게이션 바 공통 HTML 반환 함수
     function getBottomNavHTML() {
@@ -987,7 +994,7 @@ async function ensureCartLoaded() {
                     // 전역 401 리다이렉트를 건너뛴다.
                     const result = await requestJson('/api/cart-items', { silent401: true });
                     if (result && result.data) {
-                        return result.data.map(item => ({ cartItemId: item.cartItemId, productId: item.productId.toString() }));
+                        return result.data.map(item => ({ cartItemId: item.cartItemId, productId: item.productId.toString(), quantity: item.quantity }));
                     }
                     return [];
                 } catch (error) {
@@ -1046,7 +1053,7 @@ async function performCartToggle(productId) {
                 body: { productId: Number(productId), quantity: 1 }
             });
             // 등록 성공 후 재조회 대신 캐시에 바로 추가하여, 재조회 실패로 인한 상태 불일치를 방지
-            window._cartCache = [...cart, { cartItemId: result.data.cartItemId, productId: productIdStr }];
+            window._cartCache = [...cart, { cartItemId: result.data.cartItemId, productId: productIdStr, quantity: 1 }];
             isInCart = true;
         }
     } catch (error) {
@@ -1061,7 +1068,7 @@ async function performCartToggle(productId) {
         throw error; // 실패 시 기존 상태 유지를 위해 에러 전달
     }
 
-    // UI 업데이트 이벤트를 발생시키고 결과를 반환 (헤더 아이콘 뱃지 등 향후 확장 대비)
+    // UI 업데이트 이벤트를 발생시키고 결과를 반환 — 헤더 장바구니 뱃지가 이 이벤트를 구독해 갱신된다
     window.dispatchEvent(new CustomEvent('cart-updated', { detail: { productId, isInCart } }));
     return isInCart;
 }
@@ -1087,6 +1094,34 @@ window.updateCartIcon = function(icon, isInCart) {
         icon.classList.remove('in-cart-icon');
     }
 };
+
+// 장바구니에 담긴 상품의 총 수량(개수 합계, 종류 수가 아님) — 헤더 뱃지 표시용
+async function getCartTotalQuantity() {
+    const cart = await ensureCartLoaded();
+    return cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+}
+
+// 헤더의 장바구니 아이콘 뱃지(.cart-count-badge, 인덱스/서브헤더 등 화면에 있는 만큼 전부)를
+// 현재 장바구니 총 수량으로 갱신한다. 0개면 숨긴다.
+window.updateCartBadge = async function() {
+    try {
+        const total = await getCartTotalQuantity();
+        document.querySelectorAll('.cart-count-badge').forEach(badge => {
+            if (total > 0) {
+                badge.textContent = total > 99 ? '99+' : String(total);
+                badge.hidden = false;
+            } else {
+                badge.hidden = true;
+            }
+        });
+    } catch (error) {
+        console.error('장바구니 뱃지 갱신 실패:', error);
+    }
+};
+
+if (typeof window.addEventListener === 'function') {
+    window.addEventListener('cart-updated', () => window.updateCartBadge());
+}
 
 // 정보 아이콘 옆 안내 툴팁을 여닫는 공용 유틸리티.
 // 호버 가능한 기기(데스크톱)에서는 마우스 오버 시 열리고, 클릭은 무시해 깜빡임 없이 유지된다.
