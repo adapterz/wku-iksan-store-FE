@@ -4,7 +4,6 @@
   const $ = id => document.getElementById(id);
   // FE 표시·입력·검증의 단일 기준. 정책 변경 시 BE 상수와 DB CHECK도 함께 변경한다.
   const limits = Object.freeze({ products:30, perProduct:10, perOrder:50 });
-  $('add-quantity').max = String(limits.perProduct);
   $('quantity-policy').textContent = `최대 ${limits.products}종 보관 · 상품당 ${limits.perProduct}개 · 한 번에 교환권 ${limits.perOrder}개`;
   const state = { user: null, items: [], selected: new Set(), receiver: null, busy: false, pending: null, needsSync: false, refreshRequested: false };
   const won = value => Number(value).toLocaleString('ko-KR') + '원';
@@ -118,10 +117,6 @@
     totals();
   }
   async function load() { const items = await api('/api/cart-items'); await ensureIdentity(); state.items = items; state.needsSync = false; const ids = new Set(state.items.map(item => item.cartItemId)); state.selected = new Set([...state.selected].filter(id => ids.has(id))); render(); }
-  async function loadProducts() {
-    const products = await api('/api/products'); $('products').replaceChildren();
-    for (const product of products) { const option = node('option',product.name + ' · ' + won(product.price)); option.value = product.id; $('products').append(option); }
-  }
   function receipt(group) {
     $('workspace').hidden = true; $('completed').hidden = false; $('receipt').replaceChildren();
     $('receipt').append(node('p',`주문 묶음 #${group.orderGroupId} · ${group.receiver.nickname}에게 교환권 ${group.totalQuantity}개`));
@@ -146,7 +141,6 @@
     receipt(group); state.pending = null;
     try { sessionStorage.removeItem(key()); } catch { message('주문은 완료됐어요. 보관된 요청은 다시 보내도 중복 주문되지 않습니다.'); }
   }
-  $('add-form').onsubmit = event => { event.preventDefault(); return run(async () => { await mutate(async () => { const item = await api('/api/cart-items','POST',{productId:Number($('products').value),quantity:Number($('add-quantity').value)}); state.selected.add(item.cartItemId); }); message('장바구니에 담았어요.'); }); };
   $('reload').onclick = () => run(load);
   $('sync-cart').onclick = () => run(load);
   $('select-all').onchange = () => { state.selected = new Set($('select-all').checked ? state.items.filter(item => item.canOrder).map(item => item.cartItemId) : []); render(); };
@@ -180,7 +174,7 @@
     sessionStorage.setItem(key(),JSON.stringify(pending)); state.pending = pending; await sendPending();
   }); };
   $('retry-order').onclick = () => run(sendPending);
-  $('continue').onclick = () => run(async () => { const url = new URL(location.href); url.searchParams.delete('orderGroupId'); history.replaceState(null,'',url); $('completed').hidden = true; $('workspace').hidden = false; state.receiver = null; $('nickname').value = ''; $('message').value = ''; $('recipient-result').textContent = $('self').checked ? '본인에게 보냅니다.' : '받는 사람을 확인해주세요.'; await loadProducts(); await load(); });
+  $('continue').onclick = () => run(async () => { const url = new URL(location.href); url.searchParams.delete('orderGroupId'); history.replaceState(null,'',url); $('completed').hidden = true; $('workspace').hidden = false; state.receiver = null; $('nickname').value = ''; $('message').value = ''; $('recipient-result').textContent = $('self').checked ? '본인에게 보냅니다.' : '받는 사람을 확인해주세요.'; await load(); });
   function refreshIdentity() {
     if (!state.user) return;
     if (state.busy) { state.refreshRequested = true; return; }
@@ -197,7 +191,6 @@
     if (saved) state.pending = JSON.parse(saved);
     const groupId = new URL(location.href).searchParams.get('orderGroupId');
     if (groupId) { receipt(await api('/api/order-groups/' + encodeURIComponent(groupId))); return; }
-    await loadProducts();
     await load();
   }, { initialize: true });
 })();

@@ -25,7 +25,7 @@ async function app(options = {}) {
   const elements = new Map(), calls = [], storage = options.storage || new Map(), listeners = new Map();
   const el = id => { if (!elements.has(id)) elements.set(id,new Element()); return elements.get(id); };
   for (const id of ['signed-out','completed','workspace','pending','page-error','toast']) el(id).hidden = true;
-  el('message').value = ''; el('add-quantity').value = '1'; el('products').value = '76';
+  el('message').value = '';
   const location = new URL(options.url || 'http://localhost/cart-sample');
   const addEventListener=(type,fn)=>listeners.set(type,fn);
   const context = { document:{getElementById:el,createElement:tag=>new Element(tag),addEventListener,visibilityState:'visible'}, window:{addEventListener}, location,
@@ -38,7 +38,6 @@ async function app(options = {}) {
       calls.push({url,...request});
       if (options.fetch) { const response = await options.fetch(url,request,calls); if (response) return response; }
       if(url==='/api/auth/me') return ok({userId:1,nickname:'Ethan'});
-      if(url==='/api/products') return ok([{id:76,name:'커피',price:4500}]);
       if(url==='/api/cart-items') return ok(options.items || [sampleItem()]);
       if(url.startsWith('/api/users/search')) return ok({userId:2,nickname:'수신자'});
       if(url.startsWith('/api/order-groups')) return ok(group);
@@ -87,34 +86,11 @@ test('changed login account cannot submit previous account order',async()=>{
   account=2;await page.selectSelf();await page.click('confirm-send');assert.equal(page.calls.some(c=>c.url==='/api/order-groups'),false);assert.equal(page.storage.size,0);assert.equal(page.el('workspace').hidden,true);
 });
 
-test('lost add response reloads committed quantity without repeating POST',async()=>{
-  let quantity=1;
-  const page=await app({fetch:async(url,req)=>{
-    if(url==='/api/cart-items'&&req.method==='GET')return ok([sampleItem({quantity})]);
-    if(url==='/api/cart-items'&&req.method==='POST'){quantity++;throw new Error('response lost');}
-  }});
-  await page.submit('add-form');
-  assert.equal(quantity,2);assert.equal(page.calls.filter(c=>c.method==='POST').length,1);
-  assert.equal(page.el('items').children[0].children[1].children[1].textContent,'2개');
-  assert.equal(page.el('controls').disabled,false);assert.match(page.el('page-error').textContent,/최신 내용/);
-});
-
-test('uncertain mutation and failed reload blocks new writes until GET recovery',async()=>{
-  let posts=0,reloadBroken=false;
-  const page=await app({fetch:async(url,req)=>{
-    if(url==='/api/cart-items'&&req.method==='POST'){posts++;reloadBroken=true;throw new Error('lost');}
-    if(url==='/api/cart-items'&&req.method==='GET'&&reloadBroken)throw new Error('offline');
-  }});
-  await page.submit('add-form');assert.equal(page.el('controls').disabled,true);assert.equal(page.el('sync-needed').hidden,false);
-  await page.submit('add-form');assert.equal(posts,1);
-  reloadBroken=false;await page.click('sync-cart');assert.equal(page.el('controls').disabled,false);assert.equal(page.el('sync-needed').hidden,true);
-});
-
-for(const action of ['add','remove','reload'])test('account change blocks stale cart '+action,async()=>{
+for(const action of ['remove','reload'])test('account change blocks stale cart '+action,async()=>{
   let account=1;const page=await app({fetch:async url=>url==='/api/auth/me'?ok({userId:account,nickname:'account'}):null});
   await page.selectSelf();page.el('nickname').value='private';page.el('message').value='private';account=2;
   const before=page.calls.length;
-  if(action==='add')await page.submit('add-form');else await page.click(action==='remove'?'remove-selected':'reload');
+  await page.click(action==='remove'?'remove-selected':'reload');
   assert.equal(page.calls.slice(before).filter(c=>c.url!=='/api/auth/me').length,0);
   assert.equal(page.el('workspace').hidden,true);assert.equal(page.el('items').children.length,0);
   assert.equal(page.el('nickname').value,'');assert.equal(page.el('message').value,'');
@@ -151,8 +127,8 @@ test('account change offers current cart without prior account receipt id',async
 test('storage failure must not send an untrackable order',async()=>{
   const page=await app({storageFails:true});await page.selectSelf();await page.click('confirm-send');assert.equal(page.calls.some(c=>c.url==='/api/order-groups'),false);
 });
-test('receipt reload and return reloads product choices as well as cart',async()=>{
-  const page=await app({url:'http://localhost/cart-sample?orderGroupId=3'});assert.equal(page.el('completed').hidden,false);await page.click('continue');assert.equal(page.el('products').children.length,1);assert.equal(page.el('workspace').hidden,false);assert.equal(page.location.search,'');
+test('receipt reload and return reloads the cart',async()=>{
+  const page=await app({url:'http://localhost/cart-sample?orderGroupId=3'});assert.equal(page.el('completed').hidden,false);await page.click('continue');assert.equal(page.el('items').children.length,1);assert.equal(page.el('workspace').hidden,false);assert.equal(page.location.search,'');
 });
 
 test('first anonymous visit shows only sign-in guidance, not expiration or order warnings',async()=>{
@@ -165,7 +141,7 @@ test('first anonymous visit shows only sign-in guidance, not expiration or order
 });
 
 test('401 after successful initial identity check still reports session expiry',async()=>{
-  const page=await app({fetch:async url=>url==='/api/products'?bad(401,'UNAUTHORIZED'):null});
+  const page=await app({fetch:async url=>url==='/api/cart-items'?bad(401,'UNAUTHORIZED'):null});
   assert.equal(page.el('page-error').hidden,false);assert.match(page.el('page-error').textContent,/만료/);
   assert.doesNotMatch(page.el('page-error').textContent,/주문/);
 });
@@ -209,7 +185,6 @@ test('shared API preserves credentials, JSON body, idempotency headers and cache
 
 test('quantity input, labels, item controls and checkout share the current limits',async()=>{
   const page=await app({items:Array.from({length:6},(_,i)=>sampleItem({cartItemId:i+1,quantity:10,subtotal:45000}))});
-  assert.equal(page.el('add-quantity').max,'10');
   assert.equal(page.el('quantity-policy').textContent,'최대 30종 보관 · 상품당 10개 · 한 번에 교환권 50개');
   assert.equal(page.el('items').children[0].children[1].children[2].disabled,true);
   await page.selectSelf();assert.equal(page.el('checkout').disabled,true);
