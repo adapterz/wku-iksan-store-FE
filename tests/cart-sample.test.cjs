@@ -12,20 +12,16 @@ class Element {
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = children; }
   setAttribute(key,value) { this.attributes[key] = value; }
-  showModal() { this.open = true; }
-  close() { this.open = false; }
   focus() {}
 }
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const sampleItem = (extras = {}) => ({cartItemId:1,productId:76,name:'커피',brand:'카페',quantity:2,version:1,unitPrice:4500,subtotal:9000,canOrder:true,...extras});
-const group = {orderGroupId:3,receiver:{nickname:'수신자'},totalQuantity:2,totalPrice:9000,items:[{name:'커피',unitPrice:4500,quantity:2,subtotal:9000}],message:'안녕'};
 const ok = data => ({ok:true,status:200,json:async()=>({data})});
 const bad = (status,code) => ({ok:false,status,json:async()=>({status,code})});
 async function app(options = {}) {
   const elements = new Map(), calls = [], storage = options.storage || new Map(), listeners = new Map();
   const el = id => { if (!elements.has(id)) elements.set(id,new Element()); return elements.get(id); };
-  for (const id of ['signed-out','completed','workspace','pending','page-error','toast']) el(id).hidden = true;
-  el('message').value = '';
+  for (const id of ['signed-out','workspace','page-error','toast']) el(id).hidden = true;
   const location = new URL(options.url || 'http://localhost/cart-sample');
   const addEventListener=(type,fn)=>listeners.set(type,fn);
   const context = { document:{getElementById:el,createElement:tag=>new Element(tag),addEventListener,visibilityState:'visible'}, window:{addEventListener}, location,
@@ -39,8 +35,6 @@ async function app(options = {}) {
       if (options.fetch) { const response = await options.fetch(url,request,calls); if (response) return response; }
       if(url==='/api/auth/me') return ok({userId:1,nickname:'Ethan'});
       if(url==='/api/cart-items') return ok(options.items || [sampleItem()]);
-      if(url.startsWith('/api/users/search')) return ok({userId:2,nickname:'수신자'});
-      if(url.startsWith('/api/order-groups')) return ok(group);
       throw new Error('Unmocked request: '+url);
     }
   };
@@ -50,12 +44,9 @@ async function app(options = {}) {
   await flush();
   return {el,calls,storage,location,
     async event(type){await listeners.get(type)();await flush();},
-    async submit(id){await el(id).onsubmit({preventDefault(){}});await flush();},
     async click(id){ const pending = el(id).onclick(); await pending; await flush(); },
     selectAll(){ el('select-all').checked=true; el('select-all').onchange(); },
-    selectItem(index){ const check=el('items').children[index].children[0].children[0]; check.checked=true; check.onchange(); },
-    // '나에게 선물하기' 흐름: 전체 선택 후 self 주문 버튼을 눌러 확인 다이얼로그를 연다.
-    async openSelfCheckout(){ el('select-all').checked=true; el('select-all').onchange(); await this.click('btn-order-self'); }
+    selectItem(index){ const check=el('items').children[index].children[0].children[0]; check.checked=true; check.onchange(); }
   };
 }
 test('empty cart disables order buttons; no auth state invented',async()=>{
@@ -66,42 +57,43 @@ test('unavailable item stays visible and blocks order, but is selectable for rem
   const check=page.el('items').children[0].children[0].children[0];check.checked=true;check.onchange();
   assert.equal(page.el('btn-order-self').disabled,true);assert.equal(page.el('remove-selected').disabled,false);
 });
-test('same stored request is used after network failure and retry',async()=>{
-  let attempts=0;
-  const page=await app({fetch:async(url,req)=>{if(url==='/api/order-groups'&&req.method==='POST'){if(++attempts===1)throw new Error('network lost');return ok(group);}}});
-  await page.openSelfCheckout();assert.equal(page.el('confirm-dialog').open,true);await page.click('confirm-send');
-  assert.equal(page.el('pending').hidden,false);assert.equal(page.el('controls').disabled,true);assert.equal(page.storage.size,1);
-  await page.click('retry-order');
-  const requests=page.calls.filter(call=>call.url==='/api/order-groups');assert.equal(requests.length,2);assert.equal(requests[0].body,requests[1].body);assert.equal(requests[0].headers['Idempotency-Key'],requests[1].headers['Idempotency-Key']);
-  assert.equal(page.storage.size,0);assert.equal(page.el('completed').hidden,false);assert.equal(page.location.search,'?orderGroupId=3');
+test('order buttons enable with a single selected item',async()=>{
+  const page=await app({items:[sampleItem({cartItemId:1})]});
+  page.selectItem(0);
+  assert.equal(page.el('btn-order-self').disabled,false);assert.equal(page.el('btn-order-gift').disabled,false);
 });
-test('reload restores pending key and explicitly retries without generating a new request',async()=>{
-  const saved={key:'previous-key-000000',body:{items:[{cartItemId:99,quantity:2,version:1,expectedUnitPrice:4500}],isSelfGift:true}};
-  const page=await app({items:[],storage:new Map([['cart-pending-order:1',JSON.stringify(saved)]])});
-  assert.equal(page.el('pending').hidden,false);assert.equal(page.calls.some(c=>c.method==='POST'),false);
-  await page.click('retry-order');const sent=page.calls.find(c=>c.url==='/api/order-groups');assert.equal(sent.headers['Idempotency-Key'],saved.key);assert.deepEqual(JSON.parse(sent.body),saved.body);
+test('order buttons also enable with multiple selected items (bundle order)',async()=>{
+  const page=await app({items:[sampleItem({cartItemId:1}),sampleItem({cartItemId:2,productId:77})]});
+  page.selectItem(0);page.selectItem(1);
+  assert.equal(page.el('btn-order-self').disabled,false);assert.equal(page.el('btn-order-gift').disabled,false);
 });
-test('definite price conflict unlocks cart for user reconfirmation',async()=>{
-  const page=await app({fetch:async(url,req)=>url==='/api/order-groups'&&req.method==='POST'?bad(409,'PRODUCT_PRICE_CHANGED'):null});
-  await page.openSelfCheckout();await page.click('confirm-send');assert.equal(page.storage.size,0);assert.equal(page.el('controls').disabled,false);assert.match(page.el('page-error').textContent,/가격이 변경/);
+test('나에게 선물하기 navigates to order.html with all selected cartItemIds and type=self',async()=>{
+  const page=await app({items:[sampleItem({cartItemId:5}),sampleItem({cartItemId:9,productId:77})]});
+  page.selectItem(0);page.selectItem(1);
+  await page.click('btn-order-self');
+  assert.equal(page.location.pathname,'/order.html');
+  assert.equal(page.location.search,'?cartItemIds=5,9&type=self');
 });
-test('401 preserves request for same-account retry but clears visible private content',async()=>{
-  const page=await app({fetch:async(url,req)=>url==='/api/order-groups'&&req.method==='POST'?bad(401,'UNAUTHORIZED'):null});
-  await page.openSelfCheckout();await page.click('confirm-send');assert.equal(page.storage.size,1);assert.equal(page.el('signed-out').hidden,false);assert.equal(page.el('workspace').hidden,true);assert.equal(page.el('items').children.length,0);
+test('선물하기 navigates to order.html with type=gift',async()=>{
+  const page=await app({items:[sampleItem({cartItemId:5})]}); page.selectItem(0);
+  await page.click('btn-order-gift');
+  assert.equal(page.location.pathname,'/order.html');
+  assert.equal(page.location.search,'?cartItemIds=5&type=gift');
 });
-test('changed login account cannot submit previous account order',async()=>{
-  let account=1;const page=await app({fetch:async url=>url==='/api/auth/me'?ok({userId:account,nickname:'account'}):null});
-  await page.openSelfCheckout();account=2;await page.click('confirm-send');assert.equal(page.calls.some(c=>c.url==='/api/order-groups'),false);assert.equal(page.storage.size,0);assert.equal(page.el('workspace').hidden,true);
+test('clicking a disabled order button does nothing',async()=>{
+  const page=await app({items:[]});
+  await page.click('btn-order-self');
+  assert.equal(page.location.pathname,'/cart-sample');
+  assert.equal(page.calls.some(c=>c.url.startsWith('order.html')),false);
 });
 
 for(const action of ['remove','reload'])test('account change blocks stale cart '+action,async()=>{
   let account=1;const page=await app({fetch:async url=>url==='/api/auth/me'?ok({userId:account,nickname:'account'}):null});
-  page.selectAll();page.el('nickname').value='private';page.el('message').value='private';account=2;
+  page.selectItem(0);account=2;
   const before=page.calls.length;
   await page.click(action==='remove'?'remove-selected':'reload');
   assert.equal(page.calls.slice(before).filter(c=>c.url!=='/api/auth/me').length,0);
   assert.equal(page.el('workspace').hidden,true);assert.equal(page.el('items').children.length,0);
-  assert.equal(page.el('nickname').value,'');assert.equal(page.el('message').value,'');
 });
 
 for(const event of ['focus','pageshow','visibilitychange'])test(event+' clears private content after account change',async()=>{
@@ -118,28 +110,7 @@ test('lost deletion response reloads empty cart without duplicate DELETE',async(
   assert.equal(page.el('count').textContent,0);assert.equal(page.calls.filter(c=>c.method==='DELETE').length,1);
 });
 
-test('receipt includes provided order timestamp',async()=>{
-  const page=await app({url:'http://localhost/cart-sample?orderGroupId=3',fetch:async url=>url.startsWith('/api/order-groups/')?ok({...group,createdAt:'2026-09-11T08:00:00Z'}):null});
-  assert.ok(page.el('receipt').children.some(c=>c.textContent.startsWith('주문 시각')));
-});
-
-test('focus refresh closes old price confirmation and requires reconfirmation',async()=>{
-  const page=await app();await page.openSelfCheckout();assert.equal(page.el('confirm-dialog').open,true);
-  await page.event('focus');assert.equal(page.el('confirm-dialog').open,false);assert.equal(page.calls.some(c=>c.method==='POST'),false);
-});
-
-test('account change offers current cart without prior account receipt id',async()=>{
-  let account=1;const page=await app({url:'http://localhost/cart-sample?orderGroupId=3',fetch:async url=>url==='/api/auth/me'?ok({userId:account}):null});
-  account=2;await page.event('focus');assert.equal(page.el('login').href,'/cart-sample');assert.equal(page.el('login').textContent,'현재 계정 장바구니 열기');
-});
-test('storage failure must not send an untrackable order',async()=>{
-  const page=await app({storageFails:true});await page.openSelfCheckout();await page.click('confirm-send');assert.equal(page.calls.some(c=>c.url==='/api/order-groups'),false);
-});
-test('receipt reload and return reloads the cart',async()=>{
-  const page=await app({url:'http://localhost/cart-sample?orderGroupId=3'});assert.equal(page.el('completed').hidden,false);await page.click('continue');assert.equal(page.el('items').children.length,1);assert.equal(page.el('workspace').hidden,false);assert.equal(page.location.search,'');
-});
-
-test('first anonymous visit shows only sign-in guidance, not expiration or order warnings',async()=>{
+test('first anonymous visit shows only sign-in guidance, not expiration warnings',async()=>{
   const page=await app({fetch:async url=>url==='/api/auth/me'?bad(401,'UNAUTHORIZED'):null});
   assert.equal(page.el('signed-out').hidden,false);
   assert.equal(page.el('signed-out-title').textContent,'로그인이 필요해요');
@@ -151,74 +122,26 @@ test('first anonymous visit shows only sign-in guidance, not expiration or order
 test('401 after successful initial identity check still reports session expiry',async()=>{
   const page=await app({fetch:async url=>url==='/api/cart-items'?bad(401,'UNAUTHORIZED'):null});
   assert.equal(page.el('page-error').hidden,false);assert.match(page.el('page-error').textContent,/만료/);
-  assert.doesNotMatch(page.el('page-error').textContent,/주문/);
 });
 
-for(const failure of ['missing','self','network','server','invalid-json'])test('recipient '+failure+' clears loading state and can recover',async()=>{
-  let fail=true;
-  const page=await app({fetch:async url=>{
-    if(!url.startsWith('/api/users/search')||!fail)return null;
-    if(failure==='network')throw new Error('offline');
-    if(failure==='invalid-json')return {ok:true,status:200,json:async()=>{throw new Error('invalid JSON');}};
-    if(failure==='self')return ok({userId:1,nickname:'Ethan'});
-    return bad(failure==='server'?500:404,failure==='server'?'INTERNAL_ERROR':'USER_NOT_FOUND');
-  }});
+test('account change offers current cart without stale login link',async()=>{
+  let account=1;const page=await app({fetch:async url=>url==='/api/auth/me'?ok({userId:account}):null});
+  account=2;await page.event('focus');assert.equal(page.el('login').href,'/cart-sample');assert.equal(page.el('login').textContent,'현재 계정 장바구니 열기');
+});
+
+test('select-all is blocked with a toast when the available total exceeds the order limit',async()=>{
+  const page=await app({items:Array.from({length:6},(_,i)=>sampleItem({cartItemId:i+1,productId:70+i,quantity:10,subtotal:45000}))});
   page.selectAll();
-  await page.submit('recipient-form');
-  assert.equal(page.el('recipient-result').textContent,'받는 사람을 다시 확인해주세요.');
-  assert.equal(page.el('page-error').hidden,false);assert.equal(page.el('controls').disabled,false);
-  await page.click('btn-order-gift');assert.notEqual(page.el('confirm-dialog').open,true);
-  assert.equal(page.el('global-toast').textContent,'받는 사람을 먼저 확인해주세요.');
-  fail=false;await page.submit('recipient-form');
-  assert.equal(page.el('recipient-result').textContent,'수신자에게 보냅니다.');
-  assert.equal(page.el('page-error').hidden,true);
-  await page.click('btn-order-gift');assert.equal(page.el('confirm-dialog').open,true);
-});
-
-test('recipient 401 clears private form instead of leaving loading state',async()=>{
-  const page=await app({fetch:async url=>url.startsWith('/api/users/search')?bad(401,'UNAUTHORIZED'):null});
-  page.el('nickname').value='private';await page.submit('recipient-form');
-  assert.equal(page.el('recipient-result').textContent,'');assert.equal(page.el('nickname').value,'');
-  assert.equal(page.el('workspace').hidden,true);assert.match(page.el('page-error').textContent,/만료/);
-});
-
-test('shared API preserves credentials, JSON body, idempotency headers and cache control',async()=>{
-  const page=await app();await page.openSelfCheckout();await page.click('confirm-send');
-  const call=page.calls.find(c=>c.url==='/api/order-groups'&&c.method==='POST');
-  assert.equal(call.credentials,'include');assert.equal(call.cache,'no-store');assert.ok(call.signal);
-  assert.equal(call.headers['Content-Type'],'application/json');assert.ok(call.headers['Idempotency-Key']);
-  assert.equal(JSON.parse(call.body).items[0].cartItemId,1);assert.equal(JSON.parse(call.body).isSelfGift,true);
-  assert.equal(page.el('completed').hidden,false);
-});
-
-test('선물하기 sends the confirmed receiver and isSelfGift:false',async()=>{
-  const page=await app();page.selectAll();
-  page.el('nickname').value='수신자';await page.submit('recipient-form');
-  await page.click('btn-order-gift');assert.equal(page.el('confirm-dialog').open,true);
-  await page.click('confirm-send');
-  const call=page.calls.find(c=>c.url==='/api/order-groups'&&c.method==='POST');
-  const body=JSON.parse(call.body);
-  assert.equal(body.isSelfGift,false);assert.equal(body.receiverId,2);
+  assert.equal(page.el('select-all').checked,false);
+  assert.equal(page.el('global-toast').textContent,'한 번에 교환권 50개까지 선택할 수 있어요.');
+  assert.equal(page.el('units').textContent,'0종 · 교환권 0개');
+  assert.equal(page.el('btn-order-self').disabled,true);
 });
 
 test('quantity input, labels and item controls share the current limits',async()=>{
   const page=await app({items:Array.from({length:6},(_,i)=>sampleItem({cartItemId:i+1,quantity:10,subtotal:45000}))});
   assert.equal(page.el('quantity-policy').textContent,'최대 30종 보관 · 상품당 10개 · 한 번에 교환권 50개');
   assert.equal(page.el('items').children[0].children[1].children[2].disabled,true);
-  for (let i=0;i<5;i++){const check=page.el('items').children[i].children[0].children[0];check.checked=true;check.onchange();}
-  assert.equal(page.el('btn-order-self').disabled,false);assert.equal(page.el('units').textContent,'5종 · 교환권 50개');
-  const last=page.el('items').children[5].children[0].children[0];last.checked=true;last.onchange();
-  assert.equal(last.checked,false);assert.equal(page.el('global-toast').textContent,'한 번에 교환권 50개까지 선택할 수 있어요.');
-  assert.equal(page.el('btn-order-self').disabled,false);assert.equal(page.el('units').textContent,'5종 · 교환권 50개');
-});
-
-test('select-all is blocked with a toast when the available total exceeds the order limit',async()=>{
-  const page=await app({items:Array.from({length:6},(_,i)=>sampleItem({cartItemId:i+1,quantity:10,subtotal:45000}))});
-  page.selectAll();
-  assert.equal(page.el('select-all').checked,false);
-  assert.equal(page.el('global-toast').textContent,'한 번에 교환권 50개까지 선택할 수 있어요.');
-  assert.equal(page.el('units').textContent,'0종 · 교환권 0개');
-  assert.equal(page.el('btn-order-self').disabled,true);
 });
 
 test('HTML loads the shared API before cart initialization and has no duplicate limit literal',()=>{

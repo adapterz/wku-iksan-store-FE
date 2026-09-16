@@ -2005,6 +2005,16 @@ body.page-product {
 }
 
 /* Order/Checkout Page Styles */
+/* 주문서는 내용 길이가 짧아도 body의 min-height:100vh + .main-content의 flex:1이
+   화면 아래쪽에 불필요한 빈 여백을 만든다. 이 페이지에서만 화면 채움을 해제한다. */
+.page-order {
+  min-height: auto;
+}
+
+.page-order .main-content {
+  flex: none;
+}
+
 .order-container {
   padding: 16px 0;
   display: flex;
@@ -2048,6 +2058,12 @@ body.page-product {
   font-weight: 600;
   color: var(--text-main);
   line-height: 1.4;
+}
+
+.order-bundle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .order-section {

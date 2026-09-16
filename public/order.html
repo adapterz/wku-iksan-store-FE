@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body style="visibility: hidden; opacity: 0; transition: opacity 0.3s ease;">
+<body class="page-order" style="visibility: hidden; opacity: 0; transition: opacity 0.3s ease;">
 
     <!-- Main Header -->
     <header class="main-header" style="border-bottom: none;">
@@ -44,8 +44,8 @@
                     </button>
                 </div>
             </div>
-            <!-- Product Info Summary -->
-            <div class="order-product-card">
+            <!-- Product Info Summary (단건 주문) -->
+            <div class="order-product-card" id="order-product-card">
                 <img id="order-product-img" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="상품 이미지" class="order-product-img">
                 <div class="order-product-info">
                     <span id="order-brand" class="order-brand-name"></span>
@@ -55,6 +55,9 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Bundle Order List (장바구니 묶음 주문, cartItemIds 파라미터가 있을 때만 표시) -->
+            <div class="order-bundle-list" id="order-bundle-list" style="display:none;"></div>
 
             <!-- Receiver Section -->
             <div class="order-section" id="receiver-section" style="display:none;">
@@ -78,7 +81,7 @@
                 <h4 class="order-section-title" style="margin-bottom: 20px;">결제 정보</h4>
                 
                 <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 12px; color: #191919;">
-                    <span>총 상품금액 (1개)</span>
+                    <span id="order-item-count-label">총 상품금액 (1개)</span>
                     <span id="order-total-price"></span>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 12px; color: #191919;">
