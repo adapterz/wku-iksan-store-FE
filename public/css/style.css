@@ -3773,11 +3773,6 @@ body.page-complete {
     color: #191919 !important;
 }
 
-/* 장바구니 담김 아이콘 상태 (fa-bag-shopping은 Free에 regular 스타일이 없어 색상으로만 구분) */
-.in-cart-icon {
-    color: #191919 !important;
-}
-
 /* 리뷰 작성·수정 모달 + 삭제 확인 모달 (review.js가 동적으로 삽입, .gift-arrival-modal과 동일한
    화면 중앙 팝업 방식). 상품 상세·선물함 등 여러 화면에서 공유한다. */
 .review-modal {
