@@ -924,6 +924,17 @@ body.page-brand-body {
   white-space: nowrap;
 }
 
+@media (max-width: 360px) {
+  .category-grid {
+    gap: 6px;
+  }
+
+  .category-icon-wrapper {
+    width: 48px;
+    height: 48px;
+  }
+}
+
 
 
 
