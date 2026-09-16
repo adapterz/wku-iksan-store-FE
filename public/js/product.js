@@ -196,75 +196,11 @@ function initBottomSheet(productId) {
   }
   const orderBtn = document.getElementById('btn-sheet-order');
   if (orderBtn) {
-    orderBtn.addEventListener('click', async () => {
-      if (orderBtn.disabled) return;
-
-      if (sheetState.orderType === 'gift') {
-        // 타인에게 선물하기: 받는 사람 닉네임 검색이 필요해서, 이미 그 UI가 있는 order.html로 보낸다.
-        // 이 경로는 기존 단건 주문 API(POST /api/orders)를 그대로 쓰므로 수량은 반영되지 않는다.
-        sessionStorage.setItem('orderEntryProductId', String(productId));
-        window.location.href = `order.html?productId=${productId}&type=gift`;
-        return;
-      }
-
-      // 나에게 선물하기: bottom-sheet에서 고른 수량 그대로 담기 -> 묶음 주문 생성까지 이어서 처리한다.
-      orderBtn.disabled = true;
-      try {
-        // 장바구니 결제는 장바구니 화면에서만 이뤄져야 한다 — 이미 담긴 상품이면 여기서 바로
-        // 결제(주문)하지 않고 장바구니로 안내한다. (담기 자체는 되지만, 그 결제는 카트 화면 몫)
-        const cartResult = await requestJson('/api/cart-items');
-        if (!cartResult) return; // 401은 전역 인터셉터가 처리
-        const existing = cartResult.data.find(item => item.productId === Number(productId));
-
-        if (existing) {
-          alert('이미 장바구니에 담긴 상품이에요. 장바구니에서 결제해주세요.');
-          window.location.href = 'cart-sample.html';
-          return;
-        }
-
-        const addResult = await requestJson('/api/cart-items', {
-          method: 'POST',
-          body: { productId: Number(productId), quantity: sheetState.quantity }
-        });
-        if (!addResult) return;
-        const cartItem = addResult.data;
-
-        const orderResult = await requestJson('/api/order-groups', {
-          method: 'POST',
-          headers: { 'Idempotency-Key': crypto.randomUUID() },
-          body: {
-            isSelfGift: true,
-            items: [{
-              cartItemId: cartItem.cartItemId,
-              quantity: cartItem.quantity,
-              version: cartItem.version,
-              expectedUnitPrice: cartItem.unitPrice
-            }]
-          }
-        });
-        if (!orderResult) return;
-
-        window._cartCache = null;
-        window.dispatchEvent(new CustomEvent('cart-updated', { detail: { productId, isInCart: false } }));
-        window.location.href = `complete.html?orderGroupId=${orderResult.data.orderGroupId}`;
-      } catch (error) {
-        if (error.code === 'CART_QUANTITY_EXCEEDED') {
-          alert('장바구니에 담을 수 있는 최대 수량(상품당 10개)을 초과했어요.');
-        } else if (error.code === 'CART_LIMIT_EXCEEDED') {
-          alert('장바구니에 담을 수 있는 상품 종류가 가득 찼어요.');
-        } else if (error.code === 'PRODUCT_UNAVAILABLE') {
-          alert('판매가 종료된 상품이에요.');
-        } else if (error.code === 'CART_CHANGED') {
-          alert('장바구니 정보가 변경됐어요. 다시 시도해주세요.');
-        } else if (error.code === 'PRODUCT_PRICE_CHANGED' || error.code === 'INVALID_PRODUCT_PRICE') {
-          alert('상품 가격이 변경됐어요. 다시 확인해주세요.');
-        } else {
-          console.error('주문 실패:', error);
-          alert(error.message || '주문에 실패했어요. 잠시 후 다시 시도해주세요.');
-        }
-      } finally {
-        orderBtn.disabled = false;
-      }
+    orderBtn.addEventListener('click', () => {
+      // 나에게 선물하기/선물하기 둘 다 기존처럼 결제 페이지(order.html)로 이동한다.
+      // order.html은 단건 주문 API(POST /api/orders)를 쓰므로 수량은 아직 반영되지 않는다.
+      sessionStorage.setItem('orderEntryProductId', String(productId));
+      window.location.href = `order.html?productId=${productId}&type=${sheetState.orderType}`;
     });
   }
 }
