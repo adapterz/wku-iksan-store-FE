@@ -97,7 +97,6 @@
     $('remove-selected').disabled = !selected.length;
     const available = state.items.filter(item => item.canOrder);
     $('select-all').checked = !!available.length && available.every(item => state.selected.has(item.cartItemId));
-    $('select-all').indeterminate = selected.length > 0 && !$('select-all').checked;
   }
   function render() {
     $('items').replaceChildren(); $('count').textContent = state.items.length;
