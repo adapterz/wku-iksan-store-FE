@@ -7,9 +7,11 @@ let currentUserId = null;
 // 닉네임 조회(searchByNickname)로 currentUserId를 알아낸 경우에만 채워지고, userId를 직접
 // 입력해 조회한 경우에는 null로 유지된다 — 승격 폼에서 "누구인지 아는 상태"인지 구분하는 용도.
 let currentUserNickname = null;
-// 관리자가 실제로 보고 싶어하는 userId. 검색 제출 시 즉시(응답을 기다리지 않고) 갱신되는 반면,
-// currentUserId는 그 조회가 실제로 성공해서 화면에 반영된 뒤에만 갱신된다 — 그래서 제재 부여/해제
-// 후 재조회 대상은 반드시 이 값을 써야 한다(아래 loadSanctions 주석 참고).
+// 관리자가 실제로 보고 싶어하는 userId. userId 직접 조회는 제출 즉시(응답을 기다리지 않고)
+// 갱신되고, 닉네임 조회는 userId를 몰라 일단 null로 비웠다가 닉네임 조회가 성공하는 시점에
+// 갱신된다(아래 searchByNickname 주석 참고) — 어느 경우든 currentUserId는 조회가 전부 성공해서
+// 화면에 반영된 뒤에만 갱신된다. 그래서 제재 부여/해제 후 재조회 대상은 반드시 이 값을 써야 한다
+// (아래 loadSanctions 주석 참고).
 let intendedUserId = null;
 let sanctions = [];
 
@@ -216,19 +218,29 @@ function render() {
   wireRoleForm();
 }
 
-// 조회를 빠르게 연속 제출하면(다른 userId로 재검색 등) 응답이 요청 순서와 다르게 도착해
-// 이전(오래된) 조회 결과가 최신 결과를 덮어쓸 수 있다(search.js abf86c5와 동일 패턴).
-// 새 요청 시작 시 진행 중인 이전 요청을 취소해서 막는다.
-let sanctionsRequest = null;
+// GET .../:id/sanctions만 수행하고 원시 응답을 반환한다 — currentUserId 등 전역 상태는 건드리지
+// 않는다. loadSanctions()와 searchByNickname()이 이 위에서 서로 다른 시점에 상태를 반영한다
+// (전자는 이 요청 하나만 성공하면 바로, 후자는 닉네임 조회까지 함께 성공해야 반영— 아래 참고).
+async function fetchUserSanctions(userId, signal) {
+  return window.requestJson(`/api/admin/users/${userId}/sanctions?limit=50`, { signal });
+}
+
+// 조회를 빠르게 연속 제출하면(다른 userId로 재검색, 닉네임 검색 등) 응답이 요청 순서와 다르게
+// 도착해 이전(오래된) 조회 결과가 최신 결과를 덮어쓸 수 있다(search.js abf86c5와 동일 패턴).
+// loadSanctions()로 가는 경로(직접 userId 재조회, 제재 부여/해제 후 재조회, ?userId= 링크)와
+// searchByNickname()으로 가는 경로가 각자 다른 컨트롤러를 쓰면, 한쪽이 진행 중일 때 다른 쪽이
+// 시작돼도 서로를 취소하지 못해 늦게 도착한 "오래된" 응답이 화면을 되돌려버릴 수 있다 —
+// 그래서 두 경로 전부 이 컨트롤러 하나를 공유한다.
+let activeUserRequest = null;
 
 async function loadSanctions(userId) {
   clearPageError();
-  if (sanctionsRequest) sanctionsRequest.abort();
+  if (activeUserRequest) activeUserRequest.abort();
   const controller = new AbortController();
-  sanctionsRequest = controller;
+  activeUserRequest = controller;
 
   try {
-    const result = await window.requestJson(`/api/admin/users/${userId}/sanctions?limit=50`, { signal: controller.signal });
+    const result = await fetchUserSanctions(userId, controller.signal);
     if (controller.signal.aborted) return;
     if (!result) return;
     currentUserId = userId;
@@ -246,28 +258,70 @@ async function loadSanctions(userId) {
 
 // 닉네임은 UNIQUE 제약이 있어 정확히 일치하는 계정이 최대 1개다 — GET /api/admin/users?nickname=
 // (BE-2, 이슈 #97에서 확정)로 userId/닉네임/role을 받아온 뒤, 이후 조회·승격은 그 userId로
-// 기존 흐름(loadSanctions, PATCH .../:id/role)을 그대로 재사용한다.
+// 기존 흐름(PATCH .../:id/role)을 그대로 재사용한다.
+//
+// PR #98 리뷰 지적: 닉네임 조회(빠름)와 제재 이력 조회(느릴 수 있음) 두 요청을 순서대로 보내면서
+// currentUserNickname은 첫 요청 성공 직후, currentUserId는 loadSanctions()가 별도로 두 번째
+// 요청 성공 후에 갱신했었다 — 그 사이 시간차 동안 "닉네임은 새 유저, currentUserId는 이전 유저"인
+// 상태가 실재해, 그 틈에 역할 변경을 누르면 확인 문구엔 새 유저 닉네임이, 실제 PATCH 요청은
+// 이전 유저 id로 나가는 사고가 재현됐다. 그래서 이제:
+//   1) 검색 시작 즉시 이전 유저의 결과 화면(제재 이력·역할 변경 버튼)을 통째로 비운다 — 응답을
+//      기다리는 동안 클릭할 수 있는 "이전 유저" 버튼 자체가 존재하지 않게 한다.
+//   2) 닉네임 조회 → 제재 이력 조회 두 요청을, loadSanctions()와 공유하는 activeUserRequest
+//      컨트롤러로 묶는다 — 더 최신 검색·재조회가 시작되면 진행 중이던 이전 요청을 취소한다
+//      (응답이 늦게 와도 무시됨. loadSanctions()만의 별도 컨트롤러였다면, 예를 들어 제재 부여
+//      직후의 재조회가 진행 중일 때 닉네임 검색을 새로 시작해도 서로를 취소하지 못해 늦게
+//      도착한 재조회 응답이 새 검색 결과를 덮어쓸 수 있었다).
+//   3) 두 요청이 모두 성공한 시점에만 currentUserId·currentUserNickname·sanctions를 한 번에
+//      반영한다 — 서로 다른 시점의 값이 섞인 상태가 존재하지 않는다.
 async function searchByNickname(nickname) {
+  if (activeUserRequest) activeUserRequest.abort();
+  const controller = new AbortController();
+  activeUserRequest = controller;
+
+  clearPageError();
+  document.getElementById('result').innerHTML = '';
+  currentUserId = null;
+  currentUserNickname = null;
+  intendedUserId = null; // 새 검색이 시작됐다는 신호 — 이전 유저 대상의 지연된 재조회(제재 부여 등)가 스스로 건너뛴다
+
+  let profile;
   try {
-    const result = await window.requestJson(`/api/admin/users?nickname=${encodeURIComponent(nickname)}`);
+    const result = await window.requestJson(`/api/admin/users?nickname=${encodeURIComponent(nickname)}`, { signal: controller.signal });
+    if (controller.signal.aborted) return; // 더 최신 검색이 시작됨
     if (!result) return; // 세션 만료(401) — 전역 로그인 리다이렉트에 맡긴다
-    intendedUserId = result.data.userId;
-    currentUserNickname = result.data.nickname;
-    await loadSanctions(result.data.userId);
+    profile = result.data;
   } catch (err) {
-    // 실패 시 이전 조회 결과(제재 이력·역할 변경 폼)를 화면에 남겨두면, 토스트를 놓친 관리자가
-    // "새로 검색한 유저"로 착각한 채 여전히 이전 유저(currentUserId)의 승격 버튼을 누르는 사고로
-    // 이어질 수 있다 — 화면과 currentUserId/닉네임을 함께 비워서 어떤 유저의 화면인지 애매한
-    // 상태가 남지 않게 한다.
-    currentUserId = null;
-    currentUserNickname = null;
+    if (controller.signal.aborted) return;
     if (err.code === 'USER_NOT_FOUND') {
       document.getElementById('result').innerHTML = `<p class="as-empty">닉네임 "${escapeHtml(nickname)}"인 회원을 찾을 수 없습니다.</p>`;
     } else {
-      document.getElementById('result').innerHTML = '';
       showPageError(err.message || '조회에 실패했습니다.');
     }
+    return;
   }
+
+  intendedUserId = profile.userId;
+
+  let sanctionsResult;
+  try {
+    sanctionsResult = await fetchUserSanctions(profile.userId, controller.signal);
+  } catch (err) {
+    if (controller.signal.aborted) return;
+    if (err.code === 'USER_NOT_FOUND') {
+      document.getElementById('result').innerHTML = `<p class="as-empty">userId ${profile.userId} 회원을 찾을 수 없습니다.</p>`;
+    } else {
+      showPageError(err.message || '조회에 실패했습니다.');
+    }
+    return;
+  }
+  if (controller.signal.aborted) return; // 더 최신 검색이 시작됨
+  if (!sanctionsResult) return; // 세션 만료(401)
+
+  currentUserId = profile.userId;
+  currentUserNickname = profile.nickname;
+  sanctions = sanctionsResult.data;
+  render();
 }
 
 async function checkAndLoad() {

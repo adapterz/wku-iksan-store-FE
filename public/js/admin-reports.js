@@ -3,6 +3,8 @@
 'use strict';
 
 let statusFilter = 'pending';
+let currentPage = 1;
+let totalPages = 1;
 
 function statusBadge(status) {
   const map = {
@@ -54,14 +56,12 @@ async function updateReportStatus(reportId, status) {
   }
 }
 
-function renderList(reports) {
-  const listEl = document.getElementById('report-list');
-  if (reports.length === 0) {
-    listEl.innerHTML = '<p class="ai-empty">해당 상태의 신고가 없습니다.</p>';
-    return;
-  }
-  listEl.innerHTML = reports.map(reportCard).join('');
-  listEl.querySelectorAll('[data-report-action]').forEach(btn => {
+// "더 보기"로 다음 페이지를 이어 붙일 때 innerHTML +=로 추가하면 기존 카드까지 전부 다시
+// 파싱되면서 이미 걸려 있던 클릭 리스너가 통째로 사라진다 — insertAdjacentHTML로 새 카드만
+// DOM에 추가하고, 아직 안 걸린(data-wired 없는) 버튼에만 리스너를 건다(재호출해도 중복 바인딩 안 됨).
+function wireReportActionButtons() {
+  document.querySelectorAll('#report-list [data-report-action]:not([data-wired])').forEach(btn => {
+    btn.dataset.wired = '1';
     btn.addEventListener('click', () => {
       const [id, status] = btn.dataset.reportAction.split(':');
       updateReportStatus(Number(id), status);
@@ -69,12 +69,29 @@ function renderList(reports) {
   });
 }
 
+function renderList(reports, { append = false } = {}) {
+  const listEl = document.getElementById('report-list');
+  if (!append) listEl.innerHTML = '';
+  if (!append && reports.length === 0) {
+    listEl.innerHTML = '<p class="ai-empty">해당 상태의 신고가 없습니다.</p>';
+  } else if (reports.length > 0) {
+    listEl.insertAdjacentHTML('beforeend', reports.map(reportCard).join(''));
+  }
+  wireReportActionButtons();
+
+  const loadMoreBtn = document.getElementById('reports-load-more');
+  loadMoreBtn.hidden = currentPage >= totalPages;
+}
+
 // 상태 필터를 빠르게 연속 전환하면 응답이 요청 순서와 다르게 도착해 이전(오래된) 필터 결과가
 // 최신 결과를 덮어쓸 수 있다(search.js abf86c5와 동일 패턴). 새 요청 시작 시 진행 중인 이전
 // 요청을 취소해서 막는다.
 let reportsRequest = null;
 
-async function loadReports(status) {
+// BE가 이미 meta.page/totalCount/totalPages를 내려주는데 limit=50 고정 첫 페이지만 요청하고
+// 있어서, 한 상태에 신고가 50건을 넘으면 그 뒤는 화면에서 영영 확인할 수 없었다(PR #98 리뷰
+// 지적 — 로컬 DB에 51건 넣어 재현됨). page를 받아 "더 보기"로 이어 붙이도록 고쳤다.
+async function loadReports(status, page = 1) {
   statusFilter = status;
   document.querySelectorAll('.ap-status-filter [data-status]').forEach(b => {
     if (b.dataset.status === status) b.setAttribute('aria-current', 'page');
@@ -86,10 +103,12 @@ async function loadReports(status) {
   reportsRequest = controller;
 
   try {
-    const result = await window.requestJson(`/api/admin/reports?status=${status}&limit=50`, { signal: controller.signal });
+    const result = await window.requestJson(`/api/admin/reports?status=${status}&limit=50&page=${page}`, { signal: controller.signal });
     if (controller.signal.aborted) return;
     if (!result) return;
-    renderList(result.data);
+    currentPage = result.meta.page;
+    totalPages = result.meta.totalPages;
+    renderList(result.data, { append: page > 1 });
   } catch (err) {
     if (controller.signal.aborted) return;
     showPageError(err.message || '신고 목록을 불러오지 못했습니다.');
@@ -113,6 +132,10 @@ async function checkAndLoad() {
 
 document.querySelectorAll('.ap-status-filter [data-status]').forEach(btn => {
   btn.addEventListener('click', () => loadReports(btn.dataset.status));
+});
+
+document.getElementById('reports-load-more').addEventListener('click', () => {
+  loadReports(statusFilter, currentPage + 1);
 });
 
 checkAndLoad();
