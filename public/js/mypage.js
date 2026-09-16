@@ -17,6 +17,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (nicknameEl) nicknameEl.textContent = user.nickname || 'Unknown';
             if (useridEl) useridEl.textContent = user.userId;
 
+            // 관리자 계정에만 관리자 페이지 진입 버튼을 노출한다. 정적 HTML에 hidden으로
+            // 심어두는 대신 role이 admin으로 확인된 경우에만 DOM에 새로 삽입해서, 일반
+            // 사용자는 페이지 소스/개발자도구를 봐도 이 요소 자체를 볼 수 없게 한다.
+            // registerBfcacheRevalidation으로 이 함수가 bfcache 복원마다 재실행되므로,
+            // 이미 삽입돼 있으면 중복 삽입하지 않도록 확인한다.
+            const csButtons = document.querySelector('.cs-buttons');
+            if (user.role === 'admin' && csButtons && !document.getElementById('btn-admin-page')) {
+                csButtons.insertAdjacentHTML(
+                    'beforeend',
+                    '<a href="admin-dashboard.html" id="btn-admin-page" class="cs-btn">관리자 페이지</a>'
+                );
+            }
+
             // 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
             document.body.style.visibility = 'visible';
             document.body.style.opacity = '1';

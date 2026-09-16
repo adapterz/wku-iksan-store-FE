@@ -1,5 +1,5 @@
 // Isolated prototype: reuses window.requestJson from js/api.js and shared helpers from
-// js/admin-sample-common.js (escapeHtml, formatDate, toast, showPageError, showGate, showApp).
+// js/admin-common.js (escapeHtml, formatDate, toast, showPageError, showGate, showApp).
 // No production page scripts are changed.
 'use strict';
 
@@ -60,7 +60,7 @@ function buildReplyForm(item) {
         <label><input type="radio" name="decision-${item.inquiryId}" value="approve" checked>정지 해제 승인</label>
         <label><input type="radio" name="decision-${item.inquiryId}" value="reject">반려</label>
         <input type="text" class="ai-sanction-input" id="sanction-${item.inquiryId}" placeholder="sanctionId" inputmode="numeric">
-        <span class="ai-decision-hint">해제할 정지 건의 sanctionId를 입력하세요 (회원 제재 화면에서 조회 — 이 샘플 범위 밖).</span>
+        <span class="ai-decision-hint">해제할 정지 건의 sanctionId를 입력하세요 (<a href="admin-sanctions.html?userId=${item.userId}" target="_blank" rel="noopener">회원 제재 화면에서 조회</a>).</span>
       </div>`
     : '';
   return `<div class="ai-reply-block">${appealControls}
@@ -124,7 +124,9 @@ function renderCard(item) {
     : '<span class="ai-badge status-answered">답변완료</span>';
   const isOpen = openId === item.inquiryId;
 
-  let bodyHtml = `<p class="ai-content">${escapeHtml(item.content)}</p><p class="ai-meta">userId ${item.userId} · ${formatDate(item.createdAt)}</p>`;
+  let bodyHtml = `<p class="ai-content">${escapeHtml(item.content)}</p>` +
+    `<p class="ai-meta">userId ${item.userId} · ${formatDate(item.createdAt)} · ` +
+    `<a href="admin-sanctions.html?userId=${item.userId}" target="_blank" rel="noopener">이 유저 제재 화면으로</a></p>`;
   if (item.status === 'answered') {
     bodyHtml += `<div class="ai-reply-block"><p class="ai-reply-label">관리자 답변</p><p>${escapeHtml(item.adminReply)}</p></div>`;
   } else if (isOpen) {
@@ -183,9 +185,11 @@ async function loadInquiries(status) {
 }
 
 function activateTab(tab) {
-  document.querySelectorAll('nav[aria-label="관리자 화면"] [data-tab]').forEach(b => {
-    if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page');
-    else b.removeAttribute('aria-current');
+  ['dashboard', 'inquiries'].forEach(key => {
+    const a = document.querySelector(`nav[aria-label="관리자 화면"] a[data-nav-key="${key}"]`);
+    if (!a) return;
+    if (key === tab) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
   });
   document.getElementById('dashboard-view').hidden = tab !== 'dashboard';
   document.getElementById('inquiries-view').hidden = tab !== 'inquiries';
@@ -207,12 +211,12 @@ async function checkAndLoad() {
   if (me.data.role !== 'admin') return showFatalError('관리자 권한이 필요합니다.');
 
   showApp();
-  activateTab('dashboard');
+  // 다른 관리자 화면의 "문의" 링크(admin-dashboard.html?tab=inquiries)로 들어온 경우
+  // 문의 탭을 기본으로 보여주고, 그 외에는 대시보드를 기본으로 보여준다.
+  const initialTab = new URLSearchParams(window.location.search).get('tab') === 'inquiries' ? 'inquiries' : 'dashboard';
+  renderAdminNav(initialTab, activateTab);
+  activateTab(initialTab);
 }
-
-document.querySelectorAll('nav[aria-label="관리자 화면"] [data-tab]').forEach(btn => {
-  btn.addEventListener('click', () => activateTab(btn.dataset.tab));
-});
 
 document.querySelectorAll('[data-inquiry-tab]').forEach(btn => {
   btn.addEventListener('click', () => loadInquiries(btn.dataset.inquiryTab));
