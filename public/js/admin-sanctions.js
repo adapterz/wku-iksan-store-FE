@@ -4,6 +4,9 @@
 'use strict';
 
 let currentUserId = null;
+// 닉네임 조회(searchByNickname)로 currentUserId를 알아낸 경우에만 채워지고, userId를 직접
+// 입력해 조회한 경우에는 null로 유지된다 — 승격 폼에서 "누구인지 아는 상태"인지 구분하는 용도.
+let currentUserNickname = null;
 // 관리자가 실제로 보고 싶어하는 userId. 검색 제출 시 즉시(응답을 기다리지 않고) 갱신되는 반면,
 // currentUserId는 그 조회가 실제로 성공해서 화면에 반영된 뒤에만 갱신된다 — 그래서 제재 부여/해제
 // 후 재조회 대상은 반드시 이 값을 써야 한다(아래 loadSanctions 주석 참고).
@@ -130,15 +133,18 @@ function wireForm() {
   });
 }
 
-// 관리자 승격/해제. 대상 유저의 닉네임/이메일을 조회하는 API가 아직 없어서(추후 BE 추가 예정),
-// userId 숫자만 보고 실수로 엉뚱한 계정을 승격시키는 사고를 막기 위해 confirm()으로 최소한의
-// 확인 절차를 둔다. BE가 단건 프로필 조회 API를 추가하면 이 confirm() 자리를 닉네임/이메일을
-// 보여주는 실제 확인 화면으로 교체하면 된다.
+// 관리자 승격/해제. userId만 보고 실수로 엉뚱한 계정을 승격시키는 사고를 막기 위해, 닉네임으로
+// 조회해서 들어온 경우(searchByNickname)는 확인 문구에 닉네임을 같이 보여준다. userId를 직접
+// 입력해 조회한 경우(닉네임을 모르는 상태)에는 여전히 userId만으로 confirm() 확인을 받는다 —
+// 승격 전 대상을 확실히 확인하려면 닉네임으로 다시 조회하면 된다.
 function roleFormPanel() {
+  const who = currentUserNickname
+    ? `userId ${currentUserId} (닉네임: ${escapeHtml(currentUserNickname)})`
+    : `userId ${currentUserId}`;
   return `<div class="as-form-panel">
     <p class="as-form-title">관리자 권한</p>
     <div class="as-field">
-      <label for="role-select">userId ${currentUserId}의 역할 변경</label>
+      <label for="role-select">${who}의 역할 변경</label>
       <select id="role-select">
         <option value="">선택하세요</option>
         <option value="admin">관리자로 승격</option>
@@ -161,9 +167,10 @@ function wireRoleForm() {
     }
 
     const targetUserId = currentUserId;
+    const who = currentUserNickname ? `${currentUserNickname}(userId ${targetUserId})` : `userId ${targetUserId}`;
     const confirmMessage = role === 'admin'
-      ? `userId ${targetUserId} 계정을 관리자로 승격하시겠습니까? (닉네임 확인 기능은 추후 추가 예정)`
-      : `userId ${targetUserId} 계정의 관리자 권한을 해제하시겠습니까?`;
+      ? `${who} 계정을 관리자로 승격하시겠습니까?${currentUserNickname ? '' : ' (닉네임 확인 없이 진행합니다 — 닉네임으로 조회하면 확인 후 승격할 수 있습니다)'}`
+      : `${who} 계정의 관리자 권한을 해제하시겠습니까?`;
     if (!confirm(confirmMessage)) return;
 
     errEl.hidden = true;
@@ -237,6 +244,32 @@ async function loadSanctions(userId) {
   }
 }
 
+// 닉네임은 UNIQUE 제약이 있어 정확히 일치하는 계정이 최대 1개다 — GET /api/admin/users?nickname=
+// (BE-2, 이슈 #97에서 확정)로 userId/닉네임/role을 받아온 뒤, 이후 조회·승격은 그 userId로
+// 기존 흐름(loadSanctions, PATCH .../:id/role)을 그대로 재사용한다.
+async function searchByNickname(nickname) {
+  try {
+    const result = await window.requestJson(`/api/admin/users?nickname=${encodeURIComponent(nickname)}`);
+    if (!result) return; // 세션 만료(401) — 전역 로그인 리다이렉트에 맡긴다
+    intendedUserId = result.data.userId;
+    currentUserNickname = result.data.nickname;
+    await loadSanctions(result.data.userId);
+  } catch (err) {
+    // 실패 시 이전 조회 결과(제재 이력·역할 변경 폼)를 화면에 남겨두면, 토스트를 놓친 관리자가
+    // "새로 검색한 유저"로 착각한 채 여전히 이전 유저(currentUserId)의 승격 버튼을 누르는 사고로
+    // 이어질 수 있다 — 화면과 currentUserId/닉네임을 함께 비워서 어떤 유저의 화면인지 애매한
+    // 상태가 남지 않게 한다.
+    currentUserId = null;
+    currentUserNickname = null;
+    if (err.code === 'USER_NOT_FOUND') {
+      document.getElementById('result').innerHTML = `<p class="as-empty">닉네임 "${escapeHtml(nickname)}"인 회원을 찾을 수 없습니다.</p>`;
+    } else {
+      document.getElementById('result').innerHTML = '';
+      showPageError(err.message || '조회에 실패했습니다.');
+    }
+  }
+}
+
 async function checkAndLoad() {
   let me;
   try {
@@ -254,25 +287,24 @@ async function checkAndLoad() {
   renderAdminNav('sanctions');
 
   // 신고·문의 화면에서 "이 유저 제재 화면으로" 링크(admin-sanctions.html?userId=123)로 들어온
-  // 경우, userId 입력란을 채우고 바로 조회까지 실행해서 admin이 다시 입력할 필요가 없게 한다.
+  // 경우, 닉네임을 몰라도 바로 조회까지 실행해서 admin이 다시 검색할 필요가 없게 한다.
   const linkedUserId = Number(new URLSearchParams(window.location.search).get('userId'));
   if (Number.isInteger(linkedUserId) && linkedUserId > 0) {
-    document.getElementById('user-id-input').value = linkedUserId;
     intendedUserId = linkedUserId;
+    currentUserNickname = null;
     loadSanctions(linkedUserId);
   }
 }
 
-document.getElementById('search-form').addEventListener('submit', (e) => {
+document.getElementById('nickname-search-form').addEventListener('submit', (e) => {
   e.preventDefault();
-  const input = document.getElementById('user-id-input');
-  const userId = Number(input.value);
-  if (!input.value.trim() || !Number.isInteger(userId) || userId <= 0) {
-    toast('올바른 userId를 입력하세요.');
+  const input = document.getElementById('nickname-input');
+  const nickname = input.value.trim();
+  if (!nickname) {
+    toast('닉네임을 입력하세요.');
     return;
   }
-  intendedUserId = userId;
-  loadSanctions(userId);
+  searchByNickname(nickname);
 });
 
 checkAndLoad();

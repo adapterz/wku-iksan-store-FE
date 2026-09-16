@@ -6,8 +6,10 @@
 let categories = [];
 let products = [];
 let statusFilter = '';
-let editingProductId = null; // null = 폼 닫힘, 'new' = 등록, 숫자 = 해당 id 수정
-let editingCategoryId = null; // null = 폼 닫힘, 'new' = 추가, 숫자 = 해당 id 수정
+let editingProductId = null; // null = 인라인 수정 폼 닫힘, 숫자 = 해당 id 카드 아래에 수정 폼 표시
+let creatingProduct = false; // 상단 "새 상품 등록" 폼이 열려 있는지
+let editingCategoryId = null; // null = 인라인 수정 폼 닫힘, 숫자 = 해당 id 카드 아래에 수정 폼 표시
+let creatingCategory = false; // 상단 "새 카테고리 추가" 폼이 열려 있는지
 
 const STATUS_LABEL = { active: '판매중', hidden: '숨김', discontinued: '단종' };
 
@@ -120,22 +122,29 @@ function readProductForm(isEdit) {
   return body;
 }
 
+// 상단 컨테이너는 "새 상품 등록"만 다룬다 — 기존 상품 수정은 productCard() 안에 인라인으로
+// 표시되므로(아래 renderProductList 참고), 등록 폼과 수정 폼이 동시에 열려 있으면 pf-name 등
+// id가 화면에 중복되므로 둘 중 하나를 열 때 다른 쪽은 항상 닫는다(각 클릭 핸들러에서 처리).
 function renderProductForm() {
   const container = document.getElementById('product-form-container');
-  if (editingProductId === null) {
+  if (!creatingProduct) {
     container.innerHTML = '<div class="ai-btn-row" style="padding:0 16px 16px"><button class="ai-primary" id="open-new-product-form">새 상품 등록</button></div>';
-    document.getElementById('open-new-product-form').addEventListener('click', () => { editingProductId = 'new'; renderProductForm(); });
+    document.getElementById('open-new-product-form').addEventListener('click', () => {
+      creatingProduct = true;
+      editingProductId = null;
+      renderProductForm();
+      renderProductList();
+    });
     return;
   }
 
-  const product = editingProductId === 'new' ? null : products.find(p => p.id === editingProductId);
-  container.innerHTML = productFormPanel(editingProductId === 'new' ? 'create' : 'edit', product);
+  container.innerHTML = productFormPanel('create', null);
+  container.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  document.getElementById('product-form-cancel').addEventListener('click', () => { editingProductId = null; renderProductForm(); });
+  document.getElementById('product-form-cancel').addEventListener('click', () => { creatingProduct = false; renderProductForm(); });
   document.getElementById('product-form-submit').addEventListener('click', async () => {
     const errEl = document.getElementById('product-form-error');
-    const isEdit = editingProductId !== 'new';
-    const body = readProductForm(isEdit);
+    const body = readProductForm(false);
     if (!body.name || !body.brand || !body.price || !body.categoryId) {
       errEl.textContent = '상품명·브랜드·가격·카테고리는 필수입니다.';
       errEl.hidden = false;
@@ -144,21 +153,43 @@ function renderProductForm() {
     errEl.hidden = true;
 
     try {
-      let result;
-      if (editingProductId === 'new') {
-        result = await window.requestJson('/api/admin/products', { method: 'POST', body });
-      } else {
-        result = await window.requestJson('/api/admin/products/' + editingProductId, { method: 'PATCH', body });
-      }
+      const result = await window.requestJson('/api/admin/products', { method: 'POST', body });
       // silent401을 안 줬으므로 세션이 만료된 401 응답은 여기서 undefined로 돌아온다
       // (전역 로그인 리다이렉트가 이미 예약된 상태) — 이걸 성공으로 착각해 토스트를 띄우면 안 된다.
       if (!result) return;
-      toast(editingProductId === 'new' ? '상품을 등록했습니다.' : '상품을 수정했습니다.');
+      toast('상품을 등록했습니다.');
+      creatingProduct = false;
+      await loadProducts();
+      renderProductForm();
+    } catch (err) {
+      errEl.textContent = err.message || '저장에 실패했습니다.';
+      errEl.hidden = false;
+    }
+  });
+}
+
+// 목록 안에서 현재 수정 중인 상품 카드에 인라인으로 열린 폼의 저장/취소 버튼을 연결한다.
+// productCard()가 editingProductId와 같은 상품에만 폼을 끼워 넣으므로 항상 최대 1개만 존재한다.
+function wireInlineProductForm() {
+  const cancelBtn = document.getElementById('product-form-cancel');
+  if (!cancelBtn) return; // 열린 인라인 폼이 없음
+  cancelBtn.addEventListener('click', () => { editingProductId = null; renderProductList(); });
+  document.getElementById('product-form-submit').addEventListener('click', async () => {
+    const errEl = document.getElementById('product-form-error');
+    const body = readProductForm(true);
+    if (!body.name || !body.brand || !body.price || !body.categoryId) {
+      errEl.textContent = '상품명·브랜드·가격·카테고리는 필수입니다.';
+      errEl.hidden = false;
+      return;
+    }
+    errEl.hidden = true;
+
+    try {
+      const result = await window.requestJson('/api/admin/products/' + editingProductId, { method: 'PATCH', body });
+      if (!result) return;
+      toast('상품을 수정했습니다.');
       editingProductId = null;
       await loadProducts();
-      renderProductForm(); // 폼을 닫고 "새 상품 등록" 버튼으로 되돌린다 — 안 하면 이 버튼이 그대로
-                            // "수정 저장"으로 남아있어서, 다시 누르면 editingProductId가 이미 null이라
-                            // PATCH /api/admin/products/null 같은 깨진 요청이 나간다.
     } catch (err) {
       errEl.textContent = err.message || '저장에 실패했습니다.';
       errEl.hidden = false;
@@ -187,14 +218,16 @@ function statusActionButtons(product) {
 }
 
 function productCard(p) {
+  const isEditing = editingProductId === p.id;
   return `<div class="ai-card">
     <div class="ai-card-head">
       <div class="ai-card-head-left"><span class="ai-badge status-${p.status}">${STATUS_LABEL[p.status]}</span><span class="ai-id">#${p.id}</span></div>
-      <button class="ai-toggle" data-edit-product="${p.id}">수정</button>
+      <button class="ai-toggle" data-edit-product="${p.id}">${isEditing ? '닫기' : '수정'}</button>
     </div>
     <p class="ai-content">${escapeHtml(p.name)}</p>
     <p class="ai-meta">${escapeHtml(p.brand)} · ${Number(p.price).toLocaleString()}원 · ${escapeHtml(p.categoryName)}</p>
     <div class="ai-btn-row">${statusActionButtons(p)}</div>
+    ${isEditing ? productFormPanel('edit', p) : ''}
   </div>`;
 }
 
@@ -203,7 +236,13 @@ function renderProductList() {
   listEl.innerHTML = products.length ? products.map(productCard).join('') : '<p class="ai-empty">해당 상태의 상품이 없습니다.</p>';
 
   listEl.querySelectorAll('[data-edit-product]').forEach(btn => {
-    btn.addEventListener('click', () => { editingProductId = Number(btn.dataset.editProduct); renderProductForm(); });
+    btn.addEventListener('click', () => {
+      const id = Number(btn.dataset.editProduct);
+      editingProductId = editingProductId === id ? null : id;
+      creatingProduct = false; // 등록 폼과 동시에 열리면 pf-name 등 id가 중복되므로 닫는다
+      renderProductForm();
+      renderProductList();
+    });
   });
   listEl.querySelectorAll('[data-status-action]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -211,6 +250,8 @@ function renderProductList() {
       changeProductStatus(Number(id), status);
     });
   });
+
+  wireInlineProductForm();
 }
 
 /* ---------- 카테고리 ---------- */
@@ -231,18 +272,25 @@ function categoryFormPanel(mode, category) {
   </div>`;
 }
 
+// 상단 컨테이너는 "새 카테고리 추가"만 다룬다 — 기존 카테고리 수정은 categoryCard() 안에
+// 인라인으로 표시된다(아래 renderCategoryList 참고).
 function renderCategoryForm() {
   const container = document.getElementById('category-form-container');
-  if (editingCategoryId === null) {
+  if (!creatingCategory) {
     container.innerHTML = '<div class="ai-btn-row" style="padding:0 16px 16px"><button class="ai-primary" id="open-new-category-form">새 카테고리 추가</button></div>';
-    document.getElementById('open-new-category-form').addEventListener('click', () => { editingCategoryId = 'new'; renderCategoryForm(); });
+    document.getElementById('open-new-category-form').addEventListener('click', () => {
+      creatingCategory = true;
+      editingCategoryId = null;
+      renderCategoryForm();
+      renderCategoryList();
+    });
     return;
   }
 
-  const category = editingCategoryId === 'new' ? null : categories.find(c => c.id === editingCategoryId);
-  container.innerHTML = categoryFormPanel(editingCategoryId === 'new' ? 'create' : 'edit', category);
+  container.innerHTML = categoryFormPanel('create', null);
+  container.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  document.getElementById('category-form-cancel').addEventListener('click', () => { editingCategoryId = null; renderCategoryForm(); });
+  document.getElementById('category-form-cancel').addEventListener('click', () => { creatingCategory = false; renderCategoryForm(); });
   document.getElementById('category-form-submit').addEventListener('click', async () => {
     const errEl = document.getElementById('category-form-error');
     const name = document.getElementById('cf-name').value.trim();
@@ -254,15 +302,10 @@ function renderCategoryForm() {
     errEl.hidden = true;
 
     try {
-      let result;
-      if (editingCategoryId === 'new') {
-        result = await window.requestJson('/api/admin/categories', { method: 'POST', body: { name } });
-      } else {
-        result = await window.requestJson('/api/admin/categories/' + editingCategoryId, { method: 'PATCH', body: { name } });
-      }
+      const result = await window.requestJson('/api/admin/categories', { method: 'POST', body: { name } });
       if (!result) return; // 세션 만료(401) — 전역 로그인 리다이렉트에 맡기고 성공 토스트는 띄우지 않는다
-      toast(editingCategoryId === 'new' ? '카테고리를 추가했습니다.' : '카테고리를 수정했습니다.');
-      editingCategoryId = null;
+      toast('카테고리를 추가했습니다.');
+      creatingCategory = false;
       await loadCategories();
       renderCategoryList();
       renderCategoryForm();
@@ -273,19 +316,61 @@ function renderCategoryForm() {
   });
 }
 
-function renderCategoryList() {
-  const listEl = document.getElementById('category-list');
-  listEl.innerHTML = categories.length ? categories.map(c => `
-    <div class="ai-card">
+// 목록 안에서 현재 수정 중인 카테고리 카드에 인라인으로 열린 폼의 저장/취소 버튼을 연결한다.
+function wireInlineCategoryForm() {
+  const cancelBtn = document.getElementById('category-form-cancel');
+  if (!cancelBtn) return; // 열린 인라인 폼이 없음
+  cancelBtn.addEventListener('click', () => { editingCategoryId = null; renderCategoryList(); });
+  document.getElementById('category-form-submit').addEventListener('click', async () => {
+    const errEl = document.getElementById('category-form-error');
+    const name = document.getElementById('cf-name').value.trim();
+    if (!name) {
+      errEl.textContent = '카테고리명을 입력하세요.';
+      errEl.hidden = false;
+      return;
+    }
+    errEl.hidden = true;
+
+    try {
+      const result = await window.requestJson('/api/admin/categories/' + editingCategoryId, { method: 'PATCH', body: { name } });
+      if (!result) return;
+      toast('카테고리를 수정했습니다.');
+      editingCategoryId = null;
+      await loadCategories();
+      renderCategoryList();
+    } catch (err) {
+      errEl.textContent = err.code === 'CATEGORY_ALREADY_EXISTS' ? '이미 존재하는 카테고리명입니다.' : (err.message || '저장에 실패했습니다.');
+      errEl.hidden = false;
+    }
+  });
+}
+
+function categoryCard(c) {
+  const isEditing = editingCategoryId === c.id;
+  return `<div class="ai-card">
       <div class="ai-card-head">
         <div class="ai-card-head-left"><span class="ai-id">#${c.id}</span><span class="ai-content" style="margin:0">${escapeHtml(c.name)}</span></div>
-        <button class="ai-toggle" data-edit-category="${c.id}">수정</button>
+        <button class="ai-toggle" data-edit-category="${c.id}">${isEditing ? '닫기' : '수정'}</button>
       </div>
-    </div>`).join('') : '<p class="ai-empty">카테고리가 없습니다.</p>';
+      ${isEditing ? categoryFormPanel('edit', c) : ''}
+    </div>`;
+}
+
+function renderCategoryList() {
+  const listEl = document.getElementById('category-list');
+  listEl.innerHTML = categories.length ? categories.map(categoryCard).join('') : '<p class="ai-empty">카테고리가 없습니다.</p>';
 
   listEl.querySelectorAll('[data-edit-category]').forEach(btn => {
-    btn.addEventListener('click', () => { editingCategoryId = Number(btn.dataset.editCategory); renderCategoryForm(); });
+    btn.addEventListener('click', () => {
+      const id = Number(btn.dataset.editCategory);
+      editingCategoryId = editingCategoryId === id ? null : id;
+      creatingCategory = false; // 추가 폼과 동시에 열리면 cf-name 등 id가 중복되므로 닫는다
+      renderCategoryForm();
+      renderCategoryList();
+    });
   });
+
+  wireInlineCategoryForm();
 }
 
 /* ---------- 공통 ---------- */
@@ -335,6 +420,7 @@ document.querySelectorAll('.ap-status-filter [data-status]').forEach(btn => {
       else b.removeAttribute('aria-current');
     });
     editingProductId = null;
+    creatingProduct = false;
     loadProducts().then(renderProductForm);
   });
 });
