@@ -104,7 +104,14 @@
     if (!state.items.length) $('items').append(node('p','아직 담은 상품이 없어요. 위에서 상품을 담아보세요.','empty'));
     for (const item of state.items) {
       const article = node('article'), row = node('div',null,'row'), check = node('input'); check.type = 'checkbox'; check.checked = state.selected.has(item.cartItemId); check.setAttribute('aria-label', item.name + ' 선택');
-      check.onchange = () => { check.checked ? state.selected.add(item.cartItemId) : state.selected.delete(item.cartItemId); totals(); };
+      check.onchange = () => {
+        if (check.checked) {
+          const currentQuantity = selectedItems().reduce((sum,i) => sum + i.quantity, 0);
+          if (currentQuantity + item.quantity > limits.perOrder) { check.checked = false; message(`한 번에 교환권 ${limits.perOrder}개까지 선택할 수 있어요.`); return; }
+          state.selected.add(item.cartItemId);
+        } else { state.selected.delete(item.cartItemId); }
+        totals();
+      };
       const info = node('div',null,'grow'); info.append(node('small',item.brand,'muted'),node('h3',item.name),node('span',won(item.unitPrice),'price'));
       row.append(check);
       if (item.thumbnailUrl) { const img = node('img'); img.src = item.thumbnailUrl; img.alt = ''; img.onerror = () => { img.hidden = true; }; row.append(img); }
@@ -143,7 +150,15 @@
   }
   $('reload').onclick = () => run(load);
   $('sync-cart').onclick = () => run(load);
-  $('select-all').onchange = () => { state.selected = new Set($('select-all').checked ? state.items.filter(item => item.canOrder).map(item => item.cartItemId) : []); render(); };
+  $('select-all').onchange = () => {
+    if ($('select-all').checked) {
+      const available = state.items.filter(item => item.canOrder);
+      const quantity = available.reduce((sum,item) => sum + item.quantity, 0);
+      if (quantity > limits.perOrder) { $('select-all').checked = false; message(`한 번에 교환권 ${limits.perOrder}개까지 선택할 수 있어요.`); return; }
+      state.selected = new Set(available.map(item => item.cartItemId));
+    } else { state.selected = new Set(); }
+    render();
+  };
   $('remove-selected').onclick = () => run(() => mutate(() => api('/api/cart-items/remove','POST',{itemIds:[...state.selected]})));
   $('nickname').oninput = () => { state.receiver = null; $('recipient-result').textContent = '받는 사람을 다시 확인해주세요.'; };
   $('self').onchange = () => { state.receiver = null; $('recipient-form').hidden = $('self').checked; $('recipient-result').textContent = $('self').checked ? '본인에게 보냅니다.' : '받는 사람을 확인해주세요.'; };

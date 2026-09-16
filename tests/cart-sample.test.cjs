@@ -187,9 +187,20 @@ test('quantity input, labels, item controls and checkout share the current limit
   const page=await app({items:Array.from({length:6},(_,i)=>sampleItem({cartItemId:i+1,quantity:10,subtotal:45000}))});
   assert.equal(page.el('quantity-policy').textContent,'최대 30종 보관 · 상품당 10개 · 한 번에 교환권 50개');
   assert.equal(page.el('items').children[0].children[1].children[2].disabled,true);
-  await page.selectSelf();assert.equal(page.el('checkout').disabled,true);
-  const last=page.el('items').children[5].children[0].children[0];last.checked=false;last.onchange();
+  for (let i=0;i<5;i++){const check=page.el('items').children[i].children[0].children[0];check.checked=true;check.onchange();}
   assert.equal(page.el('checkout').disabled,false);assert.equal(page.el('units').textContent,'5종 · 교환권 50개');
+  const last=page.el('items').children[5].children[0].children[0];last.checked=true;last.onchange();
+  assert.equal(last.checked,false);assert.equal(page.el('global-toast').textContent,'한 번에 교환권 50개까지 선택할 수 있어요.');
+  assert.equal(page.el('checkout').disabled,false);assert.equal(page.el('units').textContent,'5종 · 교환권 50개');
+});
+
+test('select-all is blocked with a toast when the available total exceeds the order limit',async()=>{
+  const page=await app({items:Array.from({length:6},(_,i)=>sampleItem({cartItemId:i+1,quantity:10,subtotal:45000}))});
+  await page.selectSelf();
+  assert.equal(page.el('select-all').checked,false);
+  assert.equal(page.el('global-toast').textContent,'한 번에 교환권 50개까지 선택할 수 있어요.');
+  assert.equal(page.el('units').textContent,'0종 · 교환권 0개');
+  assert.equal(page.el('checkout').disabled,true);
 });
 
 test('HTML loads the shared API before cart initialization and has no duplicate limit literal',()=>{
