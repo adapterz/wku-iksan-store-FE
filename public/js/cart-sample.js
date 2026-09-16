@@ -5,7 +5,7 @@
   // FE 표시·입력·검증의 단일 기준. 정책 변경 시 BE 상수와 DB CHECK도 함께 변경한다.
   const limits = Object.freeze({ products:30, perProduct:10, perOrder:50 });
   $('quantity-policy').textContent = `최대 ${limits.products}종 보관 · 상품당 ${limits.perProduct}개 · 한 번에 교환권 ${limits.perOrder}개`;
-  const state = { user: null, items: [], selected: new Set(), receiver: null, busy: false, pending: null, needsSync: false, refreshRequested: false };
+  const state = { user: null, items: [], selected: new Set(), receiver: null, orderType: null, busy: false, pending: null, needsSync: false, refreshRequested: false };
   const won = value => Number(value).toLocaleString('ko-KR') + '원';
   const node = (tag, text, cls) => { const el = document.createElement(tag); if (text != null) el.textContent = text; if (cls) el.className = cls; return el; };
   const key = () => 'cart-pending-order:' + state.user.userId;
@@ -33,7 +33,7 @@
     $('sync-needed').hidden = !state.needsSync;
   }
   function signedOut(accountChanged = false) {
-    state.user = null; state.items = []; state.selected.clear(); state.receiver = null; state.pending = null;
+    state.user = null; state.items = []; state.selected.clear(); state.receiver = null; state.orderType = null; state.pending = null;
     state.needsSync = false;
     $('nickname').value = ''; $('message').value = ''; $('recipient-result').textContent = '';
     $('confirm-dialog').close();
@@ -93,7 +93,9 @@
     const selected = selectedItems(), quantity = selected.reduce((sum,item) => sum + item.quantity, 0);
     $('total').textContent = won(selected.reduce((sum,item) => sum + (item.subtotal || 0), 0));
     $('units').textContent = `${selected.length}종 · 교환권 ${quantity}개`;
-    $('checkout').disabled = !selected.length || quantity > limits.perOrder || selected.some(item => !item.canOrder);
+    const orderDisabled = !selected.length || quantity > limits.perOrder || selected.some(item => !item.canOrder);
+    $('btn-order-self').disabled = orderDisabled;
+    $('btn-order-gift').disabled = orderDisabled;
     $('remove-selected').disabled = !selected.length;
     const available = state.items.filter(item => item.canOrder);
     $('select-all').checked = !!available.length && available.every(item => state.selected.has(item.cartItemId));
@@ -160,7 +162,6 @@
   };
   $('remove-selected').onclick = () => run(() => mutate(() => api('/api/cart-items/remove','POST',{itemIds:[...state.selected]})));
   $('nickname').oninput = () => { state.receiver = null; $('recipient-result').textContent = '받는 사람을 다시 확인해주세요.'; };
-  $('self').onchange = () => { state.receiver = null; $('recipient-form').hidden = $('self').checked; $('recipient-result').textContent = $('self').checked ? '본인에게 보냅니다.' : '받는 사람을 확인해주세요.'; };
   $('recipient-form').onsubmit = event => { event.preventDefault(); return run(async () => {
     state.receiver = null; $('recipient-result').textContent = '받는 사람 확인 중…';
     try {
@@ -172,23 +173,26 @@
       throw error;
     }
   }); };
-  $('checkout').onclick = () => {
+  function attemptCheckout(type) {
     if (state.busy || state.pending || state.needsSync || !state.user) return;
-    if (!$('self').checked && !state.receiver) return message('받는 사람을 먼저 확인해주세요.');
-    $('confirm-text').textContent = `${$('self').checked ? state.user.nickname : state.receiver.nickname}에게 ${$('units').textContent}, ${$('total').textContent}의 선물을 보냅니다.`;
+    if (type === 'gift' && !state.receiver) return message('받는 사람을 먼저 확인해주세요.');
+    state.orderType = type;
+    $('confirm-text').textContent = `${type === 'self' ? state.user.nickname : state.receiver.nickname}에게 ${$('units').textContent}, ${$('total').textContent}의 선물을 보냅니다.`;
     $('confirm-dialog').showModal(); $('cancel-send').focus();
-  };
+  }
+  $('btn-order-self').onclick = () => attemptCheckout('self');
+  $('btn-order-gift').onclick = () => attemptCheckout('gift');
   $('cancel-send').onclick = () => $('confirm-dialog').close();
   $('confirm-send').onclick = () => { $('confirm-dialog').close(); return run(async () => {
     if (state.needsSync || state.pending || !selectedItems().length) return;
-    const body = { items:selectedItems().map(item => ({cartItemId:item.cartItemId,quantity:item.quantity,version:item.version,expectedUnitPrice:item.unitPrice})),isSelfGift:$('self').checked,message:$('message').value };
+    const body = { items:selectedItems().map(item => ({cartItemId:item.cartItemId,quantity:item.quantity,version:item.version,expectedUnitPrice:item.unitPrice})),isSelfGift:state.orderType === 'self',message:$('message').value };
     if (!body.isSelfGift) body.receiverId = state.receiver.userId;
     const pending = {key:crypto.randomUUID(),body};
     // 저장할 수 없으면 요청하지 않는다. 새로고침 후에도 동일 키로 재시도하기 위함이다.
     sessionStorage.setItem(key(),JSON.stringify(pending)); state.pending = pending; await sendPending();
   }); };
   $('retry-order').onclick = () => run(sendPending);
-  $('continue').onclick = () => run(async () => { const url = new URL(location.href); url.searchParams.delete('orderGroupId'); history.replaceState(null,'',url); $('completed').hidden = true; $('workspace').hidden = false; state.receiver = null; $('nickname').value = ''; $('message').value = ''; $('recipient-result').textContent = $('self').checked ? '본인에게 보냅니다.' : '받는 사람을 확인해주세요.'; await load(); });
+  $('continue').onclick = () => run(async () => { const url = new URL(location.href); url.searchParams.delete('orderGroupId'); history.replaceState(null,'',url); $('completed').hidden = true; $('workspace').hidden = false; state.receiver = null; state.orderType = null; $('nickname').value = ''; $('message').value = ''; $('recipient-result').textContent = '받는 사람을 확인해주세요.'; await load(); });
   function refreshIdentity() {
     if (!state.user) return;
     if (state.busy) { state.refreshRequested = true; return; }
