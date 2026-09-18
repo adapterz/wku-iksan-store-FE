@@ -125,6 +125,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const submitOrderBtnLabel = document.getElementById("btn-submit-label");
   let pendingOrder = null;
   let pendingOwnerUserId = null;
+  let orderRequestInFlight = false;
+  let recoveringOrder = false;
 
   function pendingOrderKey() {
     return (isBundle ? 'bundle-order-pending:' : 'direct-order-pending:') + currentUser.userId;
@@ -153,26 +155,47 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   async function submitPendingOrder(pending) {
-    const path = isBundle ? '/api/order-groups' : '/api/order-groups/direct';
-    const orderResult = await requestJson(path, {
-      method: 'POST',
-      body: pending.body,
-      headers: { 'Idempotency-Key': pending.key }
-    });
-    // orderResult가 없으면(=undefined) 401이라 api.js 전역 인터셉터가 이미 토스트를 띄우고
-    // 로그인 페이지로 리다이렉트를 예약해둔 상태다 — 여기서 추가로 처리하지 않는다.
-    if (!orderResult) return;
-    if (orderResult.data && orderResult.data.orderGroupId) {
-      try { sessionStorage.removeItem(pendingOrderKey()); } catch (e) { /* 정리 실패해도 같은 키 재사용은 서버가 막아준다 */ }
-      location.href = `complete.html?orderGroupId=${orderResult.data.orderGroupId}`;
-      return;
+    if (orderRequestInFlight) return;
+    orderRequestInFlight = true;
+    // 응답 대기 중 화면 재검증이 실행돼도 보관소 정리는 원래 소유자 기준이다.
+    const ownerUserId = pendingOwnerUserId;
+    const storageKey = pendingOrderKey();
+    try {
+      // 탭 전환은 bfcache 복원이 아니다. 최초 제출/재시도 모두 POST 직전에 확인한다.
+      const auth = await requestJson('/api/auth/me');
+      if (!auth) return;
+      if (auth.data.userId !== ownerUserId) {
+        alert('로그인 계정이 변경됐어요. 이전 계정의 주문은 보내지 않고 화면을 다시 불러옵니다.');
+        location.reload();
+        return;
+      }
+      const path = isBundle ? '/api/order-groups' : '/api/order-groups/direct';
+      const orderResult = await requestJson(path, {
+        method: 'POST',
+        body: pending.body,
+        headers: { 'Idempotency-Key': pending.key }
+      });
+      // 401은 공통 인터셉터가 처리한다. 보관 요청은 같은 계정으로 돌아왔을 때 재확인한다.
+      if (!orderResult) return;
+      if (orderResult.data && orderResult.data.orderGroupId) {
+        try { sessionStorage.removeItem(storageKey); } catch (e) { /* 같은 소유자의 기존 키는 그대로 재확인 가능 */ }
+        location.href = `complete.html?orderGroupId=${orderResult.data.orderGroupId}`;
+        return;
+      }
+      throw new Error(orderResult.message || "주문에 실패했습니다.");
+    } finally {
+      orderRequestInFlight = false;
     }
-    throw new Error(orderResult.message || "주문에 실패했습니다.");
   }
 
   function clearPendingOrder() {
     try { sessionStorage.removeItem(pendingOrderKey()); } catch (e) { /* noop */ }
     pendingOrder = null;
+    // 복구 전용 화면에서는 상품 정보를 읽지 않았다. 새 주문은 재로드 후 구성한다.
+    if (recoveringOrder) {
+      location.reload();
+      return;
+    }
     setPendingUI(false);
   }
 
@@ -219,6 +242,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.error('주문 생성/재확인 실패:', error);
     if (error.code === 'PRODUCT_PRICE_CHANGED') {
       clearPendingOrder();
+      if (recoveringOrder) return;
       await refreshPriceAfterChange();
       return;
     }
@@ -236,13 +260,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (btnRetryPending) {
     btnRetryPending.addEventListener('click', async () => {
-      if (!pendingOrder) return;
+      if (!pendingOrder || orderRequestInFlight) return;
       btnRetryPending.disabled = true;
       btnRetryPending.textContent = '확인 중...';
       try {
         await submitPendingOrder(pendingOrder);
       } catch (error) {
         await handleOrderSubmitError(error);
+      } finally {
         btnRetryPending.disabled = false;
         btnRetryPending.textContent = '주문 결과 다시 확인';
       }
@@ -323,6 +348,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.error("인증 확인 실패:", error);
       alert("사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
       return false;
+    }
+
+    // 이미 완료된 주문은 장바구니가 비거나 상품이 판매 중단돼도 복원할 수 있다.
+    // 현재 상품 조회보다 저장한 요청의 재확인 UI를 먼저 제공한다.
+    if (pendingOrder) {
+      recoveringOrder = true;
+      document.getElementById('order-form-content').style.display = 'none';
+      document.body.style.visibility = 'visible';
+      document.body.style.opacity = '1';
+      return true;
     }
 
     if (isBundle) {
@@ -458,6 +493,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 5. 결제 및 주문 생성 로직
   submitOrderBtn.addEventListener("click", async () => {
+    if (pendingOrder || orderRequestInFlight || recoveringOrder) return;
     if (!receiverId) {
       alert("받는 사람을 지정해 주세요.");
       return;
@@ -506,7 +542,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       await handleOrderSubmitError(error);
       // 결과가 불명확해 재확인 대기 상태로 남았다면(setPendingUI(true)) 제출 버튼은 계속
       // 비활성 상태를 유지하고, "주문 결과 다시 확인" 버튼이 다음 시도를 담당한다.
-      if (!pendingOrder) {
+      if (!pendingOrder && !recoveringOrder) {
         submitOrderBtn.disabled = false;
         submitOrderBtnLabel.textContent = "결제하기";
       }

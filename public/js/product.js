@@ -156,10 +156,34 @@ function initBottomSheet(productId) {
   // "선물하기"/"나에게 선물하기" 버튼의 실제 주문 연동은 다음 단계에서 진행한다.
   const addCartBtn = document.getElementById('btn-sheet-add-cart');
   if (addCartBtn) {
+    const originalCartLabel = addCartBtn.innerHTML;
+    let cartNeedsRecheck = false;
+    async function recheckCart() {
+      try {
+        const result = await requestJson('/api/cart-items');
+        if (!result) return; // 401: 이동 전까지 재확인 상태 유지
+        if (!Array.isArray(result.data)) throw new Error('Invalid cart response');
+        const item = result.data.find(item => item.productId === Number(productId));
+        window._cartCache = null;
+        window.dispatchEvent(new CustomEvent('cart-updated'));
+        alert(`추가 요청의 반영 여부를 확인하지 못했습니다. 현재 장바구니에는 이 상품이 ${item ? item.quantity : 0}개 있습니다. 수량을 확인한 뒤 이용해주세요.`);
+        cartNeedsRecheck = false;
+        addCartBtn.innerHTML = originalCartLabel;
+        closeBottomSheet();
+      } catch (error) {
+        console.error('장바구니 상태 재확인 실패:', error);
+        alert('장바구니 상태를 확인하지 못했습니다. 장바구니 확인 버튼으로 다시 확인해주세요. 추가 요청은 보내지 않습니다.');
+      }
+    }
     addCartBtn.addEventListener('click', async () => {
       if (addCartBtn.disabled) return;
       addCartBtn.disabled = true;
       try {
+        // 불확실한 POST를 반복하지 않는다. 재확인 버튼은 GET만 실행한다.
+        if (cartNeedsRecheck) {
+          await recheckCart();
+          return;
+        }
         const result = await requestJson('/api/cart-items', {
           method: 'POST',
           body: { productId: Number(productId), quantity: sheetState.quantity }
@@ -188,25 +212,10 @@ function initBottomSheet(productId) {
           return;
         }
         console.error('장바구니 담기 실패:', error);
-        // 네트워크 끊김/5xx 같은 애매한 실패는 서버에는 실제로 반영됐을 수 있다. 담기 API는
-        // 기존 수량에 더하는 방식이라, 확인 없이 재시도를 안내하면 사용자가 다시 눌렀을 때
-        // 의도치 않게 수량이 중복으로 쌓일 수 있다. 재시도를 권하기 전에 최신 장바구니 상태를
-        // 다시 조회해, 이미 담겼다면 그걸 성공으로 처리한다.
-        try {
-          const cartResult = await requestJson('/api/cart-items');
-          const items = (cartResult && cartResult.data) || [];
-          const alreadyInCart = items.some(item => item.productId === Number(productId));
-          if (alreadyInCart) {
-            window._cartCache = null;
-            window.dispatchEvent(new CustomEvent('cart-updated', { detail: { productId, isInCart: true } }));
-            window.showToast('장바구니에 담았습니다.');
-            closeBottomSheet();
-            return;
-          }
-        } catch (checkError) {
-          console.error('장바구니 상태 재확인 실패:', checkError);
-        }
-        alert(error.message || '장바구니에 담지 못했어요. 잠시 후 다시 시도해주세요.');
+        // 기존 항목이 있다는 사실로 이번 수량 추가의 성공을 확정할 수 없다.
+        cartNeedsRecheck = true;
+        addCartBtn.textContent = '장바구니 확인';
+        await recheckCart();
       } finally {
         addCartBtn.disabled = false;
       }
