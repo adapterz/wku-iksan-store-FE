@@ -46,7 +46,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     backConfirmBtn.addEventListener('click', () => {
-      const fallbackUrl = isBundle ? 'cart-sample.html' : `product.html?id=${encodeURIComponent(productId)}`;
+      const fallbackUrl = isBundle ? 'cart.html' : `product.html?id=${encodeURIComponent(productId)}`;
 
       // product.js의 goToOrder가 정상적으로 이 상품 페이지를 거쳐 진입시켰다면
       // sessionStorage에 그 표시를 남겨둔다. 이 표시가 있을 때만 history.go(-2)를 쓴다:
@@ -183,7 +183,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           .filter(item => idSet.has(item.cartItemId) && item.canOrder);
         if (!bundleItems.length) {
           alert("담아둔 상품을 찾을 수 없습니다. 장바구니를 다시 확인해주세요.");
-          location.href = "cart-sample.html";
+          location.href = "cart.html";
           return false;
         }
 
@@ -197,7 +197,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       } catch (error) {
         console.error("장바구니 정보 조회 실패:", error);
         alert("장바구니 정보를 불러오는 데 실패했습니다.");
-        location.href = "cart-sample.html";
+        location.href = "cart.html";
         return false;
       }
     } else {

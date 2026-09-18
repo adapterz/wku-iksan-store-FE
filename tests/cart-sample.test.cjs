@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const source = fs.readFileSync(path.join(__dirname,'../public/js/cart-sample.js'),'utf8');
+const source = fs.readFileSync(path.join(__dirname,'../public/js/cart.js'),'utf8');
 const apiSource = fs.readFileSync(path.join(__dirname,'../public/js/api.js'),'utf8');
 
 // Lightweight DOM contract tests, complemented by real browser + local MySQL tests.
@@ -22,7 +22,7 @@ async function app(options = {}) {
   const elements = new Map(), calls = [], storage = options.storage || new Map(), listeners = new Map();
   const el = id => { if (!elements.has(id)) elements.set(id,new Element()); return elements.get(id); };
   for (const id of ['signed-out','workspace','page-error','toast']) el(id).hidden = true;
-  const location = new URL(options.url || 'http://localhost/cart-sample');
+  const location = new URL(options.url || 'http://localhost/cart');
   const addEventListener=(type,fn)=>listeners.set(type,fn);
   const context = { document:{getElementById:el,createElement:tag=>new Element(tag),addEventListener,visibilityState:'visible'}, window:{addEventListener}, location,
     history:{replaceState:(_,__,url)=>{location.href = String(url);}}, URL, AbortController,
@@ -83,7 +83,7 @@ test('선물하기 navigates to order.html with type=gift',async()=>{
 test('clicking a disabled order button does nothing',async()=>{
   const page=await app({items:[]});
   await page.click('btn-order-self');
-  assert.equal(page.location.pathname,'/cart-sample');
+  assert.equal(page.location.pathname,'/cart');
   assert.equal(page.calls.some(c=>c.url.startsWith('order.html')),false);
 });
 
@@ -116,7 +116,7 @@ test('first anonymous visit shows only sign-in guidance, not expiration warnings
   assert.equal(page.el('signed-out-title').textContent,'로그인이 필요해요');
   assert.equal(page.el('page-error').hidden,true);assert.equal(page.el('page-error').textContent,'');
   assert.equal(page.el('workspace').hidden,true);assert.equal(page.el('controls').disabled,true);
-  assert.equal(page.calls.length,1);assert.equal(page.location.pathname,'/cart-sample');
+  assert.equal(page.calls.length,1);assert.equal(page.location.pathname,'/cart');
 });
 
 test('401 after successful initial identity check still reports session expiry',async()=>{
@@ -126,7 +126,7 @@ test('401 after successful initial identity check still reports session expiry',
 
 test('account change offers current cart without stale login link',async()=>{
   let account=1;const page=await app({fetch:async url=>url==='/api/auth/me'?ok({userId:account}):null});
-  account=2;await page.event('focus');assert.equal(page.el('login').href,'/cart-sample');assert.equal(page.el('login').textContent,'현재 계정 장바구니 열기');
+  account=2;await page.event('focus');assert.equal(page.el('login').href,'/cart');assert.equal(page.el('login').textContent,'현재 계정 장바구니 열기');
 });
 
 test('select-all is blocked with a toast when the available total exceeds the order limit',async()=>{
@@ -145,7 +145,7 @@ test('quantity input, labels and item controls share the current limits',async()
 });
 
 test('HTML loads the shared API before cart initialization and has no duplicate limit literal',()=>{
-  const html=fs.readFileSync(path.join(__dirname,'../public/cart-sample.html'),'utf8');
-  assert.ok(html.indexOf('/js/api.js')<html.indexOf('/js/cart-sample.js'));
+  const html=fs.readFileSync(path.join(__dirname,'../public/cart.html'),'utf8');
+  assert.ok(html.indexOf('/js/api.js')<html.indexOf('/js/cart.js'));
   assert.doesNotMatch(html,/max="10"|상품당 10개|교환권 50개|id="toast"/);
 });

@@ -464,7 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <a href="giftbox.html" class="header-icon" title="선물함">
                     <i class="fa-solid fa-gift"></i>
                 </a>
-                <a href="cart-sample.html" class="header-icon" title="장바구니">
+                <a href="cart.html" class="header-icon" title="장바구니">
                     <i class="fa-solid fa-bag-shopping"></i>
                     <span class="cart-count-badge" hidden>0</span>
                 </a>
