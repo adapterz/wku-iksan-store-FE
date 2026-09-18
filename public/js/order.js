@@ -109,6 +109,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let bundleItems = []; // 묶음 주문일 때 결제 대상 장바구니 항목들 (cartItemId, quantity, version, unitPrice 등)
   let receiverId = null;
   let celebrationMessage = "나는 내가 챙긴다!\n소중한 나에게 주는 선물";
+  let lastAuthedUserId = null; // 다른 탭에서 계정을 전환한 뒤 이 탭으로 돌아왔을 때(bfcache 복원) 감지용
 
   // 주문 재시도 안전성(Idempotency-Key + 요청 내용 보관)은 묶음/즉시 구매 모두에 동일하게 적용한다.
   // 계정별로 보관하고, checkOrderAuthAndLoadData가 다시 실행될 때마다(bfcache 복원 포함) 현재
@@ -298,7 +299,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       const authResult = await requestJson('/api/auth/me');
       if (authResult && authResult.data) {
+        // 다른 탭에서 계정을 전환한 뒤 이 탭으로 돌아오면(bfcache 복원), 화면에 이미 그려진
+        // 상품/받는 사람/선택한 장바구니 항목 등이 이전 계정 기준이라 그대로 쓰면 안 된다.
+        // cart.js의 ensureIdentity와 동일하게, 계정이 바뀐 걸 감지하면 새로고침을 안내한다.
+        if (lastAuthedUserId !== null && authResult.data.userId !== lastAuthedUserId) {
+          alert('로그인 계정이 변경됐어요. 새로고침 후 현재 계정으로 다시 이용해주세요.');
+          location.reload();
+          return false;
+        }
         currentUser = authResult.data;
+        lastAuthedUserId = currentUser.userId;
         // 나에게 선물하기는 받는 사람이 나 자신이므로, bfcache 재검증으로 currentUser가
         // 다른 계정으로 바뀌어도 receiverId가 그 계정을 계속 따라가도록 매번 갱신한다.
         if (orderType === 'self') {

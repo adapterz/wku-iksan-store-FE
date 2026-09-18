@@ -188,6 +188,24 @@ function initBottomSheet(productId) {
           return;
         }
         console.error('장바구니 담기 실패:', error);
+        // 네트워크 끊김/5xx 같은 애매한 실패는 서버에는 실제로 반영됐을 수 있다. 담기 API는
+        // 기존 수량에 더하는 방식이라, 확인 없이 재시도를 안내하면 사용자가 다시 눌렀을 때
+        // 의도치 않게 수량이 중복으로 쌓일 수 있다. 재시도를 권하기 전에 최신 장바구니 상태를
+        // 다시 조회해, 이미 담겼다면 그걸 성공으로 처리한다.
+        try {
+          const cartResult = await requestJson('/api/cart-items');
+          const items = (cartResult && cartResult.data) || [];
+          const alreadyInCart = items.some(item => item.productId === Number(productId));
+          if (alreadyInCart) {
+            window._cartCache = null;
+            window.dispatchEvent(new CustomEvent('cart-updated', { detail: { productId, isInCart: true } }));
+            window.showToast('장바구니에 담았습니다.');
+            closeBottomSheet();
+            return;
+          }
+        } catch (checkError) {
+          console.error('장바구니 상태 재확인 실패:', checkError);
+        }
         alert(error.message || '장바구니에 담지 못했어요. 잠시 후 다시 시도해주세요.');
       } finally {
         addCartBtn.disabled = false;

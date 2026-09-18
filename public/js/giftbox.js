@@ -1,8 +1,9 @@
 // 공통 서브 헤더가 기본 제공하는 선물함 아이콘은, 이미 선물함 페이지에 있는 상태라 자기 자신으로
-// 가는 링크가 되어 의미가 없으므로 여기서는 제거한다.
+// 가는 링크가 되어 의미가 없으므로 여기서는 제거한다. 같은 컨테이너(.header-right-icons)에 장바구니
+// 아이콘도 함께 있으므로, 컨테이너 전체가 아니라 선물함 링크만 선택해 제거해야 장바구니 아이콘이 남는다.
 document.addEventListener('header:ready', () => {
-  const rightIcons = document.querySelector('header.main-header .header-right-icons');
-  if (rightIcons) rightIcons.remove();
+  const giftboxLink = document.querySelector('header.main-header .header-right-icons a[href="giftbox.html"]');
+  if (giftboxLink) giftboxLink.remove();
 });
 
 // 로그인 여부 확인 (화면을 그리기 전에 먼저 검증 - Route Guard)
