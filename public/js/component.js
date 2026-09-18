@@ -144,10 +144,56 @@ async function notifyGiftArrivalSeen() {
     }
 })();
 
+// ===== 최근 검색어 (localStorage) =====
+const RECENT_SEARCHES_KEY = 'iksanstore:recentSearches:v1';
+const RECENT_SEARCHES_LIMIT = 10;
+
+// 저장된 최근 검색어 목록을 최신순으로 반환한다. 저장소 접근/파싱에 실패하면 빈 배열을 반환한다.
+function getRecentSearches() {
+    try {
+        const raw = localStorage.getItem(RECENT_SEARCHES_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        console.warn('최근 검색어 조회 실패:', error);
+        return [];
+    }
+}
+
+function saveRecentSearches(keywords) {
+    try {
+        localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(keywords));
+    } catch (error) {
+        // 저장 용량 초과 등으로 저장에 실패해도 검색 자체는 계속 동작해야 한다.
+        console.warn('최근 검색어 저장 실패:', error);
+    }
+}
+
+// 검색어를 최근 검색어 맨 앞에 추가한다. 기존에 같은 검색어가 있으면 제거 후 재삽입하고, 최대 개수를 넘으면 오래된 것부터 버린다.
+function addRecentSearch(keyword) {
+    const trimmed = (keyword || '').trim();
+    if (!trimmed) return;
+
+    const existing = getRecentSearches().filter((item) => item !== trimmed);
+    existing.unshift(trimmed);
+    saveRecentSearches(existing.slice(0, RECENT_SEARCHES_LIMIT));
+}
+
+function removeRecentSearch(keyword) {
+    const remaining = getRecentSearches().filter((item) => item !== keyword);
+    saveRecentSearches(remaining);
+}
+
+function clearRecentSearches() {
+    saveRecentSearches([]);
+}
+
 // 검색어를 받아 검색 결과 페이지로 이동하는 공통 유틸리티 (빈 값은 무시)
 function navigateToSearch(keyword) {
     const trimmed = (keyword || '').trim();
     if (!trimmed) return;
+    addRecentSearch(trimmed);
     window.location.href = `search.html?keyword=${encodeURIComponent(trimmed)}`;
 }
 
