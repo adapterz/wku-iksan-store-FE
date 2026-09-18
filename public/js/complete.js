@@ -56,20 +56,16 @@ document.addEventListener("header:ready", async () => {
 
 });
 
-// order-groups 응답(GET /api/order-groups/:id)을 renderCompletePage가 기대하는
-// 단건 주문 형태({isSelfGift, receiver, product, quantity})로 변환한다.
+// order-groups 응답(GET /api/order-groups/:id)을 renderCompletePage가 기대하는 형태로 변환한다.
+// 장바구니 묶음 주문은 상품이 여러 종류일 수 있으므로 items 전체와 합계를 그대로 넘긴다 —
+// 첫 상품만 꺼내면 장바구니에서 여러 상품을 함께 주문했을 때 나머지 상품이 화면에서 사라진다.
 function mapOrderGroupToOrderView(group) {
-  const item = group.items && group.items[0];
   return {
     isSelfGift: group.isSelfGift,
     receiver: group.receiver,
-    quantity: item ? item.quantity : 1,
-    product: item ? {
-      thumbnailUrl: item.thumbnailUrl,
-      brand: item.brand,
-      name: item.name
-      // order-groups 응답에는 validPeriod가 없어 renderCompletePage의 기본 문구로 대체된다.
-    } : null
+    items: group.items || [],
+    totalQuantity: group.totalQuantity,
+    totalPrice: group.totalPrice
   };
 }
 
@@ -92,7 +88,7 @@ function renderValidPeriodText(el, text) {
 }
 
 function renderCompletePage(order) {
-  const { isSelfGift, receiver, product, quantity } = order;
+  const { isSelfGift, receiver } = order;
 
   // Title and Badge
   const completeTitle = document.getElementById("complete-title");
@@ -107,23 +103,60 @@ function renderCompletePage(order) {
     if (selfBadge) selfBadge.style.display = 'none';
   }
 
-  // Product Info
-  const giftThumbnail = document.getElementById("gift-thumbnail");
-  const giftBrand = document.getElementById("gift-brand");
-  const giftName = document.getElementById("gift-name");
-  const giftValidPeriod = document.getElementById("gift-valid-period");
-  const giftQuantity = document.getElementById("gift-quantity");
+  // 단건 주문({product, quantity})과 묶음 주문({items:[...]}) 두 응답 모양을 하나로 맞춘다.
+  const items = (order.items && order.items.length)
+    ? order.items
+    : (order.product ? [{ ...order.product, quantity: order.quantity || 1 }] : []);
+  const totalQuantity = order.totalQuantity != null
+    ? order.totalQuantity
+    : items.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
-  if (giftQuantity) giftQuantity.textContent = `수량 : ${quantity || 1}개`;
+  // Product Info — 상품마다 카드를 하나씩 그린다. 템플릿 카드(가장 처음의 정적 마크업)는 그대로
+  // 재사용해 기존 id를 유지하고, 추가 상품은 그 카드를 복제하되 id 중복을 막기 위해 id를 지운다.
+  const container = document.getElementById("gift-items-container");
+  const templateCard = document.getElementById("gift-item-card");
+  if (container && templateCard) {
+    container.replaceChildren();
+    items.forEach((item, index) => {
+      const card = index === 0 ? templateCard : templateCard.cloneNode(true);
+      if (index > 0) {
+        card.removeAttribute('id');
+        ['img', '.gift-brand', '.gift-name', '.gift-qty'].forEach(selector => {
+          const el = card.querySelector(selector);
+          if (el) el.removeAttribute('id');
+        });
+      }
+      const img = card.querySelector('img');
+      const brandEl = card.querySelector('.gift-brand');
+      const nameEl = card.querySelector('.gift-name');
+      const qtyEl = card.querySelector('.gift-qty');
+      if (img) img.src = item.thumbnailUrl || "";
+      if (brandEl) brandEl.textContent = item.brand || "";
+      if (nameEl) nameEl.textContent = item.name || "";
+      if (qtyEl) qtyEl.textContent = `수량 : ${item.quantity || 1}개`;
+      container.appendChild(card);
+    });
+  }
 
-  if (product) {
-    if (giftThumbnail) giftThumbnail.src = product.thumbnailUrl || "";
-    if (giftBrand) giftBrand.textContent = product.brand || "";
-    if (giftName) giftName.textContent = product.name || "";
-    if (giftValidPeriod) {
-      const validPeriodText = product.validPeriod || "발급일로부터 365일 이내에 사용 가능";
-      renderValidPeriodText(giftValidPeriod, validPeriodText);
+  // 상품이 2종 이상일 때만 전체 수량·총액 요약을 보여준다 (단건/단일 상품 묶음은 카드 하나로 충분).
+  const summaryEl = document.getElementById("gift-summary");
+  if (summaryEl) {
+    if (items.length > 1) {
+      summaryEl.hidden = false;
+      summaryEl.textContent = order.totalPrice != null
+        ? `총 ${items.length}종 · 교환권 ${totalQuantity}개 · ${order.totalPrice.toLocaleString()}원`
+        : `총 ${items.length}종 · 교환권 ${totalQuantity}개`;
+    } else {
+      summaryEl.hidden = true;
     }
+  }
+
+  // Usage Period — 상품이 1개일 때만 그 상품의 validPeriod를 쓴다 (order-groups 응답에는 없어
+  // 기본 문구로 대체되고, 묶음일 때는 상품마다 다를 수 있어 공통 문구를 쓴다).
+  const giftValidPeriod = document.getElementById("gift-valid-period");
+  if (giftValidPeriod) {
+    const validPeriodText = (items.length === 1 && items[0].validPeriod) || "발급일로부터 365일 이내에 사용 가능";
+    renderValidPeriodText(giftValidPeriod, validPeriodText);
   }
 }
 

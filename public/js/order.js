@@ -110,6 +110,144 @@ document.addEventListener("DOMContentLoaded", async () => {
   let receiverId = null;
   let celebrationMessage = "나는 내가 챙긴다!\n소중한 나에게 주는 선물";
 
+  // 주문 재시도 안전성(Idempotency-Key + 요청 내용 보관)은 묶음/즉시 구매 모두에 동일하게 적용한다.
+  // 계정별로 보관하고, checkOrderAuthAndLoadData가 다시 실행될 때마다(bfcache 복원 포함) 현재
+  // 로그인 계정 기준으로 다시 동기화한다 — 이렇게 안 하면 A 계정으로 보낸 뒤 응답을 못 받은 상태에서
+  // B 계정으로 전환하고 "다시 확인"을 누르면, A의 보관 요청이 B 세션으로 전송돼 A의 결과를 복원하는
+  // 게 아니라 B의 새 주문이 되어버린다.
+  const pendingNotice = document.getElementById('pending-order-notice');
+  const btnRetryPending = document.getElementById('btn-retry-pending-order');
+  const submitOrderBtn = document.getElementById("btn-submit-order");
+  // 버튼 안의 가격(#btn-submit-price)은 그대로 두고 라벨 텍스트만 바꾸기 위해 별도 span을 쓴다.
+  // submitOrderBtn.textContent로 통째로 바꾸면 그 span 자체가 사라져, 오류 후 재시도 시
+  // 버튼에서 가격 표시가 영구히 없어진다.
+  const submitOrderBtnLabel = document.getElementById("btn-submit-label");
+  let pendingOrder = null;
+  let pendingOwnerUserId = null;
+
+  function pendingOrderKey() {
+    return (isBundle ? 'bundle-order-pending:' : 'direct-order-pending:') + currentUser.userId;
+  }
+
+  function setPendingUI(isPending) {
+    if (pendingNotice) pendingNotice.style.display = isPending ? 'block' : 'none';
+    if (submitOrderBtn) submitOrderBtn.disabled = isPending;
+    // 대기 상태가 풀릴 때(계정 전환으로 인한 초기화 포함) 버튼 라벨도 "결제하기"로 되돌린다.
+    // 그렇지 않으면 이전 계정에서 "결제 진행 중..."으로 바뀐 라벨이 그대로 남아, 실제로는
+    // 클릭 가능한데도 아직 처리 중인 것처럼 보인다.
+    if (!isPending && submitOrderBtnLabel) submitOrderBtnLabel.textContent = '결제하기';
+  }
+
+  // 로그인 계정이 바뀌었거나(다른 탭에서 로그인) 최초 로드일 때, 이전 계정의 대기 주문 상태를
+  // 메모리에서 지우고 현재 계정의 보관함을 기준으로 다시 확인한다.
+  function syncPendingOrderForCurrentUser() {
+    if (currentUser.userId === pendingOwnerUserId) return;
+    pendingOrder = null;
+    setPendingUI(false);
+    try {
+      const saved = sessionStorage.getItem(pendingOrderKey());
+      if (saved) { pendingOrder = JSON.parse(saved); setPendingUI(true); }
+    } catch (e) { /* 저장소를 못 읽으면 그냥 새 주문으로 진행한다 */ }
+    pendingOwnerUserId = currentUser.userId;
+  }
+
+  async function submitPendingOrder(pending) {
+    const path = isBundle ? '/api/order-groups' : '/api/order-groups/direct';
+    const orderResult = await requestJson(path, {
+      method: 'POST',
+      body: pending.body,
+      headers: { 'Idempotency-Key': pending.key }
+    });
+    // orderResult가 없으면(=undefined) 401이라 api.js 전역 인터셉터가 이미 토스트를 띄우고
+    // 로그인 페이지로 리다이렉트를 예약해둔 상태다 — 여기서 추가로 처리하지 않는다.
+    if (!orderResult) return;
+    if (orderResult.data && orderResult.data.orderGroupId) {
+      try { sessionStorage.removeItem(pendingOrderKey()); } catch (e) { /* 정리 실패해도 같은 키 재사용은 서버가 막아준다 */ }
+      location.href = `complete.html?orderGroupId=${orderResult.data.orderGroupId}`;
+      return;
+    }
+    throw new Error(orderResult.message || "주문에 실패했습니다.");
+  }
+
+  function clearPendingOrder() {
+    try { sessionStorage.removeItem(pendingOrderKey()); } catch (e) { /* noop */ }
+    pendingOrder = null;
+    setPendingUI(false);
+  }
+
+  async function refreshPriceAfterChange() {
+    try {
+      if (isBundle) {
+        const cartResult = await requestJson('/api/cart-items');
+        const idSet = new Set(bundleCartItemIds);
+        bundleItems = (cartResult && cartResult.data ? cartResult.data : [])
+          .filter(item => idSet.has(item.cartItemId) && item.canOrder);
+        renderBundleList(bundleItems);
+        const totalPrice = bundleItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+        const totalQuantity = bundleItems.reduce((sum, item) => sum + item.quantity, 0);
+        renderPriceDisplays(totalPrice, totalQuantity);
+      } else {
+        const productResult = await requestJson(`/api/products/${productId}`);
+        if (productResult && productResult.data) {
+          selectedProduct = productResult.data;
+          updateUnitPriceDisplay();
+          renderPriceDisplays(selectedProduct.price * directQuantity, directQuantity);
+        }
+      }
+    } catch (e) {
+      console.error('가격/구성 갱신 실패:', e);
+    }
+    alert('상품 가격이나 구성이 변경됐어요. 최신 내용을 확인한 뒤 다시 결제해주세요.');
+  }
+
+  // 재시도해도 결과가 달라지지 않는 "명확한" 실패 코드 목록 (BE DIRECT_ORDER_GROUPS.md /
+  // CART_ORDER_GROUPS.md 오류 표 기준). 상태 코드(400/404/409)만으로는 구분이 안 된다 — 409에는
+  // 명확한 실패(PRODUCT_UNAVAILABLE 등)와 재시도해볼 만한 불명확한 실패(CART_BUSY)가 섞여 있으므로
+  // 코드 단위로 판단해야 한다.
+  const ORDER_DEFINITE_FAILURE_CODES = new Set([
+    'INVALID_IDEMPOTENCY_KEY', 'INVALID_DIRECT_ORDER_BODY', 'INVALID_QUANTITY',
+    'ORDER_QUANTITY_EXCEEDED', 'CANNOT_GIFT_TO_SELF', 'PRODUCT_NOT_FOUND',
+    'RECEIVER_NOT_FOUND', 'USER_NOT_FOUND', 'PRODUCT_UNAVAILABLE', 'INVALID_PRODUCT_PRICE',
+    'IDEMPOTENCY_KEY_REUSED', 'CART_ITEM_NOT_FOUND', 'CART_CHANGED'
+  ]);
+
+  // 주문 제출(최초 클릭)과 재확인(재시도 버튼) 양쪽에서 같은 규칙으로 오류를 처리한다:
+  // 결과가 명확한 실패(값 오류·가격/구성 변경 등)만 보관된 키를 지우고, 그 외(네트워크·CART_BUSY 등
+  // 불명확한 경우)는 키를 그대로 남겨 "주문 결과 다시 확인" 버튼으로 재확인할 수 있게 한다.
+  async function handleOrderSubmitError(error) {
+    console.error('주문 생성/재확인 실패:', error);
+    if (error.code === 'PRODUCT_PRICE_CHANGED') {
+      clearPendingOrder();
+      await refreshPriceAfterChange();
+      return;
+    }
+    if (ORDER_DEFINITE_FAILURE_CODES.has(error.code)) {
+      clearPendingOrder();
+      alert(error.message || '주문에 실패했습니다. 다시 시도해 주세요.');
+      return;
+    }
+    // 결과 불명확(네트워크 단절, CART_BUSY, 5xx 등) — 보관된 키를 유지하고 재확인 UI를 노출한다.
+    setPendingUI(true);
+    alert(error.code === 'NETWORK_ERROR'
+      ? '네트워크 오류가 발생했습니다. 아래 "주문 결과 다시 확인" 버튼으로 다시 확인해주세요.'
+      : '주문 처리 결과를 확인하지 못했어요. 아래 "주문 결과 다시 확인" 버튼으로 다시 확인해주세요.');
+  }
+
+  if (btnRetryPending) {
+    btnRetryPending.addEventListener('click', async () => {
+      if (!pendingOrder) return;
+      btnRetryPending.disabled = true;
+      btnRetryPending.textContent = '확인 중...';
+      try {
+        await submitPendingOrder(pendingOrder);
+      } catch (error) {
+        await handleOrderSubmitError(error);
+        btnRetryPending.disabled = false;
+        btnRetryPending.textContent = '주문 결과 다시 확인';
+      }
+    });
+  }
+
   function renderPriceDisplays(totalPrice, itemCount) {
     const priceStr = `${totalPrice.toLocaleString()}원`;
     const countLabel = document.getElementById("order-item-count-label");
@@ -166,6 +304,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (orderType === 'self') {
           receiverId = currentUser.userId;
         }
+        // 계정이 바뀌었을 수 있으니(다른 탭 로그인 후 bfcache 복원 등) 대기 주문 상태를 매번 다시 확인한다.
+        syncPendingOrderForCurrentUser();
       } else {
         return false;
       }
@@ -244,115 +384,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // 즉시 구매(단건) 주문의 재시도 안전성: 제출 전 Idempotency-Key와 요청 내용을 계정별로 보관해두고,
-  // 네트워크 실패·새로고침 후에도 같은 키로 결과를 다시 확인할 수 있게 한다. 묶음 주문은 대상이 아니다.
-  const pendingNotice = document.getElementById('pending-order-notice');
-  const btnRetryPending = document.getElementById('btn-retry-pending-order');
-  let directPending = null;
-
-  function directPendingKey() {
-    return 'direct-order-pending:' + currentUser.userId;
-  }
-
-  function setPendingUI(isPending) {
-    if (pendingNotice) pendingNotice.style.display = isPending ? 'block' : 'none';
-    const btn = document.getElementById('btn-submit-order');
-    if (btn) btn.disabled = isPending;
-  }
-
-  async function submitDirectOrder(pending) {
-    const orderResult = await requestJson('/api/order-groups/direct', {
-      method: 'POST',
-      body: pending.body,
-      headers: { 'Idempotency-Key': pending.key }
-    });
-    // orderResult가 없으면(=undefined) 401이라 api.js 전역 인터셉터가 이미 토스트를 띄우고
-    // 로그인 페이지로 리다이렉트를 예약해둔 상태다 — 여기서 추가로 처리하지 않는다.
-    if (!orderResult) return;
-    if (orderResult.data && orderResult.data.orderGroupId) {
-      try { sessionStorage.removeItem(directPendingKey()); } catch (e) { /* 정리 실패해도 같은 키 재사용은 서버가 막아준다 */ }
-      location.href = `complete.html?orderGroupId=${orderResult.data.orderGroupId}`;
-      return;
-    }
-    throw new Error(orderResult.message || "주문에 실패했습니다.");
-  }
-
-  // 결과가 불명확한 실패(네트워크 단절·5xx 등)는 보관된 키를 유지해 다시 확인할 수 있게 하고,
-  // 결과가 명확한 실패(값 오류 등)만 보관을 지워 새 주문을 만들 수 있게 한다.
-  function clearDirectPending() {
-    try { sessionStorage.removeItem(directPendingKey()); } catch (e) { /* noop */ }
-    directPending = null;
-    setPendingUI(false);
-  }
-
-  async function refreshPriceAfterChange() {
-    try {
-      const productResult = await requestJson(`/api/products/${productId}`);
-      if (productResult && productResult.data) {
-        selectedProduct = productResult.data;
-        updateUnitPriceDisplay();
-        renderPriceDisplays(selectedProduct.price * directQuantity, directQuantity);
-      }
-    } catch (e) {
-      console.error('가격 갱신 실패:', e);
-    }
-    alert('상품 가격이 변경됐어요. 최신 가격을 확인한 뒤 다시 결제해주세요.');
-  }
-
-  // 재시도해도 결과가 달라지지 않는 "명확한" 실패 코드 목록 (BE DIRECT_ORDER_GROUPS.md 오류 표 기준).
-  // 상태 코드(400/404/409)만으로는 구분이 안 된다 — 409에는 명확한 실패(PRODUCT_UNAVAILABLE 등)와
-  // 재시도해볼 만한 불명확한 실패(CART_BUSY)가 섞여 있으므로 코드 단위로 판단해야 한다.
-  const DIRECT_ORDER_DEFINITE_FAILURE_CODES = new Set([
-    'INVALID_IDEMPOTENCY_KEY', 'INVALID_DIRECT_ORDER_BODY', 'INVALID_QUANTITY',
-    'ORDER_QUANTITY_EXCEEDED', 'CANNOT_GIFT_TO_SELF', 'PRODUCT_NOT_FOUND',
-    'RECEIVER_NOT_FOUND', 'PRODUCT_UNAVAILABLE', 'INVALID_PRODUCT_PRICE',
-    'IDEMPOTENCY_KEY_REUSED'
-  ]);
-
-  // 즉시 구매 제출(최초 클릭)과 재확인(재시도 버튼) 양쪽에서 같은 규칙으로 오류를 처리한다:
-  // 결과가 명확한 실패(값 오류·가격 변경 등)만 보관된 키를 지우고, 그 외(네트워크·CART_BUSY 등
-  // 불명확한 경우)는 키를 그대로 남겨 "주문 결과 다시 확인" 버튼으로 재확인할 수 있게 한다.
-  async function handleDirectOrderError(error) {
-    console.error('주문 생성/재확인 실패:', error);
-    if (error.code === 'PRODUCT_PRICE_CHANGED') {
-      clearDirectPending();
-      await refreshPriceAfterChange();
-      return;
-    }
-    if (DIRECT_ORDER_DEFINITE_FAILURE_CODES.has(error.code)) {
-      clearDirectPending();
-      alert(error.message || '주문에 실패했습니다. 다시 시도해 주세요.');
-      return;
-    }
-    // 결과 불명확(네트워크 단절, CART_BUSY, 5xx 등) — 보관된 키를 유지하고 재확인 UI를 노출한다.
-    setPendingUI(true);
-    alert(error.code === 'NETWORK_ERROR'
-      ? '네트워크 오류가 발생했습니다. 아래 "주문 결과 다시 확인" 버튼으로 다시 확인해주세요.'
-      : '주문 처리 결과를 확인하지 못했어요. 아래 "주문 결과 다시 확인" 버튼으로 다시 확인해주세요.');
-  }
-
-  if (!isBundle) {
-    try {
-      const saved = sessionStorage.getItem(directPendingKey());
-      if (saved) { directPending = JSON.parse(saved); setPendingUI(true); }
-    } catch (e) { /* 저장소를 못 읽으면 그냥 새 주문으로 진행한다 */ }
-
-    if (btnRetryPending) {
-      btnRetryPending.addEventListener('click', async () => {
-        if (!directPending) return;
-        btnRetryPending.disabled = true;
-        btnRetryPending.textContent = '확인 중...';
-        try {
-          await submitDirectOrder(directPending);
-        } catch (error) {
-          await handleDirectOrderError(error);
-          btnRetryPending.disabled = false;
-          btnRetryPending.textContent = '주문 결과 다시 확인';
-        }
-      });
-    }
-  }
-
   // 4. 선물 유형에 따른 받는 사람 UI 제어
   const receiverSection = document.getElementById("receiver-section");
   const selfReceiverSection = document.getElementById("self-receiver-section");
@@ -416,24 +447,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // 5. 결제 및 주문 생성 로직
-  const submitOrderBtn = document.getElementById("btn-submit-order");
-  // 버튼 안의 가격(#btn-submit-price)은 그대로 두고 라벨 텍스트만 바꾸기 위해 별도 span을 쓴다.
-  // submitOrderBtn.textContent로 통째로 바꾸면 그 span 자체가 사라져, 오류 후 재시도 시
-  // 버튼에서 가격 표시가 영구히 없어진다.
-  const submitOrderBtnLabel = document.getElementById("btn-submit-label");
-
   submitOrderBtn.addEventListener("click", async () => {
     if (!receiverId) {
       alert("받는 사람을 지정해 주세요.");
       return;
     }
 
-    try {
-      submitOrderBtn.disabled = true;
-      submitOrderBtnLabel.textContent = "결제 진행 중...";
-
-      if (isBundle) {
-        const requestBody = {
+    const requestBody = isBundle
+      ? {
           items: bundleItems.map(item => ({
             cartItemId: item.cartItemId,
             quantity: item.quantity,
@@ -443,28 +464,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           message: celebrationMessage ? celebrationMessage.trim() : null,
           isSelfGift: isSelfGift,
           receiverId: Number(receiverId)
-        };
-
-        const orderResult = await requestJson('/api/order-groups', {
-          method: 'POST',
-          body: requestBody,
-          headers: { 'Idempotency-Key': crypto.randomUUID() }
-        });
-
-        // orderResult가 없으면(=undefined) 401이라 api.js 전역 인터셉터가 이미 토스트를 띄우고
-        // 로그인 페이지로 리다이렉트를 예약해둔 상태다 — 여기서 추가로 처리하지 않는다.
-        if (!orderResult) return;
-
-        if (orderResult.data && orderResult.data.orderGroupId) {
-          location.href = `complete.html?orderGroupId=${orderResult.data.orderGroupId}`;
-        } else {
-          alert(orderResult.message || "주문에 실패했습니다. 다시 시도해 주세요.");
-          submitOrderBtn.disabled = false;
-          submitOrderBtnLabel.textContent = "결제하기";
         }
-      } else {
-        // 수량 1개도 포함해 즉시 구매는 항상 그룹 주문 API를 사용한다 (기존 단건 API는 레거시 호환용).
-        const requestBody = {
+      : {
+          // 수량 1개도 포함해 즉시 구매는 항상 그룹 주문 API를 사용한다 (기존 단건 API는 레거시 호환용).
           productId: Number(productId),
           quantity: directQuantity,
           expectedUnitPrice: selectedProduct.price,
@@ -472,31 +474,32 @@ document.addEventListener("DOMContentLoaded", async () => {
           isSelfGift: isSelfGift,
           receiverId: Number(receiverId)
         };
-        const pending = { key: crypto.randomUUID(), body: requestBody };
-        // 저장할 수 없으면 요청하지 않는다. 새로고침 후에도 동일 키로 재시도하기 위함이다.
-        try { sessionStorage.setItem(directPendingKey(), JSON.stringify(pending)); } catch (e) { /* noop */ }
-        directPending = pending;
+    const pending = { key: crypto.randomUUID(), body: requestBody };
 
-        try {
-          await submitDirectOrder(pending);
-        } catch (error) {
-          await handleDirectOrderError(error);
-          // 결과가 불명확해 재확인 대기 상태로 남았다면(setPendingUI(true)) 제출 버튼은 계속
-          // 비활성 상태를 유지하고, "주문 결과 다시 확인" 버튼이 다음 시도를 담당한다.
-          if (!directPending) {
-            submitOrderBtn.disabled = false;
-            submitOrderBtnLabel.textContent = "결제하기";
-          }
-        }
-        return;
-      }
+    // 재시도 안전성의 핵심은 "요청을 보내기 전에 먼저 보관"하는 순서다. 보관 자체가 실패하면
+    // (저장소 접근 불가 등) 새로고침 후 같은 키로 복원할 방법이 없어지므로, 이 경우엔 요청을
+    // 아예 보내지 않고 중단한다 — 그렇지 않으면 성공한 주문의 결과를 잃어버리고 새 키로 재시도해
+    // 중복 주문이 생길 위험이 있다.
+    try {
+      sessionStorage.setItem(pendingOrderKey(), JSON.stringify(pending));
+    } catch (e) {
+      alert('브라우저 저장 공간에 접근할 수 없어 주문을 보낼 수 없어요. 시크릿 모드나 저장소 차단 설정을 확인해주세요.');
+      return;
+    }
+    pendingOrder = pending;
+
+    submitOrderBtn.disabled = true;
+    submitOrderBtnLabel.textContent = "결제 진행 중...";
+    try {
+      await submitPendingOrder(pending);
     } catch (error) {
-      console.error("주문 생성 실패:", error);
-      alert(error.code === 'NETWORK_ERROR'
-        ? "네트워크 오류가 발생했습니다. 다시 시도해 주세요."
-        : "주문에 실패했습니다. 다시 시도해 주세요.");
-      submitOrderBtn.disabled = false;
-      submitOrderBtnLabel.textContent = "결제하기";
+      await handleOrderSubmitError(error);
+      // 결과가 불명확해 재확인 대기 상태로 남았다면(setPendingUI(true)) 제출 버튼은 계속
+      // 비활성 상태를 유지하고, "주문 결과 다시 확인" 버튼이 다음 시도를 담당한다.
+      if (!pendingOrder) {
+        submitOrderBtn.disabled = false;
+        submitOrderBtnLabel.textContent = "결제하기";
+      }
     }
   });
 

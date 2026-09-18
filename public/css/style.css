@@ -3636,6 +3636,20 @@ body.page-complete {
             font-size: 13px;
             color: var(--text-sub);
         }
+.page-complete #gift-items-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+.page-complete .gift-summary {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(0,0,0,0.06);
+            font-size: 13px;
+            font-weight: 700;
+            color: #191919;
+            text-align: right;
+        }
 .page-complete .bottom-actions {
             display: flex;
             gap: 8px;
