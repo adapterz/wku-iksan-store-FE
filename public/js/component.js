@@ -672,6 +672,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 검색 오버레이 공통 로직 (전역 위임 또는 DOMContentLoaded 이후 바인딩)
     const searchOverlay = document.getElementById('search-overlay');
+
+    // 최근 검색어 뱃지 렌더링 (오버레이를 열 때마다 최신 상태로 다시 그린다)
+    function renderRecentSearches() {
+        if (!searchOverlay) return;
+        const recentTitle = searchOverlay.querySelector('.recent-searches-title');
+        const recentList = searchOverlay.querySelector('.recent-keywords-list');
+        if (!recentList) return;
+
+        const keywords = getRecentSearches();
+        recentList.innerHTML = '';
+
+        if (keywords.length === 0) {
+            if (recentTitle) recentTitle.style.display = 'none';
+            recentList.innerHTML = '<p class="recent-searches-empty">최근 검색 내역이 없습니다.</p>';
+            return;
+        }
+
+        if (recentTitle) recentTitle.style.display = '';
+        keywords.forEach((keyword) => {
+            const badge = document.createElement('span');
+            badge.className = 'keyword-badge';
+
+            const textBtn = document.createElement('button');
+            textBtn.type = 'button';
+            textBtn.className = 'keyword-badge-text';
+            textBtn.textContent = keyword;
+            textBtn.addEventListener('click', () => navigateToSearch(keyword));
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'keyword-badge-remove';
+            removeBtn.setAttribute('aria-label', `${keyword} 삭제`);
+            removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeRecentSearch(keyword);
+                renderRecentSearches();
+            });
+
+            badge.appendChild(textBtn);
+            badge.appendChild(removeBtn);
+            recentList.appendChild(badge);
+        });
+    }
+
     if (searchOverlay) {
         const searchInput = searchOverlay.querySelector('.search-overlay-input');
         const searchIcon = searchOverlay.querySelector('.search-overlay-input-icon');
@@ -683,6 +728,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (openBtn) {
                 e.preventDefault();
                 searchOverlay.classList.add('open');
+                renderRecentSearches();
                 if (searchInput) {
                     setTimeout(() => searchInput.focus(), 50);
                 }
@@ -737,6 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             if (searchOverlay) {
                 searchOverlay.classList.add('open');
+                renderRecentSearches();
                 const searchInput = searchOverlay.querySelector('.search-overlay-input');
                 if (searchInput) {
                     setTimeout(() => searchInput.focus(), 50);
