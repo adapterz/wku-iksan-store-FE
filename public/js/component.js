@@ -107,11 +107,24 @@ function wireGiftArrivalMoreButtons() {
     });
 }
 
-function renderGiftArrivalList(gifts) {
+// PR #101 리뷰(Switchh2) 반영: 상세 조회가 실패한 항목을 조용히 목록에서 빼버리면, 제목은
+// "N개 도착"인데 실제로는 일부만(또는 하나도) 안 보이고, 정작 확인을 누르면 그 실패한 항목까지
+// 전부 확인 처리돼서 다시는 안내되지 않는 문제가 있었다. 실패한 항목도 카드 자리에 안내 문구로
+// 남겨서 최소한 "이런 선물이 왔다"는 사실 자체는 놓치지 않게 한다. 기존 "확인 = 안내된 전체 확인
+// 처리" 정책은 그대로 유지한다(개별 읽음 처리로 바꾸는 것은 아님).
+function giftArrivalErrorItemHTML() {
+    return `
+<div class="gift-arrival-item gift-arrival-item-error">
+    <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+    <p class="gift-arrival-item-error-text">선물 정보를 불러오지 못했어요. 선물함에서 확인해주세요.</p>
+</div>`;
+}
+
+function renderGiftArrivalList(entries) {
     const listEl = document.getElementById('gift-arrival-list');
     if (!listEl) return;
-    listEl.innerHTML = gifts.length
-        ? gifts.map((gift, index) => giftArrivalItemHTML(gift, index)).join('')
+    listEl.innerHTML = entries.length
+        ? entries.map((entry, index) => entry.data ? giftArrivalItemHTML(entry.data, index) : giftArrivalErrorItemHTML()).join('')
         : '';
     wireGiftArrivalMoreButtons();
 }
@@ -130,14 +143,17 @@ window.showGiftArrivalModal = async function(count, giftIds) {
     if (listEl) listEl.innerHTML = '<p class="gift-arrival-list-loading">선물 정보를 불러오는 중...</p>';
     if (modal) modal.classList.add('open');
 
-    // 일부 상세 조회가 실패해도(예: 네트워크 오류) 나머지는 그대로 보여주고 실패한 건만 건너뛴다.
+    // 일부 상세 조회가 실패해도(예: 네트워크 오류) 나머지는 그대로 보여준다. 실패한 항목도
+    // (data: null로) 그대로 들고 있어야 renderGiftArrivalList가 그 자리에 실패 안내를 채울 수
+    // 있다 — 조용히 빼버리면 제목의 개수와 실제 목록이 안 맞고, 확인 시 안내조차 못 받은 항목까지
+    // 확인 처리돼버린다(PR #101 리뷰 반영).
     const details = await Promise.all(giftIds.map(async (id) => {
         try {
             const result = await requestJson(`/api/gifts/${id}`, { silent401: true });
-            return result && result.data ? result.data : null;
+            return { id, data: result && result.data ? result.data : null };
         } catch (error) {
             console.error(`선물(${id}) 상세 조회 실패:`, error);
-            return null;
+            return { id, data: null };
         }
     }));
 
@@ -146,7 +162,7 @@ window.showGiftArrivalModal = async function(count, giftIds) {
     if (!modal || !modal.classList.contains('open')) return;
     if (pendingGiftArrivalIds !== giftIds) return;
 
-    renderGiftArrivalList(details.filter(Boolean));
+    renderGiftArrivalList(details);
 };
 
 // 확인 안 한 선물이 있는지 조회. auth:updated에서 isLoggedIn일 때만 호출되므로 비로그인
