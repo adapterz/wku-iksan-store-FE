@@ -33,12 +33,18 @@ if (document.body && !document.getElementById('search-overlay')) {
 // ===== 선물 도착 알림 모달 =====
 // 로그인 상태로 확인될 때마다(auth:updated) 확인 안 한 선물이 있는지 체크해서 모달로 안내한다.
 // BE 이슈 #101 계약 기준: GET /api/gifts/unnotified → { count, giftIds }, PATCH /api/gifts/notify.
+// (이슈 #100 논의 반영) 목록 API(/api/gifts/unnotified)는 count/giftIds만 내려주고 보낸사람·
+// 상품명·메시지는 포함하지 않으므로, 안내된 giftId별로 이미 그 정보를 내려주는 상세 API
+// (GET /api/gifts/:id)를 병렬 조회해서 모달 안에서 목록+메시지를 바로 보여준다.
 function getGiftArrivalModalHTML() {
     return `
 <div id="gift-arrival-modal" class="gift-arrival-modal">
     <div class="gift-arrival-modal-content">
-        <div class="gift-arrival-modal-icon"><i class="fa-solid fa-gift"></i></div>
-        <p class="gift-arrival-modal-text">새로운 선물이 <strong id="gift-arrival-count">0</strong>개 도착했어요!</p>
+        <div class="gift-arrival-modal-header">
+            <div class="gift-arrival-modal-icon"><i class="fa-solid fa-gift"></i></div>
+            <p class="gift-arrival-modal-text">새로운 선물이 <strong id="gift-arrival-count">0</strong>개 도착했어요</p>
+        </div>
+        <div id="gift-arrival-list" class="gift-arrival-list"></div>
         <div class="gift-arrival-modal-actions">
             <button type="button" id="btn-gift-arrival-confirm" class="btn-gift-arrival-confirm">확인</button>
             <button type="button" id="btn-gift-arrival-giftbox" class="btn-gift-arrival-giftbox">선물함으로 가기</button>
@@ -51,17 +57,96 @@ if (document.body && !document.getElementById('gift-arrival-modal')) {
     document.body.insertAdjacentHTML('beforeend', getGiftArrivalModalHTML());
 }
 
+// 보낸사람 닉네임/메시지는 사용자가 입력한 텍스트라 그대로 꽂아 넣으면 안 되므로 이스케이프한다.
+// (getSearchHeaderHTML의 escapedKeyword와 동일한 패턴)
+function escapeGiftHtml(str) {
+    return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// 이슈 #100 코멘트(mikuuu3) 반영: 가격은 노출하지 않고 보낸사람/상품명/메시지만 보여준다.
+function giftArrivalItemHTML(gift, index) {
+    const senderLabel = gift.isSelfGift
+        ? '내가 나에게 보낸 선물'
+        : `${escapeGiftHtml((gift.sender && gift.sender.nickname) || '친구')} 님이 보냄`;
+
+    // 메시지는 기본 2줄로 접어두고(CSS max-height), 실제로 잘린 경우에만 렌더 후
+    // wireGiftArrivalMoreButtons에서 "더보기" 버튼을 드러낸다.
+    const messageHtml = gift.message ? `
+        <div class="gift-arrival-item-message">
+            <i class="fa-solid fa-comment" aria-hidden="true"></i>
+            <p class="gift-arrival-item-message-text" data-index="${index}">${escapeGiftHtml(gift.message)}</p>
+        </div>
+        <button type="button" class="gift-arrival-item-more" data-index="${index}" hidden>더보기</button>` : '';
+
+    return `
+<div class="gift-arrival-item">
+    <div class="gift-arrival-item-thumb"><img src="${escapeGiftHtml(gift.thumbnailUrl || '')}" alt="" loading="lazy"></div>
+    <div class="gift-arrival-item-body">
+        <p class="gift-arrival-item-sender">${senderLabel}</p>
+        <p class="gift-arrival-item-name">${escapeGiftHtml(gift.productName || '')}</p>
+        ${messageHtml}
+    </div>
+</div>`;
+}
+
+// 더보기 클릭 시 메시지 영역의 max-height를 늘려서(CSS transition) 그 자리에서 펼치고,
+// 다시 누르면 접는다 — 별도 팝업/페이지 이동 없이 카드 안에서 완결되는 방식(이슈 #100 권장).
+// 메시지가 2줄 이내로 다 보이는 카드는 실측(scrollHeight) 결과 버튼을 계속 숨겨둔다.
+function wireGiftArrivalMoreButtons() {
+    document.querySelectorAll('.gift-arrival-item-message-text').forEach((textEl) => {
+        const index = textEl.dataset.index;
+        const moreBtn = document.querySelector(`.gift-arrival-item-more[data-index="${index}"]`);
+        if (!moreBtn) return;
+        if (textEl.scrollHeight > textEl.clientHeight + 1) {
+            moreBtn.hidden = false;
+        }
+        moreBtn.addEventListener('click', () => {
+            const expanded = textEl.classList.toggle('expanded');
+            moreBtn.textContent = expanded ? '접기' : '더보기';
+        });
+    });
+}
+
+function renderGiftArrivalList(gifts) {
+    const listEl = document.getElementById('gift-arrival-list');
+    if (!listEl) return;
+    listEl.innerHTML = gifts.length
+        ? gifts.map((gift, index) => giftArrivalItemHTML(gift, index)).join('')
+        : '';
+    wireGiftArrivalMoreButtons();
+}
+
 // 모달에 안내했던 선물 ID를 확인 처리 시점까지 들고 있는다. 조회 응답에 포함된 ID만
 // 확인 처리 요청에 실어 보내므로, 모달이 열려있는 동안 새로 도착한 선물(이번 조회 대상이
 // 아니었던 것)이 실수로 함께 확인 처리되지 않는다.
 let pendingGiftArrivalIds = [];
 
-window.showGiftArrivalModal = function(count, giftIds) {
+window.showGiftArrivalModal = async function(count, giftIds) {
     pendingGiftArrivalIds = giftIds;
     const modal = document.getElementById('gift-arrival-modal');
     const countEl = document.getElementById('gift-arrival-count');
+    const listEl = document.getElementById('gift-arrival-list');
     if (countEl) countEl.textContent = count;
+    if (listEl) listEl.innerHTML = '<p class="gift-arrival-list-loading">선물 정보를 불러오는 중...</p>';
     if (modal) modal.classList.add('open');
+
+    // 일부 상세 조회가 실패해도(예: 네트워크 오류) 나머지는 그대로 보여주고 실패한 건만 건너뛴다.
+    const details = await Promise.all(giftIds.map(async (id) => {
+        try {
+            const result = await requestJson(`/api/gifts/${id}`, { silent401: true });
+            return result && result.data ? result.data : null;
+        } catch (error) {
+            console.error(`선물(${id}) 상세 조회 실패:`, error);
+            return null;
+        }
+    }));
+
+    // 조회하는 동안 모달이 이미 닫혔거나(확인 클릭 등) 더 최신 조회로 대체됐다면
+    // 오래된 결과로 화면을 덮어쓰지 않는다(search.js abf86c5와 동일한 패턴).
+    if (!modal || !modal.classList.contains('open')) return;
+    if (pendingGiftArrivalIds !== giftIds) return;
+
+    renderGiftArrivalList(details.filter(Boolean));
 };
 
 // 확인 안 한 선물이 있는지 조회. auth:updated에서 isLoggedIn일 때만 호출되므로 비로그인
