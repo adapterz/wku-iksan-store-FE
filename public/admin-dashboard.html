@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>관리자 콘솔 · Iksan Store 관리자</title>
+<link rel="icon" href="images/favicon.png"><link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/admin-common.css">
+<link rel="stylesheet" href="css/admin-dashboard.css">
+<script src="js/api.js" defer></script><script src="js/admin-common.js" defer></script><script src="js/admin-dashboard.js" defer></script>
+</head>
+<body class="admin-sample">
+<header class="ai-header"><h1>관리자 콘솔</h1><a href="mypage.html" class="ai-header-back">돌아가기</a></header>
+<main>
+<section id="login-gate" class="ai-gate">
+<p>이 화면은 관리자 로그인 후 접근할 수 있어요.</p>
+<button id="btn-admin-login" class="ai-primary">로그인하러 가기</button>
+</section>
+
+<div id="app" hidden>
+<nav class="ai-tabs" aria-label="관리자 화면"></nav>
+
+<section id="dashboard-view">
+<p class="ai-section-label">처리 대기</p>
+<div class="ai-stat-grid" id="pending-stats"></div>
+<p class="ai-section-label">상품 현황</p>
+<div class="ai-stat-grid two" id="product-stats"></div>
+<div class="ai-panel">
+<p class="ai-section-label" style="padding:0 0 12px">브랜드별 상품 수</p>
+<div id="brand-rows"></div>
+</div>
+</section>
+
+<section id="inquiries-view" hidden>
+<div class="ai-tabs ai-subtabs" style="padding:0 24px" role="tablist" aria-label="문의 상태">
+<button data-inquiry-tab="pending" aria-current="page">대기 중</button>
+<button data-inquiry-tab="answered">답변 완료</button>
+</div>
+<div class="ai-list" id="inquiry-list"></div>
+</section>
+</div>
+
+<p id="page-error" role="alert" hidden></p>
+</main>
+<div id="toast" role="status" hidden></div>
+</body>
+</html>

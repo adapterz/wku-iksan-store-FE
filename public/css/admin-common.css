@@ -1,0 +1,61 @@
+/* Shared styles for the admin pages (admin-dashboard.html, admin-products.html, admin-reports.html, admin-sanctions.html). */
+.admin-sample{box-shadow:none;font-size:14px}
+body.admin-sample{padding-bottom:0}
+.admin-sample button,.admin-sample select,.admin-sample textarea,.admin-sample input{font:inherit}
+.admin-sample button:disabled{opacity:.45;cursor:not-allowed}
+.admin-sample [hidden]{display:none!important}
+.admin-sample button:focus-visible,.admin-sample a:focus-visible,.admin-sample input:focus-visible{outline:2px solid #191919;outline-offset:3px}
+
+.ai-header{height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #f2f2f2;background:#fff}
+.ai-header h1{font-size:17px;font-weight:700}
+.ai-header-back{font-size:13px;color:#555;text-decoration:none;padding:6px 12px;border:1px solid #ddd;border-radius:6px;white-space:nowrap}
+
+/* 관리자 화면 상단 네비게이션(대시보드/문의하기/상품·카테고리/신고/제재·회원).
+   대시보드 페이지는 button 대신 a를 쓰므로(같은 파일 안 탭 전환 + 다른 페이지 링크 겸용)
+   button/a 둘 다 지원한다. */
+.ai-tabs{display:flex;gap:4px;border-bottom:1px solid #eee;padding:0 16px;background:#fff;position:sticky;top:0;z-index:2}
+.ai-tabs button,.ai-tabs a{padding:14px 4px;margin-right:16px;color:#999;font-size:14px;border-bottom:2px solid transparent;text-decoration:none;white-space:nowrap}
+.ai-tabs button[aria-current=page],.ai-tabs a[aria-current=page]{color:#191919;border-color:#191919;font-weight:700}
+
+/* 최상단 관리자 네비게이션(.ai-tabs)은 sticky지만, 그 아래에 또 .ai-tabs를 재사용하는
+   화면 내 서브탭(대시보드의 "문의 상태", 상품 페이지의 "상품 관리/카테고리 관리")은
+   sticky면 안 된다 — 둘 다 top:0으로 붙으면 스크롤 시 서로 겹친다. .ai-subtabs로 sticky만 해제한다. */
+.ai-subtabs{position:static}
+
+.ai-gate{padding:60px 16px;text-align:center;color:#767676;font-size:13px}
+.ai-gate button{margin-top:16px}
+
+.ai-card{background:#fff;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:14px 16px}
+.ai-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ai-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:100px}
+
+/* 목록/카드형 화면(대시보드 문의, 상품, 제재, 신고)에서 공통으로 쓰는 리스트·카드·폼 뼈대.
+   각 페이지 CSS에는 그 화면에만 있는 배지 색상·필드 등만 남긴다. */
+.ai-list{padding:0 16px 16px;display:flex;flex-direction:column;gap:10px}
+.ai-card-head-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ai-id{font-size:11px;color:#999}
+.ai-content{font-size:14px;color:#191919;margin:10px 0 4px;line-height:1.6}
+.ai-meta{font-size:11px;color:#999;margin:0 0 8px;line-height:1.7}
+.ai-empty{text-align:center;padding:40px 16px;color:#999;font-size:13px}
+.ai-toggle.danger{color:#b64535;border-color:#f0c9c0}
+
+.as-form-panel{margin:12px 16px 24px;padding:16px;background:#fff;border:1px solid var(--border-color);border-radius:var(--radius-md)}
+.as-form-title{font-size:13px;font-weight:700;margin-bottom:12px}
+.as-field{margin-bottom:12px}
+.as-field label{display:block;font-size:12px;color:#767676;margin-bottom:5px}
+
+/* 상태별 필터 칩(상품 상태, 신고 상태 등에서 공통 사용) */
+.ap-status-filter{display:flex;gap:6px;padding:12px 16px;flex-wrap:wrap}
+.ap-status-filter button{font-size:12.5px;padding:6px 12px;border:1px solid #ddd;border-radius:100px;color:#555}
+.ap-status-filter button[aria-current=page]{background:var(--primary-color);color:#fff;border-color:var(--primary-color)}
+
+.ai-textarea{display:block;width:100%;resize:vertical;min-height:64px;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px;line-height:1.7}
+.ai-textarea:focus{outline:1px solid #191919}
+.ai-field-error{color:#b64535;font-size:12px;margin:6px 0 0}
+.ai-btn-row{display:flex;gap:8px;margin-top:10px}
+.ai-toggle{font-size:12.5px;padding:6px 14px;border:1px solid #ddd;border-radius:6px;color:#555}
+.ai-primary{border-radius:8px;background:var(--primary-color);color:#fff;padding:9px 16px;font-weight:700!important;font-size:13px}
+.ai-secondary{border:1px solid #ddd;padding:9px 16px;border-radius:6px;background:#fff;font-size:13px!important}
+
+#toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);width:max-content;max-width:90%;padding:12px 20px;background:#222;color:white;border-radius:8px;font-size:12px;z-index:20}
+#page-error{color:#b64535;padding:15px 16px;font-size:12px}
