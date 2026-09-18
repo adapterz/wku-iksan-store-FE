@@ -198,9 +198,9 @@ function initBottomSheet(productId) {
   if (orderBtn) {
     orderBtn.addEventListener('click', () => {
       // 나에게 선물하기/선물하기 둘 다 기존처럼 결제 페이지(order.html)로 이동한다.
-      // order.html은 단건 주문 API(POST /api/orders)를 쓰므로 수량은 아직 반영되지 않는다.
+      // order.html은 즉시 구매 그룹 주문 API(POST /api/order-groups/direct)를 쓰므로 수량이 반영된다.
       sessionStorage.setItem('orderEntryProductId', String(productId));
-      window.location.href = `order.html?productId=${productId}&type=${sheetState.orderType}`;
+      window.location.href = `order.html?productId=${productId}&type=${sheetState.orderType}&quantity=${sheetState.quantity}`;
     });
   }
 }

@@ -32,6 +32,12 @@
     <!-- Main Content Area -->
     <main class="main-content">
         <div class="order-container">
+            <!-- Pending Order Recovery Notice (새로고침/네트워크 실패 후 이전 즉시 구매 요청 재확인용) -->
+            <div id="pending-order-notice" style="display:none; padding: 14px 16px; background-color: #FFF7E6; border: 1px solid #FFE1A8; border-radius: 8px; font-size: 13px; color: #7A5B00; line-height: 1.6;">
+                <strong>이전 주문 결과를 확인해야 해요.</strong>
+                <p style="margin: 6px 0 10px;">새로고침 전에 보낸 요청이 아직 처리 중일 수 있어요. 새 주문을 만들지 않고 같은 요청으로 안전하게 다시 확인합니다.</p>
+                <button id="btn-retry-pending-order" type="button" style="padding: 8px 14px; background-color: #191919; color: #fff; border-radius: 6px; font-weight: 700; font-size: 13px; border: none; cursor: pointer;">주문 결과 다시 확인</button>
+            </div>
             <!-- Celebration Card Section -->
             <div class="celebration-card-container">
                 <div class="celebration-card">
@@ -112,7 +118,7 @@
 
             <div style="padding: 0 20px 20px;">
                 <button id="btn-submit-order" class="btn-submit-order" style="width: 100%; padding: 16px; background-color: #191919; color: #FFFFFF; font-weight: 700; font-size: 16px; border-radius: 8px; text-align: center; cursor: pointer; border: none;">
-                    <span id="btn-submit-price"></span> 결제하기
+                    <span id="btn-submit-price"></span> <span id="btn-submit-label">결제하기</span>
                 </button>
             </div>
         </div>
