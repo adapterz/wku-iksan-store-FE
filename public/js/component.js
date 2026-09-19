@@ -983,12 +983,19 @@ window.updateWishlistIcon = function(icon, isSaved) {
 // 전역 장바구니 캐시 및 단일 요청 프라미스
 window._cartCache = null;
 window._cartFetchPromise = null;
+let cartCacheVersion = 0;
+function invalidateCartCache() {
+    cartCacheVersion++;
+    window._cartCache = null;
+    window._cartFetchPromise = null;
+}
 
 // 장바구니 캐시가 없다면 서버에서 최초 1회 전체 조회하여 캐시를 채우는 공통 헬퍼 (Singleflight 패턴 적용)
 async function ensureCartLoaded() {
+    const version = cartCacheVersion;
     if (!window._cartCache) {
         if (!window._cartFetchPromise) {
-            window._cartFetchPromise = (async () => {
+            const fetchPromise = (async () => {
                 try {
                     // silent401: 비로그인 상태에서도 홈 화면 등에서 조용히 빈 장바구니로 처리해야 하므로
                     // 전역 401 리다이렉트를 건너뛴다.
@@ -1003,14 +1010,18 @@ async function ensureCartLoaded() {
                         return [];
                     }
                     // 네트워크 오류, 500 등은 캐시를 오염시키지 않고 다음 요청에서 재조회하도록 함
-                    window._cartCache = null;
                     throw error;
                 } finally {
-                    window._cartFetchPromise = null;
+                    // 이전 요청이 새로 시작한 요청의 참조를 지우지 않도록 한다.
+                    if (window._cartFetchPromise === fetchPromise) window._cartFetchPromise = null;
                 }
             })();
+            window._cartFetchPromise = fetchPromise;
         }
-        window._cartCache = await window._cartFetchPromise;
+        const cart = await window._cartFetchPromise;
+        // 변경/복원 이전에 시작한 조회로 최신 캐시를 덮어쓰지 않는다.
+        if (version !== cartCacheVersion) return ensureCartLoaded();
+        window._cartCache = cart;
     }
     return window._cartCache;
 }
@@ -1024,6 +1035,7 @@ async function getCartTotalQuantity() {
 // 헤더의 장바구니 아이콘 뱃지(.cart-count-badge, 인덱스/서브헤더 등 화면에 있는 만큼 전부)를
 // 현재 장바구니 총 수량으로 갱신한다. 0개면 숨긴다.
 window.updateCartBadge = async function() {
+    if (!document.querySelectorAll('.cart-count-badge').length) return;
     try {
         const total = await getCartTotalQuantity();
         document.querySelectorAll('.cart-count-badge').forEach(badge => {
@@ -1040,7 +1052,17 @@ window.updateCartBadge = async function() {
 };
 
 if (typeof window.addEventListener === 'function') {
-    window.addEventListener('cart-updated', () => window.updateCartBadge());
+    window.addEventListener('cart-updated', () => {
+        invalidateCartCache();
+        return window.updateCartBadge();
+    });
+    // 공통 인증 재검증과 같은 pageshow 조건. 인증 실패 여부와 무관하게
+    // 뱃지도 갱신해야 하므로 별도 리스너로 처리한다(silent401은 빈 뱃지).
+    window.addEventListener('pageshow', event => {
+        if (!event.persisted) return;
+        invalidateCartCache();
+        return window.updateCartBadge();
+    });
 }
 
 // 정보 아이콘 옆 안내 툴팁을 여닫는 공용 유틸리티.

@@ -127,6 +127,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let pendingOwnerUserId = null;
   let orderRequestInFlight = false;
   let recoveringOrder = false;
+  let orderFormBlocked = false; // 재조회 중/실패/주문 불가 상태에서는 재제출하지 않는다.
 
   function pendingOrderKey() {
     return (isBundle ? 'bundle-order-pending:' : 'direct-order-pending:') + currentUser.userId;
@@ -134,7 +135,28 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function setPendingUI(isPending) {
     if (pendingNotice) pendingNotice.style.display = isPending ? 'block' : 'none';
-    if (submitOrderBtn) submitOrderBtn.disabled = isPending;
+    if (submitOrderBtn) submitOrderBtn.disabled = isPending || orderFormBlocked;
+    const conflict = !!pendingOrder?.conflict;
+    if (btnRetryPending) {
+      btnRetryPending.hidden = conflict;
+      btnRetryPending.disabled = conflict;
+    }
+    const description = document.getElementById('pending-order-description');
+    if (description) description.textContent = conflict
+      ? '저장된 주문 내용이 기존 요청과 달라 결과를 확인할 수 없어요. 이미 처리된 주문이 있을 수 있으니 구매 내역을 확인하고, 확인이 어려우면 문의해주세요. 새 주문과 반복 재전송은 중단했습니다.'
+      : '이전에 보낸 요청이 아직 처리 중일 수 있어요. 새 주문을 만들지 않고 같은 요청으로 안전하게 다시 확인합니다.';
+    const details = document.getElementById('pending-order-details');
+    if (details) {
+      const body = pendingOrder?.body;
+      const items = body?.items;
+      const products = Array.isArray(items)
+        ? items.map(item => `장바구니 항목 #${item.cartItemId} · ${item.quantity}개`).join(', ')
+        : body ? `상품 #${body.productId} · ${body.quantity}개` : '';
+      details.textContent = body
+        ? `${products} / 받는 사람: ${body.isSelfGift ? '나에게 선물' : `회원 #${body.receiverId}`}` : '';
+    }
+    const historyLink = document.getElementById('pending-order-history');
+    if (historyLink) historyLink.hidden = !conflict;
     // 대기 상태가 풀릴 때(계정 전환으로 인한 초기화 포함) 버튼 라벨도 "결제하기"로 되돌린다.
     // 그렇지 않으면 이전 계정에서 "결제 진행 중..."으로 바뀐 라벨이 그대로 남아, 실제로는
     // 클릭 가능한데도 아직 처리 중인 것처럼 보인다.
@@ -155,7 +177,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   async function submitPendingOrder(pending) {
-    if (orderRequestInFlight) return;
+    if (orderRequestInFlight || pending.conflict) return;
     orderRequestInFlight = true;
     // 응답 대기 중 화면 재검증이 실행돼도 보관소 정리는 원래 소유자 기준이다.
     const ownerUserId = pendingOwnerUserId;
@@ -203,15 +225,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       if (isBundle) {
         const cartResult = await requestJson('/api/cart-items');
+        if (!cartResult) return; // 401: 공통 로그인 이동, 제출 차단은 유지
+        if (!Array.isArray(cartResult.data)) throw new Error('Invalid cart response');
         const idSet = new Set(bundleCartItemIds);
         bundleItems = (cartResult && cartResult.data ? cartResult.data : [])
           .filter(item => idSet.has(item.cartItemId) && item.canOrder);
+        if (!bundleItems.length) {
+          alert('주문 가능한 상품이 없습니다. 장바구니를 다시 확인해주세요.');
+          location.href = 'cart.html';
+          return;
+        }
         renderBundleList(bundleItems);
         const totalPrice = bundleItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
         const totalQuantity = bundleItems.reduce((sum, item) => sum + item.quantity, 0);
         renderPriceDisplays(totalPrice, totalQuantity);
       } else {
         const productResult = await requestJson(`/api/products/${productId}`);
+        if (!productResult) return;
+        if (!productResult.data) throw new Error('Product unavailable');
         if (productResult && productResult.data) {
           selectedProduct = productResult.data;
           updateUnitPriceDisplay();
@@ -220,8 +251,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     } catch (e) {
       console.error('가격/구성 갱신 실패:', e);
+      alert('최신 상품 정보를 확인하지 못했어요. 새로고침 후 다시 확인해주세요.');
+      return;
     }
     alert('상품 가격이나 구성이 변경됐어요. 최신 내용을 확인한 뒤 다시 결제해주세요.');
+    orderFormBlocked = false;
+    setPendingUI(false);
   }
 
   // 재시도해도 결과가 달라지지 않는 "명확한" 실패 코드 목록 (BE DIRECT_ORDER_GROUPS.md /
@@ -229,10 +264,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 명확한 실패(PRODUCT_UNAVAILABLE 등)와 재시도해볼 만한 불명확한 실패(CART_BUSY)가 섞여 있으므로
   // 코드 단위로 판단해야 한다.
   const ORDER_DEFINITE_FAILURE_CODES = new Set([
-    'INVALID_IDEMPOTENCY_KEY', 'INVALID_DIRECT_ORDER_BODY', 'INVALID_QUANTITY',
+    'INVALID_IDEMPOTENCY_KEY', 'INVALID_DIRECT_ORDER_BODY', 'INVALID_ORDER_GROUP_BODY', 'INVALID_QUANTITY',
     'ORDER_QUANTITY_EXCEEDED', 'CANNOT_GIFT_TO_SELF', 'PRODUCT_NOT_FOUND',
     'RECEIVER_NOT_FOUND', 'USER_NOT_FOUND', 'PRODUCT_UNAVAILABLE', 'INVALID_PRODUCT_PRICE',
-    'IDEMPOTENCY_KEY_REUSED', 'CART_ITEM_NOT_FOUND', 'CART_CHANGED'
+    'CART_ITEM_NOT_FOUND', 'CART_CHANGED'
   ]);
 
   // 주문 제출(최초 클릭)과 재확인(재시도 버튼) 양쪽에서 같은 규칙으로 오류를 처리한다:
@@ -240,7 +275,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 불명확한 경우)는 키를 그대로 남겨 "주문 결과 다시 확인" 버튼으로 재확인할 수 있게 한다.
   async function handleOrderSubmitError(error) {
     console.error('주문 생성/재확인 실패:', error);
+    if (error.code === 'IDEMPOTENCY_KEY_REUSED') {
+      // 키/본문은 보존하되 충돌 요청을 다시 보내거나 새 키로 바꾸지 않는다.
+      pendingOrder.conflict = true;
+      try { sessionStorage.setItem(pendingOrderKey(), JSON.stringify(pendingOrder)); }
+      catch (e) { /* 원래 키/본문은 유지하고 현재 화면에서도 재전송을 막는다. */ }
+      setPendingUI(true);
+      alert('이미 처리된 주문이 있을 수 있어요. 구매 내역을 확인하고, 확인이 어려우면 문의해주세요.');
+      return;
+    }
     if (error.code === 'PRODUCT_PRICE_CHANGED') {
+      orderFormBlocked = true;
       clearPendingOrder();
       if (recoveringOrder) return;
       await refreshPriceAfterChange();
@@ -260,7 +305,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (btnRetryPending) {
     btnRetryPending.addEventListener('click', async () => {
-      if (!pendingOrder || orderRequestInFlight) return;
+      if (!pendingOrder || pendingOrder.conflict || orderRequestInFlight) return;
       btnRetryPending.disabled = true;
       btnRetryPending.textContent = '확인 중...';
       try {
@@ -268,7 +313,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       } catch (error) {
         await handleOrderSubmitError(error);
       } finally {
-        btnRetryPending.disabled = false;
+        btnRetryPending.disabled = !!pendingOrder?.conflict;
         btnRetryPending.textContent = '주문 결과 다시 확인';
       }
     });
@@ -493,7 +538,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 5. 결제 및 주문 생성 로직
   submitOrderBtn.addEventListener("click", async () => {
-    if (pendingOrder || orderRequestInFlight || recoveringOrder) return;
+    if (pendingOrder || orderRequestInFlight || recoveringOrder || orderFormBlocked) return;
+    if (isBundle && !bundleItems.length) {
+      orderFormBlocked = true;
+      setPendingUI(false);
+      alert('주문 가능한 상품이 없습니다. 장바구니를 다시 확인해주세요.');
+      location.href = 'cart.html';
+      return;
+    }
     if (!receiverId) {
       alert("받는 사람을 지정해 주세요.");
       return;
@@ -542,7 +594,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       await handleOrderSubmitError(error);
       // 결과가 불명확해 재확인 대기 상태로 남았다면(setPendingUI(true)) 제출 버튼은 계속
       // 비활성 상태를 유지하고, "주문 결과 다시 확인" 버튼이 다음 시도를 담당한다.
-      if (!pendingOrder && !recoveringOrder) {
+      if (!pendingOrder && !recoveringOrder && !orderFormBlocked) {
         submitOrderBtn.disabled = false;
         submitOrderBtnLabel.textContent = "결제하기";
       }

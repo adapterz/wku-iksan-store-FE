@@ -19,12 +19,12 @@ const sampleItem = (extras = {}) => ({cartItemId:1,productId:76,name:'커피',br
 const ok = data => ({ok:true,status:200,json:async()=>({data})});
 const bad = (status,code) => ({ok:false,status,json:async()=>({status,code})});
 async function app(options = {}) {
-  const elements = new Map(), calls = [], storage = options.storage || new Map(), listeners = new Map();
+  const elements = new Map(), calls = [], storage = options.storage || new Map(), listeners = new Map(), emitted = [];
   const el = id => { if (!elements.has(id)) elements.set(id,new Element()); return elements.get(id); };
   for (const id of ['signed-out','workspace','page-error','toast']) el(id).hidden = true;
   const location = new URL(options.url || 'http://localhost/cart');
   const addEventListener=(type,fn)=>listeners.set(type,fn);
-  const context = { document:{getElementById:el,createElement:tag=>new Element(tag),addEventListener,visibilityState:'visible'}, window:{addEventListener}, location,
+  const context = { document:{getElementById:el,createElement:tag=>new Element(tag),addEventListener,visibilityState:'visible'}, window:{addEventListener,dispatchEvent:event=>emitted.push(event.type)}, CustomEvent:class {constructor(type){this.type=type;}}, location,
     history:{replaceState:(_,__,url)=>{location.href = String(url);}}, URL, AbortController,
     crypto:{randomUUID:()=> 'cart-test-0000-0000-000000000001'},
     // Avoid real timers in unit tests; network errors are injected explicitly.
@@ -42,7 +42,7 @@ async function app(options = {}) {
   vm.runInContext(apiSource,context);
   vm.runInContext(source,context);
   await flush();
-  return {el,calls,storage,location,
+  return {el,calls,storage,location,emitted,
     async event(type){await listeners.get(type)();await flush();},
     async click(id){ const pending = el(id).onclick(); await pending; await flush(); },
     selectAll(){ el('select-all').checked=true; el('select-all').onchange(); },
@@ -51,6 +51,22 @@ async function app(options = {}) {
 }
 test('empty cart disables order buttons; no auth state invented',async()=>{
   const page=await app({items:[]}); assert.equal(page.el('btn-order-self').disabled,true); assert.equal(page.el('btn-order-gift').disabled,true); assert.equal(page.el('workspace').hidden,false); assert.equal(page.el('count').textContent,0);
+});
+
+test('partial selection has indeterminate state and resets on all/none selection',async()=>{
+  const p=await app({items:[sampleItem(),sampleItem({cartItemId:2,productId:77})]});
+  p.selectItem(0);assert.equal(p.el('select-all').checked,false);assert.equal(p.el('select-all').indeterminate,true);
+  p.selectAll();assert.equal(p.el('select-all').checked,true);assert.equal(p.el('select-all').indeterminate,false);
+  p.el('select-all').checked=false;p.el('select-all').onchange();
+  assert.equal(p.el('select-all').indeterminate,false);
+});
+
+for(const action of ['quantity','delete','selected-delete'])test(`${action} publishes cart change for badge refresh`,async()=>{
+  const p=await app({fetch:async(url,req)=>req.method!=='GET'?ok({}):null});
+  const controls=p.el('items').children[0].children[1];
+  if(action==='selected-delete'){p.selectAll();await p.click('remove-selected');}
+  else {await controls.children[action==='quantity'?0:controls.children.length-1].onclick();await flush();}
+  assert.deepEqual(p.emitted,['cart-updated']);
 });
 test('unavailable item stays visible and blocks order, but is selectable for removal',async()=>{
   const page=await app({items:[sampleItem({canOrder:false})]}); page.selectAll(); assert.equal(page.el('btn-order-self').disabled,true);

@@ -156,7 +156,7 @@ function initBottomSheet(productId) {
   // "선물하기"/"나에게 선물하기" 버튼의 실제 주문 연동은 다음 단계에서 진행한다.
   const addCartBtn = document.getElementById('btn-sheet-add-cart');
   if (addCartBtn) {
-    const originalCartLabel = addCartBtn.innerHTML;
+    const cartLabel = document.getElementById('btn-sheet-cart-label');
     let cartNeedsRecheck = false;
     async function recheckCart() {
       try {
@@ -168,7 +168,7 @@ function initBottomSheet(productId) {
         window.dispatchEvent(new CustomEvent('cart-updated'));
         alert(`추가 요청의 반영 여부를 확인하지 못했습니다. 현재 장바구니에는 이 상품이 ${item ? item.quantity : 0}개 있습니다. 수량을 확인한 뒤 이용해주세요.`);
         cartNeedsRecheck = false;
-        addCartBtn.innerHTML = originalCartLabel;
+        if (cartLabel) cartLabel.textContent = '장바구니';
         closeBottomSheet();
       } catch (error) {
         console.error('장바구니 상태 재확인 실패:', error);
@@ -214,7 +214,7 @@ function initBottomSheet(productId) {
         console.error('장바구니 담기 실패:', error);
         // 기존 항목이 있다는 사실로 이번 수량 추가의 성공을 확정할 수 없다.
         cartNeedsRecheck = true;
-        addCartBtn.textContent = '장바구니 확인';
+        if (cartLabel) cartLabel.textContent = '장바구니 확인';
         await recheckCart();
       } finally {
         addCartBtn.disabled = false;

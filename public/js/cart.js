@@ -69,6 +69,7 @@
     if (state.needsSync) throw new Error('이전 요청의 결과를 먼저 확인해주세요.');
     let failure;
     try { await work(); } catch(error) { failure = error; }
+    window.dispatchEvent(new CustomEvent('cart-updated'));
     if (failure?.status === 401) throw failure;
     try { await ensureIdentity(); await load(); }
     catch(error) {
@@ -92,6 +93,7 @@
     $('remove-selected').disabled = !selected.length;
     const available = state.items.filter(item => item.canOrder);
     $('select-all').checked = !!available.length && available.every(item => state.selected.has(item.cartItemId));
+    $('select-all').indeterminate = selected.length > 0 && !$('select-all').checked;
   }
   function render() {
     $('items').replaceChildren(); $('count').textContent = state.items.length;

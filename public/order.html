@@ -35,7 +35,9 @@
             <!-- Pending Order Recovery Notice (묶음/즉시 구매 요청 재확인용) -->
             <div id="pending-order-notice" style="display:none; padding: 14px 16px; background-color: #FFF7E6; border: 1px solid #FFE1A8; border-radius: 8px; font-size: 13px; color: #7A5B00; line-height: 1.6;">
                 <strong>이전 주문 결과를 확인해야 해요.</strong>
-                <p style="margin: 6px 0 10px;">새로고침 전에 보낸 요청이 아직 처리 중일 수 있어요. 새 주문을 만들지 않고 같은 요청으로 안전하게 다시 확인합니다.</p>
+                <p id="pending-order-description" style="margin: 6px 0 10px;">이전에 보낸 요청이 아직 처리 중일 수 있어요. 새 주문을 만들지 않고 같은 요청으로 안전하게 다시 확인합니다.</p>
+                <p id="pending-order-details" style="margin: 6px 0 10px; overflow-wrap: anywhere;"></p>
+                <a id="pending-order-history" href="mypage.html" hidden>마이페이지에서 구매 내역 확인</a>
                 <button id="btn-retry-pending-order" type="button" style="padding: 8px 14px; background-color: #191919; color: #fff; border-radius: 6px; font-weight: 700; font-size: 13px; border: none; cursor: pointer;">주문 결과 다시 확인</button>
             </div>
             <div id="order-form-content" style="display: contents;">
