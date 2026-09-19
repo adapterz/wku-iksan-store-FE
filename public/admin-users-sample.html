@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>회원 관리 · Iksan Store 샘플</title>
+<link rel="icon" href="images/favicon.png"><link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/admin-sample-common.css">
+<link rel="stylesheet" href="css/admin-users-sample.css">
+<script src="js/api.js" defer></script><script src="js/admin-sample-common.js" defer></script><script src="js/admin-users-sample.js" defer></script>
+</head>
+<body class="admin-sample">
+<header class="ai-header"><h1>회원 관리</h1></header>
+<div class="ai-preview">LOCAL SAMPLE · 예시 회원 데이터</div>
+
+<section id="login-gate" class="ai-gate">
+<p>이 화면은 관리자 로그인 후 접근할 수 있어요.</p>
+<button id="sample-login" class="ai-primary">샘플 관리자 계정으로 로그인</button>
+</section>
+
+<div id="app" hidden>
+<form id="role-form" class="au-form-panel">
+  <p class="as-form-title">회원 역할 변경</p>
+  <div class="as-field">
+    <label for="user-id-input">userId</label>
+    <input type="text" id="user-id-input" placeholder="조회할 userId 입력 (예: 2)" inputmode="numeric">
+  </div>
+  <div class="as-type-row">
+    <label><input type="radio" name="role" value="user" checked>일반 회원 (user)</label>
+    <label><input type="radio" name="role" value="admin">관리자 (admin)</label>
+  </div>
+  <p class="ai-field-error" id="role-form-error" hidden></p>
+  <div class="ai-btn-row"><button type="submit" class="ai-primary" id="role-form-submit">역할 변경</button></div>
+</form>
+
+<div id="result"></div>
+</div>
+
+<p id="page-error" role="alert" hidden></p>
+<footer class="ai-footer">이슈 #90 관리자 페이지 검토용 · 운영 서비스에는 반영되지 않습니다.<br>
+<span>의존 BE: <a href="https://github.com/adapterz/wku-iksan-store-BE/pull/93">PR #93</a> · 설계: <a href="https://github.com/adapterz/wku-iksan-store-BE/issues/90">issue #90 3-3절</a></span></footer>
+<div id="toast" role="status" hidden></div>
+</body>
+</html>
