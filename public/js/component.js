@@ -300,13 +300,11 @@ function bindHeaderBackButton() {
     }
 }
 
-// 서브 헤더에 페이지 제목만 필요한 화면(category.js/brand.js/profile.js 등) 공통 헬퍼.
-// header:ready 이후 우측 검색·홈 아이콘을 지우고 그 자리에 제목을 넣는다.
+// 서브 헤더에 페이지 제목이 필요한 화면(category.js/brand.js/profile.js 등) 공통 헬퍼.
+// header:ready 이후 제목을 넣는다. title은 absolute 중앙 정렬이라 우측 선물함 아이콘과 겹치지 않는다.
 window.setSubHeaderTitle = function(titleText) {
     document.addEventListener('header:ready', () => {
         const headerContainer = document.querySelector('header.main-header .header-container');
-        const rightIcons = document.querySelector('header.main-header .header-right-icons');
-        if (rightIcons) rightIcons.remove();
 
         if (headerContainer) {
             const title = document.createElement('h1');
@@ -564,11 +562,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <i class="fa-solid fa-arrow-left"></i>
             </a>
             <div class="header-right-icons" style="gap: 16px;">
-                <a href="#" id="btn-search-open" class="header-icon" title="검색">
-                    <i class="fa-solid fa-magnifying-glass"></i>
+                <a href="giftbox.html" class="header-icon" title="선물함">
+                    <i class="fa-solid fa-gift"></i>
                 </a>
-                <a href="index.html" class="header-icon" title="홈">
-                    <i class="fa-solid fa-house"></i>
+                <a href="cart.html" class="header-icon" title="장바구니">
+                    <i class="fa-solid fa-bag-shopping"></i>
+                    <span class="cart-count-badge" hidden>0</span>
                 </a>
             </div>
         </div>`;
@@ -586,6 +585,9 @@ document.addEventListener('DOMContentLoaded', () => {
             bindHeaderBackButton();
         }
     }
+
+    // 헤더에 장바구니 아이콘이 있는 모든 화면(index.html 정적 마크업 포함)에서 담긴 개수 뱃지 갱신
+    window.updateCartBadge();
 
     // 하단 네비게이션 바 공통 HTML 반환 함수
     function getBottomNavHTML() {
@@ -1079,6 +1081,91 @@ window.updateWishlistIcon = function(icon, isSaved) {
     }
 };
 
+// 전역 장바구니 캐시 및 단일 요청 프라미스
+window._cartCache = null;
+window._cartFetchPromise = null;
+let cartCacheVersion = 0;
+function invalidateCartCache() {
+    cartCacheVersion++;
+    window._cartCache = null;
+    window._cartFetchPromise = null;
+}
+
+// 장바구니 캐시가 없다면 서버에서 최초 1회 전체 조회하여 캐시를 채우는 공통 헬퍼 (Singleflight 패턴 적용)
+async function ensureCartLoaded() {
+    const version = cartCacheVersion;
+    if (!window._cartCache) {
+        if (!window._cartFetchPromise) {
+            const fetchPromise = (async () => {
+                try {
+                    // silent401: 비로그인 상태에서도 홈 화면 등에서 조용히 빈 장바구니로 처리해야 하므로
+                    // 전역 401 리다이렉트를 건너뛴다.
+                    const result = await requestJson('/api/cart-items', { silent401: true });
+                    if (result && result.data) {
+                        return result.data.map(item => ({ cartItemId: item.cartItemId, productId: item.productId.toString(), quantity: item.quantity }));
+                    }
+                    return [];
+                } catch (error) {
+                    if (error.status === 401) {
+                        // 비로그인 상태는 정상 상태이므로 빈 배열로 캐시
+                        return [];
+                    }
+                    // 네트워크 오류, 500 등은 캐시를 오염시키지 않고 다음 요청에서 재조회하도록 함
+                    throw error;
+                } finally {
+                    // 이전 요청이 새로 시작한 요청의 참조를 지우지 않도록 한다.
+                    if (window._cartFetchPromise === fetchPromise) window._cartFetchPromise = null;
+                }
+            })();
+            window._cartFetchPromise = fetchPromise;
+        }
+        const cart = await window._cartFetchPromise;
+        // 변경/복원 이전에 시작한 조회로 최신 캐시를 덮어쓰지 않는다.
+        if (version !== cartCacheVersion) return ensureCartLoaded();
+        window._cartCache = cart;
+    }
+    return window._cartCache;
+}
+
+// 장바구니에 담긴 상품의 총 수량(개수 합계, 종류 수가 아님) — 헤더 뱃지 표시용
+async function getCartTotalQuantity() {
+    const cart = await ensureCartLoaded();
+    return cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+}
+
+// 헤더의 장바구니 아이콘 뱃지(.cart-count-badge, 인덱스/서브헤더 등 화면에 있는 만큼 전부)를
+// 현재 장바구니 총 수량으로 갱신한다. 0개면 숨긴다.
+window.updateCartBadge = async function() {
+    if (!document.querySelectorAll('.cart-count-badge').length) return;
+    try {
+        const total = await getCartTotalQuantity();
+        document.querySelectorAll('.cart-count-badge').forEach(badge => {
+            if (total > 0) {
+                badge.textContent = total > 99 ? '99+' : String(total);
+                badge.hidden = false;
+            } else {
+                badge.hidden = true;
+            }
+        });
+    } catch (error) {
+        console.error('장바구니 뱃지 갱신 실패:', error);
+    }
+};
+
+if (typeof window.addEventListener === 'function') {
+    window.addEventListener('cart-updated', () => {
+        invalidateCartCache();
+        return window.updateCartBadge();
+    });
+    // 공통 인증 재검증과 같은 pageshow 조건. 인증 실패 여부와 무관하게
+    // 뱃지도 갱신해야 하므로 별도 리스너로 처리한다(silent401은 빈 뱃지).
+    window.addEventListener('pageshow', event => {
+        if (!event.persisted) return;
+        invalidateCartCache();
+        return window.updateCartBadge();
+    });
+}
+
 // 정보 아이콘 옆 안내 툴팁을 여닫는 공용 유틸리티.
 // 호버 가능한 기기(데스크톱)에서는 마우스 오버 시 열리고, 클릭은 무시해 깜빡임 없이 유지된다.
 // 호버가 불가능한 터치 기기에서는 mouseenter가 발생하지 않으므로 버튼 클릭으로 토글하고,
@@ -1204,8 +1291,8 @@ window.createProductCard = function(product, options = {}) {
             ${discountHtml}
             <span class="price">${formattedPrice}</span>
           </div>
-          <button class="btn-save-bookmark" data-product-id="${product.id}" title="저장" style="background:none; border:none; padding:4px; cursor:pointer;">
-            <i class="fa-regular fa-bookmark" style="font-size: 20px; color: #999;"></i>
+          <button class="btn-save-bookmark" data-product-id="${product.id}" title="저장" style="background:none; border:none; padding:3px; cursor:pointer;">
+            <i class="fa-regular fa-bookmark" style="font-size: 16px; color: #999;"></i>
           </button>
         </div>
         <div class="stats-row">
