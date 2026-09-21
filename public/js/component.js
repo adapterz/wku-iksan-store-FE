@@ -19,7 +19,10 @@ function getSearchOverlayHTML() {
         </div>
     </div>
     <div class="search-overlay-body">
-        <h4 class="recent-searches-title">최근 검색어</h4>
+        <div class="recent-searches-header">
+            <h4 class="recent-searches-title">최근 검색어</h4>
+            <button type="button" class="btn-clear-recent-searches">전체삭제</button>
+        </div>
         <div class="recent-keywords-list"></div>
     </div>
 </div>`;
@@ -779,7 +782,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 최근 검색어 뱃지 렌더링 (오버레이를 열 때마다 최신 상태로 다시 그린다)
     function renderRecentSearches() {
         if (!searchOverlay) return;
-        const recentTitle = searchOverlay.querySelector('.recent-searches-title');
+        const recentHeader = searchOverlay.querySelector('.recent-searches-header');
         const recentList = searchOverlay.querySelector('.recent-keywords-list');
         if (!recentList) return;
 
@@ -787,12 +790,12 @@ document.addEventListener('DOMContentLoaded', () => {
         recentList.innerHTML = '';
 
         if (keywords.length === 0) {
-            if (recentTitle) recentTitle.style.display = 'none';
+            if (recentHeader) recentHeader.style.display = 'none';
             recentList.innerHTML = '<p class="recent-searches-empty">최근 검색 내역이 없습니다.</p>';
             return;
         }
 
-        if (recentTitle) recentTitle.style.display = '';
+        if (recentHeader) recentHeader.style.display = '';
         keywords.forEach((keyword) => {
             const badge = document.createElement('span');
             badge.className = 'keyword-badge';
@@ -823,6 +826,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchOverlay) {
         const searchInput = searchOverlay.querySelector('.search-overlay-input');
         const searchIcon = searchOverlay.querySelector('.search-overlay-input-icon');
+
+        const clearRecentBtn = searchOverlay.querySelector('.btn-clear-recent-searches');
+        if (clearRecentBtn) {
+            clearRecentBtn.addEventListener('click', () => {
+                clearRecentSearches();
+                renderRecentSearches();
+            });
+        }
 
         // btn-search-open은 메인(index.html)에서는 정적, 서브페이지에서는 동적 삽입됨
         // 동적 삽입 이후에 바인딩하기 위해 문서 전체에 위임(이벤트 버블링) 사용

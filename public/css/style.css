@@ -1763,11 +1763,27 @@ body.page-product {
   overflow-y: auto;
 }
 
+.recent-searches-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 .recent-searches-title {
   font-size: 14px;
   font-weight: 700;
   color: #191919;
-  margin-bottom: 12px;
+  margin-bottom: 0;
+}
+
+.btn-clear-recent-searches {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #999999;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .recent-keywords-list {
