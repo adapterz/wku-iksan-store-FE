@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body style="visibility: hidden; opacity: 0; transition: opacity 0.3s ease;">
+<body class="page-order" style="visibility: hidden; opacity: 0; transition: opacity 0.3s ease;">
 
     <!-- Main Header -->
     <header class="main-header" style="border-bottom: none;">
@@ -32,6 +32,15 @@
     <!-- Main Content Area -->
     <main class="main-content">
         <div class="order-container">
+            <!-- Pending Order Recovery Notice (묶음/즉시 구매 요청 재확인용) -->
+            <div id="pending-order-notice" style="display:none; padding: 14px 16px; background-color: #FFF7E6; border: 1px solid #FFE1A8; border-radius: 8px; font-size: 13px; color: #7A5B00; line-height: 1.6;">
+                <strong>이전 주문 결과를 확인해야 해요.</strong>
+                <p id="pending-order-description" style="margin: 6px 0 10px;">이전에 보낸 요청이 아직 처리 중일 수 있어요. 새 주문을 만들지 않고 같은 요청으로 안전하게 다시 확인합니다.</p>
+                <p id="pending-order-details" style="margin: 6px 0 10px; overflow-wrap: anywhere;"></p>
+                <a id="pending-order-history" href="mypage.html" hidden>마이페이지에서 구매 내역 확인</a>
+                <button id="btn-retry-pending-order" type="button" style="padding: 8px 14px; background-color: #191919; color: #fff; border-radius: 6px; font-weight: 700; font-size: 13px; border: none; cursor: pointer;">주문 결과 다시 확인</button>
+            </div>
+            <div id="order-form-content" style="display: contents;">
             <!-- Celebration Card Section -->
             <div class="celebration-card-container">
                 <div class="celebration-card">
@@ -44,8 +53,8 @@
                     </button>
                 </div>
             </div>
-            <!-- Product Info Summary -->
-            <div class="order-product-card">
+            <!-- Product Info Summary (단건 주문) -->
+            <div class="order-product-card" id="order-product-card">
                 <img id="order-product-img" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="상품 이미지" class="order-product-img">
                 <div class="order-product-info">
                     <span id="order-brand" class="order-brand-name"></span>
@@ -55,6 +64,9 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Bundle Order List (장바구니 묶음 주문, cartItemIds 파라미터가 있을 때만 표시) -->
+            <div class="order-bundle-list" id="order-bundle-list" style="display:none;"></div>
 
             <!-- Receiver Section -->
             <div class="order-section" id="receiver-section" style="display:none;">
@@ -78,7 +90,7 @@
                 <h4 class="order-section-title" style="margin-bottom: 20px;">결제 정보</h4>
                 
                 <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 12px; color: #191919;">
-                    <span>총 상품금액 (1개)</span>
+                    <span id="order-item-count-label">총 상품금액 (1개)</span>
                     <span id="order-total-price"></span>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 12px; color: #191919;">
@@ -109,8 +121,9 @@
 
             <div style="padding: 0 20px 20px;">
                 <button id="btn-submit-order" class="btn-submit-order" style="width: 100%; padding: 16px; background-color: #191919; color: #FFFFFF; font-weight: 700; font-size: 16px; border-radius: 8px; text-align: center; cursor: pointer; border: none;">
-                    <span id="btn-submit-price"></span> 결제하기
+                    <span id="btn-submit-price"></span> <span id="btn-submit-label">결제하기</span>
                 </button>
+            </div>
             </div>
         </div>
     </main>

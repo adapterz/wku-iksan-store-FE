@@ -63,16 +63,20 @@
                 <h3 class="section-title">보낸 선물</h3>
             </div>
             <div class="section-divider"></div>
-            <div class="gift-item-card">
-                <div class="gift-img-wrapper">
-                    <img id="gift-thumbnail" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="상품 썸네일" class="gift-img">
-                </div>
-                <div class="gift-info">
-                    <div class="gift-brand" id="gift-brand">브랜드</div>
-                    <div class="gift-name text-body-14" id="gift-name">상품명</div>
-                    <div class="gift-qty">수량 : 1개</div>
+            <div id="gift-items-container">
+                <div class="gift-item-card" id="gift-item-card">
+                    <div class="gift-img-wrapper">
+                        <img id="gift-thumbnail" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="상품 썸네일" class="gift-img">
+                    </div>
+                    <div class="gift-info">
+                        <div class="gift-brand" id="gift-brand">브랜드</div>
+                        <div class="gift-name text-body-14" id="gift-name">상품명</div>
+                        <div class="gift-qty" id="gift-quantity">수량 : 1개</div>
+                    </div>
                 </div>
             </div>
+            <!-- 묶음 주문(상품 2종 이상)일 때만 전체 수량·총액 요약을 보여준다 -->
+            <div id="gift-summary" class="gift-summary" hidden></div>
         </section>
             <div class="card-divider"></div>
 
