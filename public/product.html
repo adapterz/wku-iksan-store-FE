@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body>
+<body class="page-product">
 
     <!-- Main Header -->
     <header class="main-header" style="border-bottom: none;">
@@ -35,14 +35,14 @@
             <div class="product-info-container">
                 <span id="product-brand" class="product-detail-brand skeleton" style="min-width: 60px; min-height: 14px;"></span>
                 <h2 id="product-name" class="product-detail-title skeleton" style="min-width: 220px; min-height: 24px; margin-top: 6px;"></h2>
-                <div class="product-rating-row">
-                    <span class="stars">
-                        <i class="fa-solid fa-star" style="color: #191919;"></i>
-                    </span>
-                    <span class="review-count"><span style="color: #191919;">0.0</span>&nbsp;&nbsp;&nbsp;&nbsp;리뷰 0</span>
-                </div>
                 <div class="product-detail-price-row">
                     <span id="product-price" class="product-detail-price skeleton" style="min-width: 100px; min-height: 22px;"></span>
+                    <div class="product-rating-row">
+                        <span class="stars">
+                            <i class="fa-solid fa-star" style="color: #191919;"></i>
+                        </span>
+                        <span class="review-count"><span id="review-average" style="color: #191919;">0.0</span>&nbsp;&nbsp;&nbsp;&nbsp;<span id="review-count-text">리뷰 0</span></span>
+                    </div>
                 </div>
             </div>
             <!-- Product Info Section: 전 상품이 매장 교환형 교환권으로 통일되어(BE #88),
@@ -76,21 +76,35 @@
             <!-- Tabs Section -->
             <div class="product-tabs-container">
                 <div class="product-tab active" data-tab="description">상품설명</div>
-                <div class="product-tab" data-tab="review">선물후기 (0)</div>
+                <div class="product-tab" data-tab="review">선물후기 (<span id="review-tab-count">0</span>)</div>
                 <div class="product-tab" data-tab="detail">상세정보</div>
             </div>
 
             <!-- Tab Panel: 상품설명 -->
             <div class="product-tab-panel" id="tab-panel-description" data-panel="description">
-                <img id="product-description-img" class="tab-panel-description-img" src="" alt="" hidden>
+                <div class="tab-panel-description-img-wrapper skeleton" id="product-description-img-wrapper" hidden>
+                    <img id="product-description-img" class="tab-panel-description-img" src="" alt=""
+                         onload="this.parentElement.classList.remove('skeleton'); this.classList.add('loaded');"
+                         onerror="this.parentElement.classList.remove('skeleton'); this.style.opacity=1;">
+                </div>
                 <p id="product-description" class="tab-panel-description-text"></p>
             </div>
 
-            <!-- Tab Panel: 선물후기 (리뷰 기능은 별도 작업 범위, 준비 중 안내만 표시) -->
+            <!-- Tab Panel: 선물후기 -->
             <div class="product-tab-panel" id="tab-panel-review" data-panel="review" hidden>
-                <div class="tab-panel-empty">
+                <div class="review-sort-row" id="review-sort-row" hidden>
+                    <select id="review-sort" class="review-sort-select" aria-label="후기 정렬">
+                        <option value="latest">최신순</option>
+                        <option value="rating_desc">별점 높은순</option>
+                        <option value="rating_asc">별점 낮은순</option>
+                    </select>
+                </div>
+                <div id="review-list" class="review-list"></div>
+                <div class="tab-panel-empty" id="review-empty" hidden>
                     <p>아직 등록된 선물후기가 없습니다.</p>
                 </div>
+                <p class="review-error" id="review-error" role="alert" hidden></p>
+                <button type="button" id="review-more" class="review-more-btn" hidden>후기 더 보기</button>
             </div>
 
             <!-- Tab Panel: 상세정보 -->
@@ -114,6 +128,28 @@
                     </div>
                 </dl>
             </div>
+
+            <!-- Recommended Products: 전체 상품 중 무작위 추천 (product.js에서 채움).
+                 홈 화면 둘러보기 상품과 동일한 구조 + 공용 캐러셀(component.js createBrowseCarousel) 재사용 -->
+            <div class="product-detail-section" id="product-recommend-section" hidden>
+                <h3 class="detail-section-title">추천 상품</h3>
+
+                <div class="browse-cards-viewport">
+                    <div class="ranking-cards-row browse-cards-row">
+                        <!-- Dynamically loaded -->
+                    </div>
+                </div>
+
+                <div class="browse-pagination">
+                    <button type="button" class="browse-page-btn browse-page-prev" aria-label="이전 페이지">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <span class="browse-page-indicator">1 / 1</span>
+                    <button type="button" class="browse-page-btn browse-page-next" aria-label="다음 페이지">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -127,10 +163,42 @@
         <button id="btn-gift" class="btn-bottom-gift">선물하기</button>
     </nav>
 
+    <!-- 수량 선택 Bottom Sheet: "나에게 선물하기"/"선물하기" 클릭 시 노출 -->
+    <div class="bottom-sheet-overlay" id="quantity-sheet-overlay">
+        <div class="bottom-sheet-content">
+            <div class="bottom-sheet-handle-container">
+                <button type="button" class="bottom-sheet-handle-btn" id="btn-sheet-close" aria-label="닫기"></button>
+            </div>
+            <div class="bottom-sheet-body">
+                <div class="quantity-control-wrapper">
+                    <button type="button" class="quantity-btn" id="btn-quantity-minus" aria-label="수량 감소">−</button>
+                    <span class="quantity-number" id="sheet-quantity">1</span>
+                    <button type="button" class="quantity-btn" id="btn-quantity-plus" aria-label="수량 증가">+</button>
+                </div>
+                <div class="total-price-row">
+                    <span class="total-price-label" id="sheet-item-count">총 1개</span>
+                    <span>
+                        <span class="total-price-caption">결제금액</span>
+                        <span class="total-price-value" id="sheet-total-price">0원</span>
+                    </span>
+                </div>
+                <div class="bottom-sheet-actions">
+                    <button type="button" class="btn-sheet-cart" id="btn-sheet-add-cart">
+                        <i class="fa-solid fa-bag-shopping"></i> <span id="btn-sheet-cart-label">장바구니</span>
+                    </button>
+                    <button type="button" class="btn-sheet-buy" id="btn-sheet-order">
+                        <i class="fa-solid fa-gift"></i> <span id="btn-sheet-order-label">선물하기</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Script for Interactions -->
     <script src="js/skeleton.js"></script>
     <script src="js/api.js"></script>
     <script src="js/cache.js"></script>
+    <script src="js/review.js" defer></script>
     <script src="js/component.js" defer></script>
     <script src="js/product.js" defer></script>
 

@@ -1,0 +1,358 @@
+window.setSubHeaderTitle('프로필 편집');
+
+// signup.js와 거의 동일했던 에러 메시지/유효성 검사/인라인 에러 로직이라 component.js의 공통
+// 헬퍼를 그대로 쓴다 (login.js는 component.js 자체를 로드하지 않아 이 통합 대상에서 제외됨).
+const ERROR_MESSAGES = window.ERROR_MESSAGES;
+const showFormError = window.showFieldError;
+const clearFormError = window.clearFieldErrors;
+const validateNicknameValue = window.validateNicknameValue;
+const validateEmailValue = window.validateEmailValue;
+const validateNewPasswordValue = window.validateNewPasswordValue;
+
+// 팝업이 열려 있는 도중 showPopup()이 다시 호출되는 경우(예: 폼 이중 제출)를 대비한 가드.
+// 정리하지 않으면 confirm/cancel 버튼에 리스너가 계속 쌓여, 버튼 클릭 한 번에 여러 Promise가
+// 동시에 resolve되어 요청이 중복 전송될 수 있다.
+let activePopupCleanup = null;
+
+// 브라우저 기본 alert()/confirm() 대신, order.html의 나가기 확인 오버레이와 동일한 스타일의
+// 커스텀 팝업(#profile-popup-overlay)을 재사용한다. showCancel이 false면 확인 버튼만 남는 알림 팝업이 된다.
+function showPopup(message, { showCancel = false } = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('profile-popup-overlay');
+    const messageEl = document.getElementById('profile-popup-message');
+    const cancelBtn = document.getElementById('profile-popup-cancel');
+    const confirmBtn = document.getElementById('profile-popup-confirm');
+
+    if (!overlay || !messageEl || !cancelBtn || !confirmBtn) {
+      // 팝업 마크업이 없는 페이지에서는 브라우저 기본 대화상자로 대체한다.
+      if (showCancel) {
+        resolve(window.confirm(message));
+      } else {
+        window.alert(message);
+        resolve(true);
+      }
+      return;
+    }
+
+    // 이전에 열려 있던(아직 해소되지 않은) 팝업이 있다면 취소 처리로 정리한 뒤 새로 연다.
+    if (activePopupCleanup) {
+      activePopupCleanup(false);
+    }
+
+    messageEl.textContent = message;
+    cancelBtn.hidden = !showCancel;
+
+    const cleanup = (result) => {
+      overlay.classList.remove('show');
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn.removeEventListener('click', onCancel);
+      if (activePopupCleanup === cleanup) activePopupCleanup = null;
+      resolve(result);
+    };
+    const onConfirm = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+
+    activePopupCleanup = cleanup;
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn.addEventListener('click', onCancel);
+    overlay.classList.add('show');
+  });
+}
+
+function showAlertPopup(message) {
+  return showPopup(message, { showCancel: false });
+}
+
+function showConfirmPopup(message) {
+  return showPopup(message, { showCancel: true });
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // bfcache 복원(뒤로가기→앞으로가기) 시에도 이 함수가 다시 호출되는데, 그때 닉네임/이메일
+  // input을 서버 값으로 다시 채우면 수정 중이던 값이 조용히 덮어써진다. bfcache는 페이지를
+  // 떠날 때의 input 값을 그대로 복원해주므로, 최초 로드 때만 프리필하면 된다.
+  let hasPrefilled = false;
+
+  // 인증 확인 및 현재 값(닉네임/이메일) 프리필. 성공 시 true, 실패(리다이렉트 처리됨) 시 false를 반환한다.
+  async function checkAuthAndLoadUserData() {
+    try {
+      const resData = await requestJson('/api/auth/me');
+      if (!resData || !resData.data) {
+        return false;
+      }
+
+      const user = resData.data;
+      if (!hasPrefilled) {
+        const nicknameInput = document.getElementById('nickname');
+        const emailInput = document.getElementById('email');
+        if (nicknameInput) nicknameInput.value = user.nickname || '';
+        if (emailInput) emailInput.value = user.email || '';
+        hasPrefilled = true;
+      }
+
+      document.body.style.visibility = 'visible';
+      document.body.style.opacity = '1';
+      return true;
+    } catch (error) {
+      console.error('사용자 정보를 불러오지 못했습니다:', error);
+      window.alert('사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+      return false;
+    }
+  }
+
+  const isAuthenticated = await window.registerBfcacheRevalidation(checkAuthAndLoadUserData);
+  if (!isAuthenticated) {
+    return;
+  }
+
+  // 비밀번호 실시간 강도 검사. 판정 로직(window.getPasswordStrength)은 signup.js와 공유하고,
+  // 빈 값일 때의 처리(여기서는 조용히 지우기만 함)만 화면별로 다르게 둔다.
+  const newPasswordInput = document.getElementById('new-password');
+  const strengthIndicator = document.getElementById('new-password-strength');
+  if (newPasswordInput && strengthIndicator) {
+    newPasswordInput.addEventListener('input', (e) => {
+      const val = e.target.value;
+      const parentGroup = newPasswordInput.closest('.form-group');
+      const inlineErrorEl = parentGroup ? parentGroup.querySelector('.auth-error') : null;
+
+      strengthIndicator.classList.remove('badge-visible', 'badge-invalid', 'badge-weak', 'badge-medium', 'badge-strong');
+
+      const strength = window.getPasswordStrength(val);
+
+      if (strength.level === 'empty') {
+        if (inlineErrorEl) {
+          inlineErrorEl.hidden = true;
+          inlineErrorEl.textContent = '';
+        }
+        newPasswordInput.removeAttribute('aria-invalid');
+        return;
+      }
+
+      strengthIndicator.classList.add('badge-visible');
+
+      if (strength.level === 'invalid') {
+        strengthIndicator.textContent = '사용 불가';
+        strengthIndicator.classList.add('badge-invalid');
+        return;
+      }
+
+      if (inlineErrorEl) {
+        inlineErrorEl.hidden = true;
+        inlineErrorEl.textContent = '';
+      }
+      newPasswordInput.removeAttribute('aria-invalid');
+
+      if (strength.level === 'weak') {
+        strengthIndicator.textContent = '약함';
+        strengthIndicator.classList.add('badge-weak');
+      } else if (strength.level === 'medium') {
+        strengthIndicator.textContent = '보통';
+        strengthIndicator.classList.add('badge-medium');
+      } else {
+        strengthIndicator.textContent = '강함';
+        strengthIndicator.classList.add('badge-strong');
+      }
+    });
+  }
+
+  // 닉네임 변경
+  const nicknameForm = document.getElementById('nickname-form');
+  const nicknameFormError = document.getElementById('nickname-form-error');
+  if (nicknameForm) {
+    nicknameForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearFormError(nicknameForm, nicknameFormError);
+
+      const nickname = nicknameForm.nickname.value.trim();
+      const validation = validateNicknameValue(nickname, nicknameForm.nickname);
+      if (!validation.isValid) {
+        showFormError(nicknameFormError, validation.message, validation.element);
+        return;
+      }
+
+      const submitBtn = nicknameForm.querySelector('.btn-auth-submit');
+      if (submitBtn) submitBtn.disabled = true;
+
+      try {
+        const result = await requestJson('/api/users/me/nickname', {
+          method: 'PATCH',
+          body: { nickname }
+        });
+        // 401(세션 만료)이면 requestJson()이 예외 대신 undefined를 반환하고 전역 리다이렉트를 이미 처리했으므로,
+        // 여기서 추가 메시지 없이 조용히 빠져나간다 (checkAuthAndLoadUserData와 동일한 패턴).
+        if (!result) return;
+        const displayNicknameEl = document.getElementById('display-nickname');
+        if (displayNicknameEl && result.data) displayNicknameEl.textContent = result.data.nickname;
+        window.showToast('닉네임이 변경되었습니다.');
+      } catch (error) {
+        console.error('닉네임 변경 실패:', error);
+        const target = error.code === 'NICKNAME_ALREADY_EXISTS' ? nicknameForm.nickname : null;
+        showFormError(nicknameFormError, ERROR_MESSAGES[error.code] || ERROR_MESSAGES.INTERNAL_SERVER_ERROR, target);
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  }
+
+  // 이메일 변경
+  const emailForm = document.getElementById('email-form');
+  const emailFormError = document.getElementById('email-form-error');
+  if (emailForm) {
+    emailForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearFormError(emailForm, emailFormError);
+
+      const email = emailForm.email.value.trim().toLowerCase();
+      const password = emailForm.password.value;
+
+      const emailValidation = validateEmailValue(email, emailForm.email);
+      if (!emailValidation.isValid) {
+        showFormError(emailFormError, emailValidation.message, emailValidation.element);
+        return;
+      }
+      if (!password) {
+        showFormError(emailFormError, ERROR_MESSAGES.REQUIRED_PASSWORD, emailForm.password);
+        return;
+      }
+
+      const submitBtn = emailForm.querySelector('.btn-auth-submit');
+      if (submitBtn) submitBtn.disabled = true;
+
+      try {
+        const result = await requestJson('/api/users/me/email', {
+          method: 'PATCH',
+          body: { email, password }
+        });
+        // 401이면 requestJson()이 undefined를 반환하고 전역 리다이렉트를 이미 처리했으므로 조용히 빠져나간다.
+        if (!result) return;
+        emailForm.password.value = '';
+        window.showToast('이메일이 변경되었습니다.');
+      } catch (error) {
+        console.error('이메일 변경 실패:', error);
+        // 실패 케이스에도 비밀번호 입력값이 그대로 남아있지 않도록 비운다.
+        emailForm.password.value = '';
+        const target = error.code === 'EMAIL_ALREADY_EXISTS' ? emailForm.email
+          : error.code === 'INVALID_PASSWORD' ? emailForm.password
+          : null;
+        showFormError(emailFormError, ERROR_MESSAGES[error.code] || ERROR_MESSAGES.INTERNAL_SERVER_ERROR, target);
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  }
+
+  // 비밀번호 변경
+  const passwordForm = document.getElementById('password-form');
+  const passwordFormError = document.getElementById('password-form-error');
+  if (passwordForm) {
+    passwordForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearFormError(passwordForm, passwordFormError);
+
+      const currentPassword = passwordForm.currentPassword.value;
+      const newPassword = passwordForm.newPassword.value;
+
+      if (!currentPassword) {
+        showFormError(passwordFormError, ERROR_MESSAGES.REQUIRED_PASSWORD, passwordForm.currentPassword);
+        return;
+      }
+      const newPasswordValidation = validateNewPasswordValue(newPassword, passwordForm.newPassword);
+      if (!newPasswordValidation.isValid) {
+        showFormError(passwordFormError, newPasswordValidation.message, newPasswordValidation.element);
+        return;
+      }
+
+      const submitBtn = passwordForm.querySelector('.btn-auth-submit');
+      if (submitBtn) submitBtn.disabled = true;
+
+      try {
+        const result = await requestJson('/api/users/me/password', {
+          method: 'PATCH',
+          body: { currentPassword, newPassword }
+        });
+        // 401이면 requestJson()이 undefined를 반환하고 전역 리다이렉트를 이미 처리했으므로 조용히 빠져나간다.
+        if (!result) return;
+        passwordForm.reset();
+        if (strengthIndicator) strengthIndicator.classList.remove('badge-visible');
+        window.showToast('비밀번호가 변경되었습니다.');
+      } catch (error) {
+        console.error('비밀번호 변경 실패:', error);
+        // 실패 케이스에도 비밀번호 입력값들이 그대로 남아있지 않도록 비운다.
+        passwordForm.currentPassword.value = '';
+        passwordForm.newPassword.value = '';
+        if (strengthIndicator) strengthIndicator.classList.remove('badge-visible');
+        const target = error.code === 'INVALID_PASSWORD' ? passwordForm.currentPassword : null;
+        showFormError(passwordFormError, ERROR_MESSAGES[error.code] || ERROR_MESSAGES.INTERNAL_SERVER_ERROR, target);
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  }
+
+  // 계정 삭제 — 확인 절차가 이미 커스텀 팝업이므로, 결과 메시지도 같은 팝업으로 통일한다.
+  // (메시지를 팝업으로만 띄우기 때문에 다른 폼과 달리 인라인 에러 요소는 쓰지 않는다.)
+  const deleteForm = document.getElementById('delete-account-form');
+  if (deleteForm) {
+    deleteForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // 확인 팝업이 뜨기 전(비밀번호 검증 단계)부터 버튼을 잠가, 팝업이 열려 있는 동안
+      // Enter 연타 등으로 이 핸들러가 다시 실행되며 확인 팝업이 중복으로 열리는 것을 막는다.
+      const submitBtn = deleteForm.querySelector('.btn-auth-submit');
+      if (submitBtn) submitBtn.disabled = true;
+
+      try {
+        const password = deleteForm.password.value;
+        if (!password) {
+          await showAlertPopup(ERROR_MESSAGES.REQUIRED_PASSWORD);
+          deleteForm.password.focus();
+          return;
+        }
+
+        const confirmed = await showConfirmPopup('정말 계정을 삭제 하시겠습니까? 복구할 수 없습니다.');
+        if (!confirmed) {
+          return;
+        }
+
+        const result = await requestJson('/api/users/me', {
+          method: 'DELETE',
+          body: { password }
+        });
+        // 401이면 requestJson()이 undefined를 반환하고 전역 리다이렉트를 이미 처리했으므로,
+        // "계정이 삭제되었습니다" 같은 거짓 성공 메시지를 띄우지 않고 조용히 빠져나간다.
+        if (!result) return;
+        window.clearClientSession();
+        await showAlertPopup('계정이 삭제되었습니다.');
+        window.location.href = 'login.html';
+      } catch (error) {
+        console.error('계정 삭제 실패:', error);
+        // 실패 케이스에도 비밀번호 입력값이 그대로 남아있지 않도록 비운다.
+        deleteForm.password.value = '';
+
+        // BE 오류 응답에는 미사용 선물 개수가 담겨 있지 않아, 별도로 조회해 메시지에 채워 넣는다.
+        if (error.code === 'ACCOUNT_HAS_UNUSED_GIFTS') {
+          let message = ERROR_MESSAGES.ACCOUNT_HAS_UNUSED_GIFTS;
+          try {
+            // silent401: 이 조회가 401을 받아도 전역 리다이렉트 토스트가 지금 띄우려는
+            // 안내 팝업을 가로채지 않도록, 조용히 실패해서 기본 메시지로 폴백하게 한다.
+            const unusedResult = await requestJson('/api/gifts?status=unused', { silent401: true });
+            if (unusedResult && Array.isArray(unusedResult.data)) {
+              message = `미사용 선물이 ${unusedResult.data.length}개 있습니다.`;
+            }
+          } catch (countError) {
+            console.error('미사용 선물 개수 조회 실패:', countError);
+          }
+          await showAlertPopup(message);
+          return;
+        }
+
+        await showAlertPopup(ERROR_MESSAGES[error.code] || ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
+        if (error.code === 'INVALID_PASSWORD') {
+          deleteForm.password.focus();
+        }
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  }
+});

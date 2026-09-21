@@ -1,16 +1,4 @@
-// 공통 서브 헤더에 카테고리 페이지 제목을 추가하고, 기본 검색·홈 아이콘은 제거한다.
-document.addEventListener('header:ready', () => {
-    const headerContainer = document.querySelector('header.main-header .header-container');
-    const rightIcons = document.querySelector('header.main-header .header-right-icons');
-    if (rightIcons) rightIcons.remove();
-
-    if (headerContainer) {
-        const title = document.createElement('h1');
-        title.className = 'header-title';
-        title.textContent = '카테고리';
-        headerContainer.appendChild(title);
-    }
-});
+window.setSubHeaderTitle('카테고리');
 
 // brand.js의 requestWithBrandCache와 동일한 방식으로, 카테고리별 상품 목록을 sessionCache에 담아둔다.
 const CATEGORY_PRODUCTS_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -78,7 +66,7 @@ function syncFromUrl() {
         li.className = 'category-list-item';
         const link = document.createElement('a');
         link.className = 'category-list-link';
-        link.href = `category.html?categoryId=${category.id}`;
+        link.href = `category?categoryId=${category.id}`;
         link.textContent = category.name || '';
         link.dataset.categoryId = String(category.id);
         link.addEventListener('click', (e) => {
@@ -108,7 +96,7 @@ function syncFromUrl() {
     const currentCategoryId = new URLSearchParams(window.location.search).get('categoryId');
     if (!currentCategoryId && categories.length > 0) {
         const firstCategoryId = String(categories[0].id);
-        history.replaceState({}, '', `category.html?categoryId=${firstCategoryId}`);
+        history.replaceState({}, '', `category?categoryId=${firstCategoryId}`);
         syncFromUrl();
     } else {
         updateActiveCategoryLink(currentCategoryId);

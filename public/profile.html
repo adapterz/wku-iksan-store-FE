@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <link rel="icon" type="image/png" href="/images/favicon.png">
+    <link rel="apple-touch-icon" href="/images/favicon.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>프로필 편집 - Iksan Gift</title>
+    <!-- Auth Check & bfcache -->
+    <script>
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                document.body.style.visibility = 'hidden';
+                document.body.style.opacity = '0';
+            }
+        });
+    </script>
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body class="page-profile-edit" style="visibility: hidden; opacity: 0; transition: opacity 0.3s ease;">
+    <!-- Main Header -->
+    <header class="main-header">
+        <!-- Header dynamically injected by component.js -->
+    </header>
+
+    <!-- Main Content -->
+    <main class="profile-edit-content">
+        <!-- 닉네임 변경 -->
+        <section class="profile-edit-section">
+            <h3 class="profile-edit-section-title">닉네임 변경</h3>
+            <form id="nickname-form" class="auth-form" novalidate>
+                <div class="form-group">
+                    <label for="nickname">닉네임</label>
+                    <input type="text" id="nickname" name="nickname" placeholder="닉네임을 입력하세요" autocomplete="off" required>
+                    <p class="auth-error auth-inline-error" hidden></p>
+                </div>
+                <p id="nickname-form-error" class="auth-error" hidden></p>
+                <button type="submit" class="btn-auth-submit">닉네임 변경</button>
+            </form>
+        </section>
+
+        <!-- 이메일 변경 -->
+        <section class="profile-edit-section">
+            <h3 class="profile-edit-section-title">이메일 변경</h3>
+            <form id="email-form" class="auth-form" novalidate>
+                <div class="form-group">
+                    <label for="email">새 이메일</label>
+                    <input type="email" id="email" name="email" placeholder="새 이메일을 입력하세요" autocomplete="off" required>
+                    <p class="auth-error auth-inline-error" hidden></p>
+                </div>
+                <div class="form-group">
+                    <label for="email-password">비밀번호 확인</label>
+                    <input type="password" id="email-password" name="password" placeholder="현재 비밀번호를 입력하세요" autocomplete="current-password" required>
+                    <p class="auth-error auth-inline-error" hidden></p>
+                </div>
+                <p id="email-form-error" class="auth-error" hidden></p>
+                <button type="submit" class="btn-auth-submit">이메일 변경</button>
+            </form>
+        </section>
+
+        <!-- 비밀번호 변경 -->
+        <section class="profile-edit-section">
+            <h3 class="profile-edit-section-title">비밀번호 변경</h3>
+            <form id="password-form" class="auth-form" novalidate>
+                <div class="form-group">
+                    <label for="current-password">현재 비밀번호</label>
+                    <input type="password" id="current-password" name="currentPassword" placeholder="현재 비밀번호를 입력하세요" autocomplete="current-password" required>
+                    <p class="auth-error auth-inline-error" hidden></p>
+                </div>
+                <div class="form-group">
+                    <label for="new-password">새 비밀번호</label>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="new-password" name="newPassword" placeholder="새 비밀번호를 입력하세요" autocomplete="new-password" required class="password-input-with-badge">
+                        <span id="new-password-strength" class="password-strength-badge"></span>
+                    </div>
+                    <p class="auth-error auth-inline-error" hidden></p>
+                </div>
+                <p id="password-form-error" class="auth-error" hidden></p>
+                <button type="submit" class="btn-auth-submit">비밀번호 변경</button>
+            </form>
+        </section>
+
+        <!-- 계정 삭제 -->
+        <section class="profile-edit-section profile-edit-danger">
+            <h3 class="profile-edit-section-title">계정 삭제</h3>
+            <p class="profile-edit-desc">계정을 삭제하면 되돌릴 수 없습니다. 미사용 선물이 있으면 삭제할 수 없습니다.</p>
+            <form id="delete-account-form" class="auth-form" novalidate>
+                <div class="form-group">
+                    <label for="delete-password">비밀번호 확인</label>
+                    <input type="password" id="delete-password" name="password" placeholder="비밀번호를 입력하세요" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="btn-auth-submit btn-danger">계정 삭제</button>
+            </form>
+        </section>
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+        <!-- Dynamically injected by component.js -->
+    </nav>
+
+    <!-- Confirm/Alert Popup (order.html의 order-back-overlay와 동일한 스타일을 재사용) -->
+    <div id="profile-popup-overlay" class="order-back-overlay">
+        <div class="order-back-card">
+            <p id="profile-popup-message"></p>
+            <div class="order-back-buttons">
+                <button type="button" id="profile-popup-cancel" class="order-back-btn order-back-btn-cancel">취소</button>
+                <button type="button" id="profile-popup-confirm" class="order-back-btn order-back-btn-confirm btn-danger">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script -->
+    <script src="js/api.js"></script>
+    <script src="js/component.js" defer></script>
+    <script src="js/profile.js" defer></script>
+</body>
+
+</html>

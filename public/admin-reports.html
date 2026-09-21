@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>신고 모더레이션 · Iksan Store 관리자</title>
+<link rel="icon" href="images/favicon.png"><link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/admin-common.css">
+<link rel="stylesheet" href="css/admin-reports.css">
+<script src="js/api.js" defer></script><script src="js/admin-common.js" defer></script><script src="js/admin-reports.js" defer></script>
+</head>
+<body class="admin-sample">
+<header class="ai-header"><h1>신고 모더레이션</h1><a href="mypage.html" class="ai-header-back">돌아가기</a></header>
+
+<section id="login-gate" class="ai-gate">
+<p>이 화면은 관리자 로그인 후 접근할 수 있어요.</p>
+<button id="btn-admin-login" class="ai-primary">로그인하러 가기</button>
+</section>
+
+<div id="app" hidden>
+<nav class="ai-tabs" aria-label="관리자 화면"></nav>
+
+<div class="ap-status-filter" role="tablist" aria-label="신고 상태 필터">
+<button data-status="pending" aria-current="page">대기중</button>
+<button data-status="actioned">조치완료</button>
+<button data-status="dismissed">기각됨</button>
+</div>
+<div id="report-list" class="ai-list"></div>
+<div class="ai-btn-row" style="padding:0 16px 16px">
+<button id="reports-load-more" class="ai-secondary" hidden>더 보기</button>
+</div>
+</div>
+
+<p id="page-error" role="alert" hidden></p>
+<div id="toast" role="status" hidden></div>
+</body>
+</html>

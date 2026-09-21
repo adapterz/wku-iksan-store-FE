@@ -11,6 +11,7 @@ function renderProduct(product) {
   const brandElement = document.getElementById("product-brand");
   const nameElement = document.getElementById("product-name");
   const priceElement = document.getElementById("product-price");
+  const descImgWrapperElement = document.getElementById("product-description-img-wrapper");
   const descImgElement = document.getElementById("product-description-img");
   const descElement = document.getElementById("product-description");
   const validPeriodElement = document.getElementById("product-valid-period");
@@ -46,13 +47,17 @@ function renderProduct(product) {
   if (priceElement) priceElement.textContent = `${product.price.toLocaleString()}원`;
   // descriptionImageUrl이 있는 상품만 이미지를 보여주고, 없으면 영역 자체를 숨긴다
   // (아직 대부분 상품이 이 값을 안 채운 상태라 빈 이미지 아이콘이 뜨는 걸 방지).
-  if (descImgElement) {
+  // wrapper를 다시 보일 때는 skeleton 클래스를 매번 새로 걸어줘야 한다 — 이전에 로드된
+  // 이미지가 남아있던 상태(loaded)로 다음 상품(캐시 히트 등)을 그리기 시작할 수 있어서다.
+  if (descImgWrapperElement && descImgElement) {
     if (product.descriptionImageUrl) {
+      descImgWrapperElement.hidden = false;
+      descImgWrapperElement.classList.add('skeleton');
+      descImgElement.classList.remove('loaded');
       descImgElement.src = product.descriptionImageUrl;
       descImgElement.alt = `${product.name} 상품 이미지`;
-      descImgElement.hidden = false;
     } else {
-      descImgElement.hidden = true;
+      descImgWrapperElement.hidden = true;
     }
   }
   if (descElement) descElement.textContent = product.description || '등록된 상품설명이 없습니다.';
@@ -69,6 +74,161 @@ function renderProduct(product) {
   
   if (typeof window.updateBottomSheetPrice === 'function') {
     window.updateBottomSheetPrice();
+  }
+}
+
+// 수량 선택 Bottom Sheet 상태.
+// quantity는 장바구니 API(POST /api/cart-items)의 상품당 수량 제한(1~10)과 동일하게 맞춘다 —
+// 이 시트의 "장바구니" 담기 버튼이 결국 같은 API를 호출하게 되므로 시트 단계에서 미리 범위를 맞춰둔다.
+const SHEET_MAX_QUANTITY = 10;
+const sheetState = { quantity: 1, orderType: 'self' };
+
+function updateSheetQuantityUI() {
+  const quantityEl = document.getElementById('sheet-quantity');
+  const itemCountEl = document.getElementById('sheet-item-count');
+  const minusBtn = document.getElementById('btn-quantity-minus');
+  const plusBtn = document.getElementById('btn-quantity-plus');
+  if (quantityEl) quantityEl.textContent = sheetState.quantity;
+  if (itemCountEl) itemCountEl.textContent = `총 ${sheetState.quantity}개`;
+  if (minusBtn) minusBtn.disabled = sheetState.quantity <= 1;
+  if (plusBtn) plusBtn.disabled = sheetState.quantity >= SHEET_MAX_QUANTITY;
+}
+
+// renderProduct()가 상품 가격 로드 후 호출하는 훅. 시트가 열려있지 않아도(가격 미리 계산)
+// 안전하게 아무 값도 못 찾으면 조용히 넘어간다.
+window.updateBottomSheetPrice = function() {
+  const priceEl = document.getElementById('sheet-total-price');
+  const cardElement = document.querySelector('.product-detail-card');
+  if (!priceEl || !cardElement) return;
+  const unitPrice = Number(cardElement.dataset.price || 0);
+  const total = unitPrice * sheetState.quantity;
+  priceEl.textContent = `${total.toLocaleString()}원`;
+};
+
+function openBottomSheet(type) {
+  sheetState.quantity = 1;
+  sheetState.orderType = type;
+  updateSheetQuantityUI();
+  window.updateBottomSheetPrice();
+
+  const orderBtnLabel = document.getElementById('btn-sheet-order-label');
+  if (orderBtnLabel) orderBtnLabel.textContent = type === 'gift' ? '선물하기' : '나에게 선물하기';
+
+  const overlay = document.getElementById('quantity-sheet-overlay');
+  if (overlay) overlay.classList.add('active');
+}
+
+function closeBottomSheet() {
+  const overlay = document.getElementById('quantity-sheet-overlay');
+  if (overlay) overlay.classList.remove('active');
+}
+
+function initBottomSheet(productId) {
+  const overlay = document.getElementById('quantity-sheet-overlay');
+  const closeBtn = document.getElementById('btn-sheet-close');
+  const minusBtn = document.getElementById('btn-quantity-minus');
+  const plusBtn = document.getElementById('btn-quantity-plus');
+
+  if (closeBtn) closeBtn.addEventListener('click', closeBottomSheet);
+  if (overlay) {
+    // 배경(오버레이) 클릭 시 닫기 — 시트 내부(.bottom-sheet-content) 클릭은 무시
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeBottomSheet();
+    });
+  }
+  if (minusBtn) {
+    minusBtn.addEventListener('click', () => {
+      if (sheetState.quantity <= 1) return;
+      sheetState.quantity -= 1;
+      updateSheetQuantityUI();
+      window.updateBottomSheetPrice();
+    });
+  }
+  if (plusBtn) {
+    plusBtn.addEventListener('click', () => {
+      if (sheetState.quantity >= SHEET_MAX_QUANTITY) return;
+      sheetState.quantity += 1;
+      updateSheetQuantityUI();
+      window.updateBottomSheetPrice();
+    });
+  }
+
+  // "선물하기"/"나에게 선물하기" 버튼의 실제 주문 연동은 다음 단계에서 진행한다.
+  const addCartBtn = document.getElementById('btn-sheet-add-cart');
+  if (addCartBtn) {
+    const cartLabel = document.getElementById('btn-sheet-cart-label');
+    let cartNeedsRecheck = false;
+    async function recheckCart() {
+      try {
+        const result = await requestJson('/api/cart-items');
+        if (!result) return; // 401: 이동 전까지 재확인 상태 유지
+        if (!Array.isArray(result.data)) throw new Error('Invalid cart response');
+        const item = result.data.find(item => item.productId === Number(productId));
+        window._cartCache = null;
+        window.dispatchEvent(new CustomEvent('cart-updated'));
+        alert(`추가 요청의 반영 여부를 확인하지 못했습니다. 현재 장바구니에는 이 상품이 ${item ? item.quantity : 0}개 있습니다. 수량을 확인한 뒤 이용해주세요.`);
+        cartNeedsRecheck = false;
+        if (cartLabel) cartLabel.textContent = '장바구니';
+        closeBottomSheet();
+      } catch (error) {
+        console.error('장바구니 상태 재확인 실패:', error);
+        alert('장바구니 상태를 확인하지 못했습니다. 장바구니 확인 버튼으로 다시 확인해주세요. 추가 요청은 보내지 않습니다.');
+      }
+    }
+    addCartBtn.addEventListener('click', async () => {
+      if (addCartBtn.disabled) return;
+      addCartBtn.disabled = true;
+      try {
+        // 불확실한 POST를 반복하지 않는다. 재확인 버튼은 GET만 실행한다.
+        if (cartNeedsRecheck) {
+          await recheckCart();
+          return;
+        }
+        const result = await requestJson('/api/cart-items', {
+          method: 'POST',
+          body: { productId: Number(productId), quantity: sheetState.quantity }
+        });
+        // result가 없으면(=undefined) 401이라 api.js 전역 인터셉터가 이미 토스트를 띄우고
+        // 로그인 페이지로 리다이렉트를 예약해둔 상태다 — 여기서 추가로 처리하지 않는다.
+        if (!result) return;
+
+        // 다른 화면의 담김 상태 캐시(component.js의 _cartCache)를 다음 조회 때 다시 받아오도록
+        // 무효화하고, 헤더 장바구니 뱃지가 새 수량으로 갱신되도록 이벤트를 쏜다.
+        window._cartCache = null;
+        window.dispatchEvent(new CustomEvent('cart-updated', { detail: { productId, isInCart: true } }));
+        window.showToast('장바구니에 담았습니다.');
+        closeBottomSheet();
+      } catch (error) {
+        if (error.code === 'CART_QUANTITY_EXCEEDED') {
+          alert('장바구니에 이미 담긴 수량과 합쳐 상품당 최대 10개까지만 담을 수 있어요.');
+          return;
+        }
+        if (error.code === 'CART_LIMIT_EXCEEDED') {
+          alert('장바구니에 담을 수 있는 상품 종류가 가득 찼어요.');
+          return;
+        }
+        if (error.code === 'PRODUCT_UNAVAILABLE') {
+          alert('판매가 종료된 상품이에요.');
+          return;
+        }
+        console.error('장바구니 담기 실패:', error);
+        // 기존 항목이 있다는 사실로 이번 수량 추가의 성공을 확정할 수 없다.
+        cartNeedsRecheck = true;
+        if (cartLabel) cartLabel.textContent = '장바구니 확인';
+        await recheckCart();
+      } finally {
+        addCartBtn.disabled = false;
+      }
+    });
+  }
+  const orderBtn = document.getElementById('btn-sheet-order');
+  if (orderBtn) {
+    orderBtn.addEventListener('click', () => {
+      // 나에게 선물하기/선물하기 둘 다 기존처럼 결제 페이지(order.html)로 이동한다.
+      // order.html은 즉시 구매 그룹 주문 API(POST /api/order-groups/direct)를 쓰므로 수량이 반영된다.
+      sessionStorage.setItem('orderEntryProductId', String(productId));
+      window.location.href = `order.html?productId=${productId}&type=${sheetState.orderType}&quantity=${sheetState.quantity}`;
+    });
   }
 }
 
@@ -141,29 +301,54 @@ async function loadProductDetail(id) {
   }
 }
 
+// 추천 상품: 전용 추천 API가 없어, 전체 상품 목록(home.js와 동일한 GET /api/products,
+// sessionCache 공유)에서 현재 상품을 제외한 뒤 무작위로 섞어 보여준다. 현재 상품 id는 URL
+// 쿼리에서 바로 알 수 있으므로, 상품 상세 응답을 기다리지 않고 병렬로 조회를 시작한다.
+// 화면 구조(3열x2행 + 좌우 페이지네이션)는 홈 화면 둘러보기 상품과 동일하게, component.js의
+// 공용 캐러셀(createBrowseCarousel)을 그대로 재사용한다.
+const PRODUCT_RECOMMEND_PAGE_SIZE = 6;
+const PRODUCT_RECOMMEND_MAX_PAGES = 3;
+const PRODUCT_RECOMMEND_MAX_COUNT = PRODUCT_RECOMMEND_PAGE_SIZE * PRODUCT_RECOMMEND_MAX_PAGES;
 
-async function goToOrder(productId, type) {
+// Fisher-Yates를 필요한 개수(count)만큼만 진행하는 부분 셔플. 상품 수가 많아져도
+// 실제로 보여줄 개수만큼만 뒤섞으면 되므로, 후보 전체를 섞는 것보다 저렴하다.
+function pickRandomProducts(products, count) {
+  const pool = products.slice();
+  const limit = Math.min(count, pool.length);
+  for (let i = 0; i < limit; i += 1) {
+    const j = i + Math.floor(Math.random() * (pool.length - i));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, limit);
+}
+
+async function loadRecommendedProducts(currentProductId) {
+  const sectionEl = document.getElementById('product-recommend-section');
+  if (!sectionEl) return;
+
   try {
-    const authResult = await requestJson('/api/auth/me');
+    const result = await window.fetchListWithCache(
+      '/api/products',
+      window.PRODUCT_CACHE_KEY,
+      window.PRODUCT_CACHE_TTL_MS
+    );
+    const candidates = (result && Array.isArray(result.data) ? result.data : [])
+      .filter(product => String(product.id) !== String(currentProductId));
 
-    // authResult가 없으면(=undefined) api.js 전역 인터셉터가 401을 처리(로그인 페이지 이동)한 것이므로
-    // 그 이동을 order.html로 덮어쓰지 않도록 그대로 반환한다.
-    if (!authResult) {
+    if (candidates.length === 0) {
+      sectionEl.hidden = true;
       return;
     }
 
-    let url = `order.html?productId=${productId}&type=${type}`;
-    window.location.href = url;
+    sectionEl.hidden = false;
+    const picked = pickRandomProducts(candidates, PRODUCT_RECOMMEND_MAX_COUNT);
+    window.createBrowseCarousel(sectionEl, picked, { pageSize: PRODUCT_RECOMMEND_PAGE_SIZE, loop: true });
   } catch (error) {
-    if (error.status === 403) {
-      const redirectTarget = encodeURIComponent(window.location.href);
-      window.location.href = `login.html?redirect=${redirectTarget}`;
-      return;
-    }
-    console.error('로그인 상태 확인 실패:', error);
-    window.location.href = 'login.html';
+    console.error('추천 상품을 불러오지 못했습니다:', error);
+    sectionEl.hidden = true;
   }
 }
+
 
 // 상품설명/선물후기/상세정보 탭 전환. 탭·패널을 data-tab/data-panel 값으로 매칭해서
 // 클릭한 탭만 active 처리하고, 같은 값의 패널만 보이도록 나머지는 hidden 처리한다.
@@ -183,6 +368,121 @@ function initProductTabs() {
   });
 }
 
+// 선물후기 목록: 정렬·더보기 상태를 들고 있다가 GET /api/products/:id/reviews를 호출한다.
+// 상단 요약(평균 별점·리뷰수)과 탭 라벨도 이 응답 하나로 같이 갱신한다.
+const REVIEW_PAGE_SIZE = 10;
+const reviewState = { page: 1, sort: 'latest', totalPages: 1, loading: false, pendingRefresh: false };
+
+function updateReviewSummary(summary) {
+  const avgEl = document.getElementById('review-average');
+  const countEl = document.getElementById('review-count-text');
+  const tabCountEl = document.getElementById('review-tab-count');
+  if (avgEl) avgEl.textContent = summary.averageRating.toFixed(1);
+  if (countEl) countEl.textContent = `리뷰 ${summary.reviewCount}`;
+  if (tabCountEl) tabCountEl.textContent = summary.reviewCount;
+}
+
+// 리뷰 내용은 사용자가 작성한 텍스트이므로 XSS 방지를 위해 textContent로만 채운다.
+function createReviewCard(review) {
+  const card = document.createElement('article');
+  card.className = 'review-card';
+
+  const head = document.createElement('div');
+  head.className = 'review-card-head';
+  const nickname = document.createElement('span');
+  nickname.className = 'review-card-nickname';
+  nickname.textContent = review.nickname;
+  const date = document.createElement('time');
+  date.className = 'review-card-date';
+  date.dateTime = review.createdAt;
+  date.textContent = new Date(review.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  head.append(nickname, date);
+  card.appendChild(head);
+
+  const stars = document.createElement('div');
+  stars.className = 'review-card-stars';
+  stars.setAttribute('aria-label', `5점 만점에 ${review.rating}점`);
+  stars.textContent = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
+  card.appendChild(stars);
+
+  const content = document.createElement('p');
+  content.className = 'review-card-content';
+  content.textContent = review.content;
+  card.appendChild(content);
+
+  if (review.isMine) {
+    const actions = document.createElement('div');
+    actions.className = 'review-card-actions';
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'review-card-edit-btn';
+    editBtn.textContent = '수정 · 삭제';
+    editBtn.addEventListener('click', () => window.openReviewEditor({ reviewId: review.reviewId }));
+    actions.appendChild(editBtn);
+    card.appendChild(actions);
+  }
+
+  return card;
+}
+
+async function loadProductReviews(productId, { append = false } = {}) {
+  if (reviewState.loading) {
+    // 더보기(append) 요청은 그대로 버려도 되지만, review:changed로 인한 새로고침
+    // 요청까지 버리면 저장·삭제 직후에도 목록에 이전 상태가 남는다. 진행 중인
+    // 조회가 끝난 뒤 최신 목록을 다시 받아오도록 예약해둔다.
+    if (!append) reviewState.pendingRefresh = true;
+    return;
+  }
+  reviewState.loading = true;
+  if (!append) reviewState.page = 1;
+
+  const listEl = document.getElementById('review-list');
+  const emptyEl = document.getElementById('review-empty');
+  const moreBtn = document.getElementById('review-more');
+  const sortRow = document.getElementById('review-sort-row');
+  const sortSelect = document.getElementById('review-sort');
+  const errorEl = document.getElementById('review-error');
+
+  if (moreBtn) moreBtn.disabled = true;
+  // 로딩 중 정렬을 바꾸면 reviewState.loading 가드에 걸려 그 요청이 조용히 버려지고
+  // 드롭다운 표시값만 앞서가는 문제가 있어서, 더보기 버튼과 동일하게 select 자체를 잠근다.
+  if (sortSelect) sortSelect.disabled = true;
+  if (errorEl) errorEl.hidden = true;
+
+  try {
+    const result = await requestJson(
+      `/api/products/${productId}/reviews?page=${reviewState.page}&limit=${REVIEW_PAGE_SIZE}&sort=${reviewState.sort}`
+    );
+    if (!result) return;
+
+    const { summary, reviews } = result.data;
+    updateReviewSummary(summary);
+
+    if (!append && listEl) listEl.replaceChildren();
+    if (listEl) reviews.forEach(review => listEl.appendChild(createReviewCard(review)));
+
+    reviewState.totalPages = result.meta.totalPages;
+    if (emptyEl) emptyEl.hidden = summary.reviewCount > 0;
+    if (sortRow) sortRow.hidden = summary.reviewCount === 0;
+    if (moreBtn) moreBtn.hidden = reviewState.page >= reviewState.totalPages;
+  } catch (error) {
+    console.error('선물후기 목록을 불러오지 못했습니다:', error);
+    if (append) reviewState.page -= 1;
+    if (errorEl) {
+      errorEl.textContent = '후기를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
+      errorEl.hidden = false;
+    }
+  } finally {
+    reviewState.loading = false;
+    if (moreBtn) moreBtn.disabled = false;
+    if (sortSelect) sortSelect.disabled = false;
+    if (reviewState.pendingRefresh) {
+      reviewState.pendingRefresh = false;
+      loadProductReviews(productId);
+    }
+  }
+}
+
 // DOM이 로드된 후 데이터 로드 실행
 document.addEventListener("DOMContentLoaded", () => {
   initProductTabs();
@@ -192,23 +492,36 @@ document.addEventListener("DOMContentLoaded", () => {
   const productId = urlParams.get('id') || 1;
 
   loadProductDetail(productId);
+  loadProductReviews(productId);
+  loadRecommendedProducts(productId);
 
-  // 뒤로가기 버튼 로직
-  const backBtn = document.getElementById('btn-back');
-  if (backBtn) {
-    backBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      // 브라우저 히스토리가 있거나 리퍼러가 있는 경우 이전 페이지로 이동
-      if (window.history.length > 1 && document.referrer) {
-        window.history.back();
-      } else {
-        // 직접 진입 등 이전 페이지가 없는 경우 홈으로 이동
-        window.location.href = 'index.html';
-      }
+  const reviewSortSelect = document.getElementById('review-sort');
+  if (reviewSortSelect) {
+    reviewSortSelect.addEventListener('change', () => {
+      reviewState.sort = reviewSortSelect.value;
+      loadProductReviews(productId);
     });
   }
 
+  const reviewMoreBtn = document.getElementById('review-more');
+  if (reviewMoreBtn) {
+    reviewMoreBtn.addEventListener('click', () => {
+      reviewState.page += 1;
+      loadProductReviews(productId, { append: true });
+    });
+  }
 
+  // 리뷰 작성·수정·삭제 모달(review.js)이 완료 후 쏘는 이벤트. 이 상품 페이지와
+  // 관련된 변경일 때만 목록을 새로고침한다.
+  document.addEventListener('review:changed', (e) => {
+    if (String(e.detail.productId) === String(productId)) {
+      loadProductReviews(productId);
+    }
+  });
+
+  // 뒤로가기 버튼은 component.js의 bindHeaderBackButton()이 공통으로 처리한다.
+  // (여기서 별도로 또 바인딩하면 클릭 한 번에 history.back()이 두 번 호출되어
+  //  히스토리가 2칸 뒤로 이동하면서 홈을 건너뛰는 문제가 있었다.)
 
   // 위시리스트 토글 로직
   const wishBtn = document.getElementById('btn-wish');
@@ -236,18 +549,22 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 나에게 선물하기 및 선물하기 버튼 클릭 시 로그인 상태를 먼저 확인하고 주문 페이지로 이동
+  // 나에게 선물하기 및 선물하기 버튼 클릭 시 수량 선택 bottom sheet를 연다.
+  // (기존에는 로그인 확인 후 바로 order.html로 이동했으나, 수량 선택이 추가되며
+  //  주문 생성은 시트의 담기/주문 버튼 클릭 시점으로 옮겨간다 — 로그인 확인도 그때 진행)
+  initBottomSheet(productId);
+
   const buyBtn = document.querySelector('.btn-bottom-buy');
   if (buyBtn) {
     buyBtn.addEventListener('click', () => {
-      goToOrder(productId, 'self');
+      openBottomSheet('self');
     });
   }
 
   const giftBtn = document.querySelector('.btn-bottom-gift');
   if (giftBtn) {
     giftBtn.addEventListener('click', () => {
-      goToOrder(productId, 'gift');
+      openBottomSheet('gift');
     });
   }
 

@@ -17,6 +17,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (nicknameEl) nicknameEl.textContent = user.nickname || 'Unknown';
             if (useridEl) useridEl.textContent = user.userId;
 
+            // 관리자 계정에만 관리자 페이지 진입 버튼을 노출한다. 정적 HTML에 hidden으로
+            // 심어두는 대신 role이 admin으로 확인된 경우에만 DOM에 새로 삽입해서, 일반
+            // 사용자는 페이지 소스/개발자도구를 봐도 이 요소 자체를 볼 수 없게 한다.
+            // registerBfcacheRevalidation으로 이 함수가 bfcache 복원마다 재실행되므로,
+            // 이미 삽입돼 있으면 중복 삽입하지 않도록 확인한다.
+            const csButtons = document.querySelector('.cs-buttons');
+            if (user.role === 'admin' && csButtons && !document.getElementById('btn-admin-page')) {
+                csButtons.insertAdjacentHTML(
+                    'beforeend',
+                    '<a href="admin-dashboard.html" id="btn-admin-page" class="cs-btn">관리자 페이지</a>'
+                );
+            }
+
             // 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
             document.body.style.visibility = 'visible';
             document.body.style.opacity = '1';
@@ -30,53 +43,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    const isAuthenticated = await checkAuthAndLoadUserData();
+    // component.js의 공통 헬퍼: 최초 실행 후 bfcache 복원 시 재검증까지 등록해준다.
+    // (bfcache 복원 시 body를 숨기는 것은 head의 인라인 스크립트가 이미 처리하므로 여기서 다시 할 필요는 없다.)
+    const isAuthenticated = await window.registerBfcacheRevalidation(checkAuthAndLoadUserData);
     if (!isAuthenticated) {
         return;
     }
 
-    window.addEventListener('pageshow', async (event) => {
-        if (event.persisted) {
-            document.body.style.visibility = 'hidden';
-            document.body.style.opacity = '0';
-            await checkAuthAndLoadUserData();
+    // Logout Logic
+    async function handleLogout(e) {
+        e.preventDefault();
+
+        try {
+            await requestJson('/api/auth/logout', { method: 'POST' });
+        } catch (error) {
+            console.error('로그아웃 요청 실패:', error);
         }
-    });
-
-    // Settings Overlay Logic
-    const settingsBtn = document.getElementById('btn-settings-open');
-    const settingsOverlay = document.getElementById('settings-overlay');
-    const settingsCloseBtn = document.getElementById('btn-settings-close');
-
-    if (settingsBtn && settingsOverlay && settingsCloseBtn) {
-        settingsBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            settingsOverlay.classList.add('open');
-        });
-
-        settingsCloseBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            settingsOverlay.classList.remove('open');
-        });
+        // profile.js의 계정 삭제 흐름과 공유하는 클라이언트 측 로그인 흔적 정리 헬퍼(component.js).
+        window.clearClientSession();
+        window.location.href = 'login.html';
     }
 
-
-    // Logout Logic
-    const logoutBtn = document.getElementById('btn-settings-logout');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
-
-            try {
-                await requestJson('/api/auth/logout', { method: 'POST' });
-            } catch (error) {
-                console.error('로그아웃 요청 실패:', error);
-            }
-            localStorage.removeItem('isLoggedIn');
-            window._wishlistCache = null;
-            window._wishlistFetchPromise = null;
-            window.location.href = 'login.html';
-        });
+    const profileLogoutBtn = document.getElementById('btn-profile-logout');
+    if (profileLogoutBtn) {
+        profileLogoutBtn.addEventListener('click', handleLogout);
     }
 
     // Unused Gifts Logic
@@ -118,9 +108,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const allGifts = allGiftsResult.data || [];
 
             // 3. 탭별 카운트 계산 및 갱신
-            if (historyCountAll) historyCountAll.textContent = allGifts.length;
-            if (historyCountSelf) historyCountSelf.textContent = allGifts.filter(g => g.isSelfGift).length;
-            if (historyCountReceived) historyCountReceived.textContent = allGifts.filter(g => !g.isSelfGift).length;
+            // "전체"는 미사용 전체(자기+받은 선물 모두), "나에게 선물"/"받은 선물"은 그 미사용
+            // 전체를 자기선물이냐 아니냐로 나눈 것 — 즉 "나에게 선물"+"받은 선물" = "전체"가
+            // 항상 성립한다. (각 카드가 연결되는 giftbox.html 목록 필터와 반드시 같은 기준이어야
+            // 배지 숫자와 실제로 보이는 목록 건수가 어긋나지 않는다.)
+            if (historyCountAll) historyCountAll.textContent = allGifts.filter(g => g.status !== 'used').length;
+            if (historyCountSelf) historyCountSelf.textContent = allGifts.filter(g => g.isSelfGift && g.status === 'unused').length;
+            if (historyCountReceived) historyCountReceived.textContent = allGifts.filter(g => !g.isSelfGift && g.status === 'unused').length;
             if (historyCountUsed) historyCountUsed.textContent = allGifts.filter(g => g.status === 'used').length;
 
             // 4. 미사용 선물 필터링 및 리스트 렌더링
@@ -179,9 +173,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Policy Overlays Logic
     const policyConfig = [
-        { btns: ['btn-policy-terms', 'btn-settings-policy-terms'], overlay: 'policy-terms-overlay', close: 'btn-close-terms' },
-        { btns: ['btn-policy-penalty', 'btn-settings-policy-penalty'], overlay: 'policy-penalty-overlay', close: 'btn-close-penalty' },
-        { btns: ['btn-policy-privacy', 'btn-settings-policy-privacy'], overlay: 'policy-privacy-overlay', close: 'btn-close-privacy' }
+        { btns: ['btn-policy-terms'], overlay: 'policy-terms-overlay', close: 'btn-close-terms' },
+        { btns: ['btn-policy-penalty'], overlay: 'policy-penalty-overlay', close: 'btn-close-penalty' },
+        { btns: ['btn-policy-privacy'], overlay: 'policy-privacy-overlay', close: 'btn-close-privacy' }
     ];
 
     policyConfig.forEach(({ btns, overlay, close }) => {

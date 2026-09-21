@@ -1,3 +1,10 @@
+// 확장자 없는 주소와 기존 .html 링크를 같은 페이지로 판별한다.
+function getPageFile(pathname) {
+    const filename = pathname.split(/[?#]/, 1)[0].split('/').pop();
+    if (!filename) return 'index.html';
+    return filename.endsWith('.html') ? filename : `${filename}.html`;
+}
+
 // 전체화면 검색 모달 공통 HTML 반환 함수
 function getSearchOverlayHTML() {
     return `
@@ -23,6 +30,221 @@ if (document.body && !document.getElementById('search-overlay')) {
     document.body.insertAdjacentHTML('beforeend', getSearchOverlayHTML());
 }
 
+// ===== 선물 도착 알림 모달 =====
+// 로그인 상태로 확인될 때마다(auth:updated) 확인 안 한 선물이 있는지 체크해서 모달로 안내한다.
+// BE 이슈 #101 계약 기준: GET /api/gifts/unnotified → { count, giftIds }, PATCH /api/gifts/notify.
+// (이슈 #100 논의 반영) 목록 API(/api/gifts/unnotified)는 count/giftIds만 내려주고 보낸사람·
+// 상품명·메시지는 포함하지 않으므로, 안내된 giftId별로 이미 그 정보를 내려주는 상세 API
+// (GET /api/gifts/:id)를 병렬 조회해서 모달 안에서 목록+메시지를 바로 보여준다.
+function getGiftArrivalModalHTML() {
+    return `
+<div id="gift-arrival-modal" class="gift-arrival-modal">
+    <div class="gift-arrival-modal-content">
+        <div class="gift-arrival-modal-header">
+            <div class="gift-arrival-modal-icon"><i class="fa-solid fa-gift"></i></div>
+            <p class="gift-arrival-modal-text">새로운 선물이 <strong id="gift-arrival-count">0</strong>개 도착했어요</p>
+        </div>
+        <div id="gift-arrival-list" class="gift-arrival-list"></div>
+        <div class="gift-arrival-modal-actions">
+            <button type="button" id="btn-gift-arrival-confirm" class="btn-gift-arrival-confirm">확인</button>
+            <button type="button" id="btn-gift-arrival-giftbox" class="btn-gift-arrival-giftbox">선물함으로 가기</button>
+        </div>
+    </div>
+</div>`;
+}
+
+if (document.body && !document.getElementById('gift-arrival-modal')) {
+    document.body.insertAdjacentHTML('beforeend', getGiftArrivalModalHTML());
+}
+
+// 보낸사람 닉네임/메시지는 사용자가 입력한 텍스트라 그대로 꽂아 넣으면 안 되므로 이스케이프한다.
+// (getSearchHeaderHTML의 escapedKeyword와 동일한 패턴)
+function escapeGiftHtml(str) {
+    return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// 이슈 #100 코멘트(mikuuu3) 반영: 가격은 노출하지 않고 보낸사람/상품명/메시지만 보여준다.
+function giftArrivalItemHTML(gift, index) {
+    const senderLabel = gift.isSelfGift
+        ? '내가 나에게 보낸 선물'
+        : `${escapeGiftHtml((gift.sender && gift.sender.nickname) || '친구')} 님이 보냄`;
+
+    // 메시지는 기본 2줄로 접어두고(CSS max-height), 실제로 잘린 경우에만 렌더 후
+    // wireGiftArrivalMoreButtons에서 "더보기" 버튼을 드러낸다.
+    const messageHtml = gift.message ? `
+        <div class="gift-arrival-item-message">
+            <i class="fa-solid fa-comment" aria-hidden="true"></i>
+            <p class="gift-arrival-item-message-text" data-index="${index}">${escapeGiftHtml(gift.message)}</p>
+        </div>
+        <button type="button" class="gift-arrival-item-more" data-index="${index}" hidden>더보기</button>` : '';
+
+    return `
+<div class="gift-arrival-item">
+    <div class="gift-arrival-item-thumb"><img src="${escapeGiftHtml(gift.thumbnailUrl || '')}" alt="" loading="lazy"></div>
+    <div class="gift-arrival-item-body">
+        <p class="gift-arrival-item-sender">${senderLabel}</p>
+        <p class="gift-arrival-item-name">${escapeGiftHtml(gift.productName || '')}</p>
+        ${messageHtml}
+    </div>
+</div>`;
+}
+
+// 더보기 클릭 시 메시지 영역의 max-height를 늘려서(CSS transition) 그 자리에서 펼치고,
+// 다시 누르면 접는다 — 별도 팝업/페이지 이동 없이 카드 안에서 완결되는 방식(이슈 #100 권장).
+// 메시지가 2줄 이내로 다 보이는 카드는 실측(scrollHeight) 결과 버튼을 계속 숨겨둔다.
+function wireGiftArrivalMoreButtons() {
+    document.querySelectorAll('.gift-arrival-item-message-text').forEach((textEl) => {
+        const index = textEl.dataset.index;
+        const moreBtn = document.querySelector(`.gift-arrival-item-more[data-index="${index}"]`);
+        if (!moreBtn) return;
+        if (textEl.scrollHeight > textEl.clientHeight + 1) {
+            moreBtn.hidden = false;
+        }
+        moreBtn.addEventListener('click', () => {
+            const expanded = textEl.classList.toggle('expanded');
+            moreBtn.textContent = expanded ? '접기' : '더보기';
+        });
+    });
+}
+
+// PR #101 리뷰(Switchh2) 반영: 상세 조회가 실패한 항목을 조용히 목록에서 빼버리면, 제목은
+// "N개 도착"인데 실제로는 일부만(또는 하나도) 안 보이고, 정작 확인을 누르면 그 실패한 항목까지
+// 전부 확인 처리돼서 다시는 안내되지 않는 문제가 있었다. 실패한 항목도 카드 자리에 안내 문구로
+// 남겨서 최소한 "이런 선물이 왔다"는 사실 자체는 놓치지 않게 한다. 기존 "확인 = 안내된 전체 확인
+// 처리" 정책은 그대로 유지한다(개별 읽음 처리로 바꾸는 것은 아님).
+function giftArrivalErrorItemHTML() {
+    return `
+<div class="gift-arrival-item gift-arrival-item-error">
+    <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+    <p class="gift-arrival-item-error-text">선물 정보를 불러오지 못했어요. 선물함에서 확인해주세요.</p>
+</div>`;
+}
+
+function renderGiftArrivalList(entries) {
+    const listEl = document.getElementById('gift-arrival-list');
+    if (!listEl) return;
+    listEl.innerHTML = entries.length
+        ? entries.map((entry, index) => entry.data ? giftArrivalItemHTML(entry.data, index) : giftArrivalErrorItemHTML()).join('')
+        : '';
+    wireGiftArrivalMoreButtons();
+}
+
+// 모달에 안내했던 선물 ID를 확인 처리 시점까지 들고 있는다. 조회 응답에 포함된 ID만
+// 확인 처리 요청에 실어 보내므로, 모달이 열려있는 동안 새로 도착한 선물(이번 조회 대상이
+// 아니었던 것)이 실수로 함께 확인 처리되지 않는다.
+let pendingGiftArrivalIds = [];
+
+window.showGiftArrivalModal = async function(count, giftIds) {
+    pendingGiftArrivalIds = giftIds;
+    const modal = document.getElementById('gift-arrival-modal');
+    const countEl = document.getElementById('gift-arrival-count');
+    const listEl = document.getElementById('gift-arrival-list');
+    if (countEl) countEl.textContent = count;
+    if (listEl) listEl.innerHTML = '<p class="gift-arrival-list-loading">선물 정보를 불러오는 중...</p>';
+    if (modal) modal.classList.add('open');
+
+    // 일부 상세 조회가 실패해도(예: 네트워크 오류) 나머지는 그대로 보여준다. 실패한 항목도
+    // (data: null로) 그대로 들고 있어야 renderGiftArrivalList가 그 자리에 실패 안내를 채울 수
+    // 있다 — 조용히 빼버리면 제목의 개수와 실제 목록이 안 맞고, 확인 시 안내조차 못 받은 항목까지
+    // 확인 처리돼버린다(PR #101 리뷰 반영).
+    const details = await Promise.all(giftIds.map(async (id) => {
+        try {
+            const result = await requestJson(`/api/gifts/${id}`, { silent401: true });
+            return { id, data: result && result.data ? result.data : null };
+        } catch (error) {
+            console.error(`선물(${id}) 상세 조회 실패:`, error);
+            return { id, data: null };
+        }
+    }));
+
+    // 조회하는 동안 모달이 이미 닫혔거나(확인 클릭 등) 더 최신 조회로 대체됐다면
+    // 오래된 결과로 화면을 덮어쓰지 않는다(search.js abf86c5와 동일한 패턴).
+    if (!modal || !modal.classList.contains('open')) return;
+    if (pendingGiftArrivalIds !== giftIds) return;
+
+    renderGiftArrivalList(details);
+};
+
+// 확인 안 한 선물이 있는지 조회. auth:updated에서 isLoggedIn일 때만 호출되므로 비로그인
+// 사용자에게는 이 요청 자체가 나가지 않는다. 알림은 페이지의 핵심 기능이 아니므로,
+// 조회 실패(BE 미구현 포함) 시에도 다른 기능을 막지 않도록 로그만 남기고 조용히 넘어간다.
+async function checkGiftArrival() {
+    try {
+        const result = await requestJson('/api/gifts/unnotified', { silent401: true });
+        const { count, giftIds } = result?.data || {};
+        if (count > 0 && Array.isArray(giftIds) && giftIds.length > 0) {
+            window.showGiftArrivalModal(count, giftIds);
+        }
+    } catch (error) {
+        console.error('선물 도착 알림 확인 실패:', error);
+    }
+}
+
+document.addEventListener('auth:updated', (e) => {
+    const { isLoggedIn } = e.detail || {};
+    if (isLoggedIn) checkGiftArrival();
+});
+
+// 확인 처리 API 호출. pendingGiftArrivalIds(모달에 실제로 안내됐던 ID)만 넘긴다.
+// 반환값을 boolean이 아니라 3가지 상태로 구분한다(PR #75 리뷰 반영).
+// - 'success': 실제로 서버에 반영됨
+// - 'auth-required': 세션 만료(401). requestJson이 silent401 미지정 시 예외를 던지지
+//   않고 로그인 페이지 이동만 예약한 뒤 undefined를 반환하므로, 이 경우를 성공으로
+//   오인해 pendingGiftArrivalIds를 비우면 안 된다(서버엔 반영된 적이 없음).
+// - 'failed': 그 외 실패(네트워크 오류 등). 재시도 가능하도록 상태를 그대로 유지한다.
+async function notifyGiftArrivalSeen() {
+    if (!pendingGiftArrivalIds.length) return 'success';
+    let result;
+    try {
+        result = await requestJson('/api/gifts/notify', {
+            method: 'PATCH',
+            body: { giftIds: pendingGiftArrivalIds }
+        });
+    } catch (error) {
+        console.error('선물 도착 확인 처리 실패:', error);
+        return 'failed';
+    }
+    if (result === undefined) {
+        return 'auth-required';
+    }
+    pendingGiftArrivalIds = [];
+    return 'success';
+}
+
+(function bindGiftArrivalModalButtons() {
+    const modal = document.getElementById('gift-arrival-modal');
+    const confirmBtn = document.getElementById('btn-gift-arrival-confirm');
+    const giftboxBtn = document.getElementById('btn-gift-arrival-giftbox');
+
+    // 'auth-required'는 requestJson이 이미 로그인 페이지로 이동을 예약해둔 상태라
+    // 여기서 별도로 alert를 띄우거나 모달을 건드리지 않는다(중복 안내 방지).
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', async () => {
+            confirmBtn.disabled = true;
+            const status = await notifyGiftArrivalSeen();
+            confirmBtn.disabled = false;
+            if (status === 'success') {
+                if (modal) modal.classList.remove('open');
+            } else if (status === 'failed') {
+                alert('확인 처리에 실패했습니다. 다시 시도해주세요.');
+            }
+        });
+    }
+
+    if (giftboxBtn) {
+        giftboxBtn.addEventListener('click', async () => {
+            giftboxBtn.disabled = true;
+            const status = await notifyGiftArrivalSeen();
+            giftboxBtn.disabled = false;
+            if (status === 'success') {
+                window.location.href = 'giftbox.html';
+            } else if (status === 'failed') {
+                alert('확인 처리에 실패했습니다. 다시 시도해주세요.');
+            }
+        });
+    }
+})();
+
 // 검색어를 받아 검색 결과 페이지로 이동하는 공통 유틸리티 (빈 값은 무시)
 function navigateToSearch(keyword) {
     const trimmed = (keyword || '').trim();
@@ -42,6 +264,27 @@ window.refreshBottomNavLoginLink = function() {
     }
 };
 
+// 뒤로가기/앞으로가기로 페이지가 bfcache에서 복원될 때(pageshow, persisted) 인증·데이터를
+// 재검증하는 공통 헬퍼. head의 인라인 스크립트가 bfcache 복원 시 body를 다시 숨겨두므로,
+// checkFn이 재실행되어 다시 보여주지 않으면 흰 화면으로 남는다.
+// checkFn은 성공 시 화면을 다시 보이게 하고 true를, 실패 시(알림/리다이렉트를 직접 처리하고) false를 반환해야 한다.
+// 최초 실행이 실패하면 재검증 리스너를 등록하지 않는다.
+async function registerBfcacheRevalidation(checkFn) {
+    const isReady = await checkFn();
+    if (!isReady) {
+        return false;
+    }
+
+    window.addEventListener('pageshow', async (event) => {
+        if (event.persisted) {
+            await checkFn();
+        }
+    });
+
+    return true;
+}
+window.registerBfcacheRevalidation = registerBfcacheRevalidation;
+
 // 헤더의 #btn-back 뒤로가기 버튼 공통 이벤트 바인딩 (히스토리가 없으면 홈으로 이동)
 function bindHeaderBackButton() {
     const btnBack = document.getElementById('btn-back');
@@ -56,6 +299,190 @@ function bindHeaderBackButton() {
         });
     }
 }
+
+// 서브 헤더에 페이지 제목이 필요한 화면(category.js/brand.js/profile.js 등) 공통 헬퍼.
+// header:ready 이후 제목을 넣는다. title은 absolute 중앙 정렬이라 우측 선물함 아이콘과 겹치지 않는다.
+window.setSubHeaderTitle = function(titleText) {
+    document.addEventListener('header:ready', () => {
+        const headerContainer = document.querySelector('header.main-header .header-container');
+
+        if (headerContainer) {
+            const title = document.createElement('h1');
+            title.className = 'header-title';
+            title.textContent = titleText;
+            headerContainer.appendChild(title);
+        }
+    });
+};
+
+// signup.js/profile.js가 각자 들고 있던 동일한 폼 에러 표시/초기화 로직의 공통 버전.
+// login.js는 component.js 자체를 로드하지 않아(자체 커스텀 헤더를 직접 관리) 대상에서 제외했다 —
+// component.js를 추가하면 index/mypage/search 외 모든 페이지에 자동 주입되는 공통 서브헤더 로직이
+// login.html의 커스텀 헤더(#btn-home)를 덮어써 버리기 때문에, 그 쪽은 로컬 구현을 그대로 둔다.
+// focusElement가 있으면 그 input이 속한 .form-group 안의 .auth-error에 인라인으로 표시하고,
+// 없으면 globalErrorEl(폼 전역 에러 문구)에 표시한다.
+window.showFieldError = function(globalErrorEl, message, focusElement = null) {
+    if (focusElement) {
+        const parentGroup = focusElement.closest('.form-group');
+        const inlineErrorEl = parentGroup ? parentGroup.querySelector('.auth-error') : null;
+        if (inlineErrorEl) {
+            if (inlineErrorEl.textContent !== message) {
+                inlineErrorEl.textContent = message;
+            }
+            inlineErrorEl.hidden = false;
+            inlineErrorEl.setAttribute('aria-live', 'polite');
+        }
+        focusElement.setAttribute('aria-invalid', 'true');
+        if (document.activeElement !== focusElement) {
+            focusElement.focus();
+        }
+    } else if (globalErrorEl) {
+        if (globalErrorEl.textContent !== message) {
+            globalErrorEl.textContent = message;
+        }
+        globalErrorEl.hidden = false;
+        globalErrorEl.setAttribute('aria-live', 'polite');
+    }
+};
+
+// form 안 모든 input의 에러 상태(aria-invalid, 인라인 .auth-error)와 전역 에러 요소를 초기화한다.
+window.clearFieldErrors = function(form, globalErrorEl) {
+    if (globalErrorEl) {
+        globalErrorEl.hidden = true;
+        globalErrorEl.textContent = '';
+    }
+    if (!form) return;
+    Array.from(form.querySelectorAll('input')).forEach((input) => {
+        input.removeAttribute('aria-invalid');
+        const parentGroup = input.closest('.form-group');
+        const inlineErrorEl = parentGroup ? parentGroup.querySelector('.auth-error') : null;
+        if (inlineErrorEl) {
+            inlineErrorEl.hidden = true;
+            inlineErrorEl.textContent = '';
+        }
+    });
+};
+
+// signup.js/profile.js가 거의 동일하게 들고 있던 인증 관련 에러 코드 메시지의 공통 버전.
+// (login.js는 위와 같은 이유로 대상에서 제외)
+window.ERROR_MESSAGES = Object.freeze({
+    // 닉네임 오류
+    REQUIRED_NICKNAME: '닉네임을 입력해 주세요.',
+    INVALID_NICKNAME_TYPE: '닉네임 입력값을 확인해주세요',
+    INVALID_NICKNAME_FORMAT: '한글·영문·숫자만 사용할 수 있습니다.',
+    NICKNAME_TOO_SHORT: '닉네임은 2자 이상 입력해 주세요.',
+    NICKNAME_TOO_LONG: '닉네임은 8자 이하로 입력해 주세요',
+    NICKNAME_ALREADY_EXISTS: '이미 사용 중인 닉네임입니다.',
+    // 이메일 오류
+    REQUIRED_EMAIL: '이메일을 입력해 주세요.',
+    INVALID_EMAIL_TYPE: '이메일 입력값을 확인해 주세요.',
+    INVALID_EMAIL_FORMAT: '이메일 형식을 확인해 주세요',
+    EMAIL_TOO_LONG: '이메일이 너무 깁니다.',
+    EMAIL_ALREADY_EXISTS: '이미 가입된 이메일 입니다.',
+    // 비밀번호 오류
+    REQUIRED_PASSWORD: '비밀번호를 입력해 주세요.',
+    INVALID_PASSWORD_TYPE: '비밀번호 입력값을 확인해주세요.',
+    INVALID_PASSWORD_FORMAT: '비밀번호에는 공백을 사용할 수 없습니다.',
+    PASSWORD_TOO_SHORT: '비밀번호는 8자 이상 입력해 주세요',
+    PASSWORD_TOO_LONG: '비밀번호는 15자 이하로 입력해주세요',
+    COMMON_PASSWORD: '다른 비밀번호를 사용해 주세요.',
+    INVALID_PASSWORD: '비밀번호가 일치하지 않습니다.',
+    // 계정 삭제 오류
+    ACCOUNT_HAS_UNUSED_GIFTS: '미사용 선물이 남아있어 계정을 삭제할 수 없습니다.',
+    // BE PR #103(adapterz/wku-iksan-store-BE): 활성 정지 중인 회원이 탈퇴로 제재를 회피하지 못하도록
+    // 계정 삭제 자체를 막는다(403). 재시도로 해결되는 문제가 아니므로 이유를 명시해서 안내한다.
+    ACCOUNT_HAS_ACTIVE_SANCTION: '이용 정지 중에는 계정을 삭제할 수 없습니다.',
+    // 공통 오류
+    UNAUTHORIZED: '로그인이 필요합니다.',
+    NETWORK_ERROR: '네트워크 연결을 확인해 주세요.',
+    INVALID_JSON_RESPONSE: '서버 응답을 처리할 수 없습니다.',
+    INTERNAL_SERVER_ERROR: '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
+});
+
+// signup.js/profile.js가 각각 들고 있던 닉네임/이메일/(새) 비밀번호 유효성 검사 규칙의 공통 버전.
+// 모두 { isValid, message?, element? } 형태로 반환한다.
+window.validateNicknameValue = function(nickname, nicknameInput) {
+    if (!nickname) {
+        return { isValid: false, message: window.ERROR_MESSAGES.REQUIRED_NICKNAME, element: nicknameInput };
+    }
+    if (/\s/.test(nickname)) {
+        return { isValid: false, message: window.ERROR_MESSAGES.INVALID_NICKNAME_FORMAT, element: nicknameInput };
+    }
+    if (nickname.length < 2) {
+        return { isValid: false, message: window.ERROR_MESSAGES.NICKNAME_TOO_SHORT, element: nicknameInput };
+    }
+    if (nickname.length > 8) {
+        return { isValid: false, message: window.ERROR_MESSAGES.NICKNAME_TOO_LONG, element: nicknameInput };
+    }
+    if (!/^[가-힣a-zA-Z0-9]+$/.test(nickname)) {
+        return { isValid: false, message: window.ERROR_MESSAGES.INVALID_NICKNAME_FORMAT, element: nicknameInput };
+    }
+    return { isValid: true };
+};
+
+window.validateEmailValue = function(email, emailInput) {
+    if (!email) {
+        return { isValid: false, message: window.ERROR_MESSAGES.REQUIRED_EMAIL, element: emailInput };
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return { isValid: false, message: window.ERROR_MESSAGES.INVALID_EMAIL_FORMAT, element: emailInput };
+    }
+    if (email.length > 255) {
+        return { isValid: false, message: window.ERROR_MESSAGES.EMAIL_TOO_LONG, element: emailInput };
+    }
+    return { isValid: true };
+};
+
+window.validateNewPasswordValue = function(password, passwordInput) {
+    if (!password) {
+        return { isValid: false, message: window.ERROR_MESSAGES.REQUIRED_PASSWORD, element: passwordInput };
+    }
+    if (/\s/.test(password)) {
+        return { isValid: false, message: window.ERROR_MESSAGES.INVALID_PASSWORD_FORMAT, element: passwordInput };
+    }
+    if (password.length < 8) {
+        return { isValid: false, message: window.ERROR_MESSAGES.PASSWORD_TOO_SHORT, element: passwordInput };
+    }
+    if (password.length > 15) {
+        return { isValid: false, message: window.ERROR_MESSAGES.PASSWORD_TOO_LONG, element: passwordInput };
+    }
+    return { isValid: true };
+};
+
+// 비밀번호 강도 판정만 담당하는 순수 함수(DOM 미접촉). signup.js는 빈 값일 때 즉시 "필수" 인라인
+// 에러를 띄우고, profile.js는 조용히 지우기만 하는 등 화면별로 실제 표시 방식이 달라서, 그 부분은
+// 호출부가 반환값(level/reason)을 보고 각자 처리하고 여기서는 판정 로직만 공유한다.
+window.getPasswordStrength = function(value, { minLength = 8, maxLength = 15 } = {}) {
+    if (!value) {
+        return { level: 'empty' };
+    }
+    if (/\s/.test(value)) {
+        return { level: 'invalid', reason: 'whitespace' };
+    }
+    if (value.length < minLength) {
+        return { level: 'invalid', reason: 'tooShort' };
+    }
+    if (value.length > maxLength) {
+        return { level: 'invalid', reason: 'tooLong' };
+    }
+
+    const hasLetter = /[a-zA-Z]/.test(value);
+    const hasNumber = /\d/.test(value);
+    const hasSpecial = /[^a-zA-Z0-9\s]/.test(value);
+    const typesCount = [hasLetter, hasNumber, hasSpecial].filter(Boolean).length;
+
+    if (typesCount <= 1) return { level: 'weak' };
+    if (typesCount === 2) return { level: 'medium' };
+    return { level: 'strong' };
+};
+
+// 로그아웃(mypage.js)과 계정 삭제(profile.js)가 공통으로 수행하던 클라이언트 측 로그인 흔적 정리.
+// 서버 세션 종료(로그아웃 API 호출 등)는 호출부 책임이고, 이 함수는 클라이언트에 남는 상태만 지운다.
+window.clearClientSession = function() {
+    localStorage.removeItem('isLoggedIn');
+    window._wishlistCache = null;
+    window._wishlistFetchPromise = null;
+};
 
 // 검색 결과 페이지(search.html) 전용 헤더 HTML 반환 함수
 // index.html의 회색 검색 인라인 박스(.header-search-box)를 재사용하되, 오버레이 대신
@@ -99,6 +526,9 @@ window.renderSearchHeader = function(keyword) {
         if (!searchPageInput) return;
         const trimmed = searchPageInput.value.trim();
         if (!trimmed) return;
+        // 여기는 pushState만 쓰고 페이지를 새로 로드하지 않아서(위 주석 참고), blur()를 명시적으로
+        // 호출하지 않으면 모바일 가상 키보드가 계속 떠 있는다.
+        searchPageInput.blur();
         if (typeof window.onSearchPageKeywordSubmit === 'function') {
             window.onSearchPageKeywordSubmit(trimmed);
         } else {
@@ -108,7 +538,10 @@ window.renderSearchHeader = function(keyword) {
 
     if (searchPageInput) {
         searchPageInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
+            // isComposing 체크 없이 Enter를 바로 가로채면, 한글 등 조합형 입력 중 키보드의
+            // "이동" 키를 눌렀을 때(조합 커밋용 keydown) IME의 자체 제출 처리와 충돌해
+            // 가상 키보드가 안 내려가는 기기가 있다(삼성 키보드에서 확인됨).
+            if (e.key === 'Enter' && !e.isComposing) {
                 e.preventDefault();
                 submitPageSearch();
             }
@@ -129,22 +562,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 <i class="fa-solid fa-arrow-left"></i>
             </a>
             <div class="header-right-icons" style="gap: 16px;">
-                <a href="#" id="btn-search-open" class="header-icon" title="검색">
-                    <i class="fa-solid fa-magnifying-glass"></i>
+                <a href="giftbox.html" class="header-icon" title="선물함">
+                    <i class="fa-solid fa-gift"></i>
                 </a>
-                <a href="index.html" class="header-icon" title="홈">
-                    <i class="fa-solid fa-house"></i>
+                <a href="cart.html" class="header-icon" title="장바구니">
+                    <i class="fa-solid fa-bag-shopping"></i>
+                    <span class="cart-count-badge" hidden>0</span>
                 </a>
             </div>
         </div>`;
     }
 
     // 메인(index.html) 및 마이페이지(mypage.html) 제외 서브 페이지 헤더 동적 삽입
-    let currentPath = window.location.pathname;
-    let currentFile = currentPath.substring(currentPath.lastIndexOf('/') + 1);
-    if (currentFile === '' || currentFile === '/') {
-        currentFile = 'index.html';
-    }
+    const currentFile = getPageFile(window.location.pathname);
 
     // search.html은 검색 인라인 박스가 포함된 전용 헤더(window.renderSearchHeader)를 사용하므로 공통 헤더 자동 삽입에서 제외
     if (currentFile !== 'index.html' && currentFile !== 'mypage.html' && currentFile !== 'search.html') {
@@ -155,6 +585,9 @@ document.addEventListener('DOMContentLoaded', () => {
             bindHeaderBackButton();
         }
     }
+
+    // 헤더에 장바구니 아이콘이 있는 모든 화면(index.html 정적 마크업 포함)에서 담긴 개수 뱃지 갱신
+    window.updateCartBadge();
 
     // 하단 네비게이션 바 공통 HTML 반환 함수
     function getBottomNavHTML() {
@@ -246,14 +679,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const navItems = document.querySelectorAll('.bottom-nav .nav-item, .nav-bar .nav-item');
         if (navItems.length === 0) return;
 
-        let currentPath = window.location.pathname;
-        let currentFile = currentPath.substring(currentPath.lastIndexOf('/') + 1);
-        
-        // Default to index.html if root path
-        if (currentFile === '' || currentFile === '/') {
-            currentFile = 'index.html';
-        }
-
+        const currentFile = getPageFile(window.location.pathname);
 
         navItems.forEach(item => {
             let href = item.getAttribute('href');
@@ -262,11 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Parse href to get filename, ignoring query strings
-            let hrefFile = href;
-            const qIndex = href.indexOf('?');
-            if (qIndex !== -1) hrefFile = href.substring(0, qIndex);
-            hrefFile = hrefFile.substring(hrefFile.lastIndexOf('/') + 1);
+            const hrefFile = getPageFile(href);
 
             const isActive = currentFile === hrefFile;
             item.classList.toggle('active', isActive);
@@ -336,12 +758,19 @@ document.addEventListener('DOMContentLoaded', () => {
         // 검색어 제출(Enter 입력 또는 검색 아이콘 클릭) 시 검색 결과 페이지로 이동
         function submitSearch() {
             if (!searchInput) return;
+            // navigateToSearch()가 실제 페이지 이동(location.href)을 하긴 하지만, 새 페이지가
+            // 그려지기 전까지 이전 포커스/가상 키보드 상태를 그대로 유지하는 기기가 있어서
+            // 제출 시점에 명시적으로 닫아준다.
+            searchInput.blur();
             navigateToSearch(searchInput.value);
         }
 
         if (searchInput) {
             searchInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
+                // isComposing 체크 없이 Enter를 바로 가로채면, 한글 등 조합형 입력 중 키보드의
+                // "이동" 키를 눌렀을 때(조합 커밋용 keydown) IME의 자체 제출 처리와 충돌해
+                // 가상 키보드가 안 내려가는 기기가 있다(삼성 키보드에서 확인됨).
+                if (e.key === 'Enter' && !e.isComposing) {
                     e.preventDefault();
                     submitSearch();
                 }
@@ -504,8 +933,28 @@ async function ensureWishlistLoaded() {
     return window._wishlistCache;
 }
 
+// 같은 상품에 대한 토글 요청이 겹치는 것을 막는 진행 중 요청 맵.
+// 응답 전에 같은 카드(또는 같은 상품의 다른 카드)를 연속 클릭하면, 각 호출이 요청 전
+// 캐시 스냅샷으로 찜 여부를 판단하므로 똑같이 DELETE(또는 POST)를 중복 전송하게 된다.
+// BE가 이미 해제된 찜의 DELETE도 성공으로 응답하기 때문에 요청 자체는 실패하지 않지만,
+// 성공 이벤트가 두 번 발생해 관심 수가 실제보다 더 감소/증가해 보이는 문제로 이어진다.
+const pendingWishlistToggles = new Map();
+
 // 공통 관심상품(북마크) 토글 유틸리티
-window.toggleSavedProduct = async function(productId) {
+window.toggleSavedProduct = function(productId) {
+    const key = productId.toString();
+    if (pendingWishlistToggles.has(key)) {
+        return pendingWishlistToggles.get(key);
+    }
+
+    const request = performWishlistToggle(productId).finally(() => {
+        pendingWishlistToggles.delete(key);
+    });
+    pendingWishlistToggles.set(key, request);
+    return request;
+};
+
+async function performWishlistToggle(productId) {
     // 초기 목록 조회가 진행 중이라면 완료를 기다려, 늦게 도착한 조회 결과가
     // 이후의 토글 결과를 덮어쓰는 레이스 컨디션을 방지
     const wishlist = await ensureWishlistLoaded();
@@ -544,7 +993,69 @@ window.toggleSavedProduct = async function(productId) {
     // UI 업데이트 이벤트를 발생시키고 결과를 반환
     window.dispatchEvent(new CustomEvent('saved-products-updated', { detail: { productId, isSaved } }));
     return isSaved;
-};
+}
+
+// 홈/카테고리/브랜드 화면은 각자 sessionStorage에 상품 목록을 캐싱해두고, 캐시가 유효한 동안은
+// 재조회 없이 그 배열로 카드를 다시 그린다(예: 다른 화면에 갔다가 캐시 만료 전에 돌아오는 경우).
+// 화면의 카드 DOM만 갱신하고 이 원본 배열을 그대로 두면, 카드가 다시 그려질 때 토글 이전 숫자로
+// 되돌아간다. 화면마다 캐시 키가 달라 전부 알 수 없으므로, sessionStorage 전체를 훑어 상품 배열이
+// 들어있는 항목을 찾아 wishlistCount를 함께 보정한다. 캐시 형태는 두 가지가 섞여 있다:
+// - home.js(fetchListWithCache): 캐시 값이 상품 배열 그 자체
+// - category.js/brand.js(자체 캐시): 캐시 값이 API 응답 전체({ data: [...] })
+function patchCachedInterestCounts(productId, delta) {
+    const targetId = Number(productId);
+    for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (!key || !key.startsWith('iksanstore:')) continue;
+
+        try {
+            const parsed = JSON.parse(sessionStorage.getItem(key));
+            if (!parsed || typeof parsed !== 'object') continue;
+
+            const list = Array.isArray(parsed.data) ? parsed.data
+                : (parsed.data && Array.isArray(parsed.data.data)) ? parsed.data.data
+                : null;
+            if (!list) continue;
+
+            let changed = false;
+            list.forEach(item => {
+                if (item && item.id === targetId && item.wishlistCount !== undefined) {
+                    item.wishlistCount = Math.max(0, item.wishlistCount + delta);
+                    changed = true;
+                }
+            });
+            if (changed) sessionStorage.setItem(key, JSON.stringify(parsed));
+        } catch (error) {
+            // 손상된 JSON 등은 건너뛰고 다음 캐시 항목을 계속 처리한다.
+        }
+    }
+}
+
+// 같은 상품이 홈 화면 등에서 여러 카드로 동시에 노출되는 경우까지 전부 반영하기 위해,
+// 클릭된 카드 하나만 갱신하는 대신 전역 이벤트를 통해 같은 productId를 가진 모든 카드를 갱신한다.
+// 실제 카운트를 받은 카드(data-has-count)만 대상으로 하여, 값이 없어 "관심 0"으로만 표시되는
+// 검색/카테고리 카드가 잘못된 숫자로 바뀌지 않도록 한다.
+// component.js는 tests/page-urls.test.cjs에서 addEventListener가 없는 최소 mock window로도
+// 로드되므로, 실제 브라우저가 아닌 환경에서 모듈 로드 자체가 깨지지 않도록 방어한다.
+if (typeof window.addEventListener === 'function') {
+    window.addEventListener('saved-products-updated', (e) => {
+        const { productId, isSaved } = e.detail;
+        const delta = isSaved ? 1 : -1;
+
+        document.querySelectorAll(`.btn-save-bookmark[data-product-id="${productId}"]`).forEach(btn => {
+            const card = btn.closest('.product-card');
+            const countEl = card && card.querySelector('.interest-count');
+            if (!countEl || countEl.dataset.hasCount !== 'true') return;
+
+            const current = Number(countEl.dataset.count || 0);
+            const next = Math.max(0, current + delta);
+            countEl.dataset.count = next;
+            countEl.textContent = `관심 ${next}`;
+        });
+
+        patchCachedInterestCounts(productId, delta);
+    });
+}
 
 // 공통 관심상품 여부 확인 유틸리티 (비동기 및 캐싱 처리)
 window.isProductSaved = async function(productOrId) {
@@ -569,6 +1080,91 @@ window.updateWishlistIcon = function(icon, isSaved) {
         icon.classList.remove('wished-icon');
     }
 };
+
+// 전역 장바구니 캐시 및 단일 요청 프라미스
+window._cartCache = null;
+window._cartFetchPromise = null;
+let cartCacheVersion = 0;
+function invalidateCartCache() {
+    cartCacheVersion++;
+    window._cartCache = null;
+    window._cartFetchPromise = null;
+}
+
+// 장바구니 캐시가 없다면 서버에서 최초 1회 전체 조회하여 캐시를 채우는 공통 헬퍼 (Singleflight 패턴 적용)
+async function ensureCartLoaded() {
+    const version = cartCacheVersion;
+    if (!window._cartCache) {
+        if (!window._cartFetchPromise) {
+            const fetchPromise = (async () => {
+                try {
+                    // silent401: 비로그인 상태에서도 홈 화면 등에서 조용히 빈 장바구니로 처리해야 하므로
+                    // 전역 401 리다이렉트를 건너뛴다.
+                    const result = await requestJson('/api/cart-items', { silent401: true });
+                    if (result && result.data) {
+                        return result.data.map(item => ({ cartItemId: item.cartItemId, productId: item.productId.toString(), quantity: item.quantity }));
+                    }
+                    return [];
+                } catch (error) {
+                    if (error.status === 401) {
+                        // 비로그인 상태는 정상 상태이므로 빈 배열로 캐시
+                        return [];
+                    }
+                    // 네트워크 오류, 500 등은 캐시를 오염시키지 않고 다음 요청에서 재조회하도록 함
+                    throw error;
+                } finally {
+                    // 이전 요청이 새로 시작한 요청의 참조를 지우지 않도록 한다.
+                    if (window._cartFetchPromise === fetchPromise) window._cartFetchPromise = null;
+                }
+            })();
+            window._cartFetchPromise = fetchPromise;
+        }
+        const cart = await window._cartFetchPromise;
+        // 변경/복원 이전에 시작한 조회로 최신 캐시를 덮어쓰지 않는다.
+        if (version !== cartCacheVersion) return ensureCartLoaded();
+        window._cartCache = cart;
+    }
+    return window._cartCache;
+}
+
+// 장바구니에 담긴 상품의 총 수량(개수 합계, 종류 수가 아님) — 헤더 뱃지 표시용
+async function getCartTotalQuantity() {
+    const cart = await ensureCartLoaded();
+    return cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+}
+
+// 헤더의 장바구니 아이콘 뱃지(.cart-count-badge, 인덱스/서브헤더 등 화면에 있는 만큼 전부)를
+// 현재 장바구니 총 수량으로 갱신한다. 0개면 숨긴다.
+window.updateCartBadge = async function() {
+    if (!document.querySelectorAll('.cart-count-badge').length) return;
+    try {
+        const total = await getCartTotalQuantity();
+        document.querySelectorAll('.cart-count-badge').forEach(badge => {
+            if (total > 0) {
+                badge.textContent = total > 99 ? '99+' : String(total);
+                badge.hidden = false;
+            } else {
+                badge.hidden = true;
+            }
+        });
+    } catch (error) {
+        console.error('장바구니 뱃지 갱신 실패:', error);
+    }
+};
+
+if (typeof window.addEventListener === 'function') {
+    window.addEventListener('cart-updated', () => {
+        invalidateCartCache();
+        return window.updateCartBadge();
+    });
+    // 공통 인증 재검증과 같은 pageshow 조건. 인증 실패 여부와 무관하게
+    // 뱃지도 갱신해야 하므로 별도 리스너로 처리한다(silent401은 빈 뱃지).
+    window.addEventListener('pageshow', event => {
+        if (!event.persisted) return;
+        invalidateCartCache();
+        return window.updateCartBadge();
+    });
+}
 
 // 정보 아이콘 옆 안내 툴팁을 여닫는 공용 유틸리티.
 // 호버 가능한 기기(데스크톱)에서는 마우스 오버 시 열리고, 클릭은 무시해 깜빡임 없이 유지된다.
@@ -695,21 +1291,26 @@ window.createProductCard = function(product, options = {}) {
             ${discountHtml}
             <span class="price">${formattedPrice}</span>
           </div>
-          <button class="btn-save-bookmark" data-product-id="${product.id}" title="저장" style="background:none; border:none; padding:4px; cursor:pointer;">
-            <i class="fa-regular fa-bookmark" style="font-size: 20px; color: #999;"></i>
+          <button class="btn-save-bookmark" data-product-id="${product.id}" title="저장" style="background:none; border:none; padding:3px; cursor:pointer;">
+            <i class="fa-regular fa-bookmark" style="font-size: 16px; color: #999;"></i>
           </button>
         </div>
         <div class="stats-row">
-          <span class="interest-count">관심 0</span> · 리뷰 0
+          <span class="interest-count">관심 0</span>
         </div>
       </div>
     `;
 
     // 랭킹 화면(GET /api/products/ranking)처럼 응답에 wishlistCount가 포함된 경우에만 실제 찜 개수로 대체.
     // 검색/카테고리 등 이 필드가 없는 화면은 기존과 동일하게 "관심 0"으로 표시된다.
+    // data-count/data-has-count는 찜 토글 시 실제 값을 가진 카드만 낙관적으로 +/-1 하기 위한 표시다.
     if (product.wishlistCount !== undefined) {
         const interestCountEl = card.querySelector('.interest-count');
-        if (interestCountEl) interestCountEl.textContent = `관심 ${product.wishlistCount}`;
+        if (interestCountEl) {
+            interestCountEl.textContent = `관심 ${product.wishlistCount}`;
+            interestCountEl.dataset.count = product.wishlistCount;
+            interestCountEl.dataset.hasCount = 'true';
+        }
     }
 
     const imgEl = card.querySelector('.product-img');
@@ -923,3 +1524,234 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
 
     return { load, renderMessage: renderFallbackState };
 };
+
+// 공용 "둘러보기형" 상품 캐러셀: 페이지당 6개(3열x2행 고정) + 하단 좌우 페이지네이션 +
+// 페이지 전환 슬라이딩 애니메이션. home.js(둘러보기 상품)와 product.js(추천 상품)가 동일하게 사용한다.
+// rootEl 안에는 아래 마크업이 이미 있어야 한다(index.html의 #browse-section 구조 참고):
+//   .browse-cards-viewport > .ranking-cards-row.browse-cards-row
+//   .browse-pagination > .browse-page-prev, .browse-page-indicator, .browse-page-next
+// rootEl의 id는 style.css에서 --browse-slide-duration/--browse-slide-easing을 정의하는
+// 선택자(현재 #browse-section, #product-recommend-section)에 포함되어 있어야 슬라이드
+// 애니메이션 속도/이징이 적용된다. 새 화면에 재사용할 때는 그 선택자에 id를 추가해야 한다.
+// 같은 rootEl로 다시 호출하면(상품 목록 갱신 등) 기존 컨트롤러를 재사용해 1페이지부터 다시 그린다.
+// pageSize/loop 옵션은 매 호출마다 새로 반영되므로, 같은 rootEl를 다른 옵션으로 재사용해도 된다.
+window.createBrowseCarousel = function(rootEl, products, options = {}) {
+    if (!rootEl) return;
+
+    let controller = rootEl._browseCarouselController;
+    if (!controller) {
+        controller = createBrowseCarouselController(rootEl);
+        if (!controller) return;
+        rootEl._browseCarouselController = controller;
+    }
+    controller.setProducts(products || [], options);
+};
+
+function createBrowseCarouselController(rootEl) {
+    const viewport = rootEl.querySelector('.browse-cards-viewport');
+    let currentRow = viewport ? viewport.querySelector('.browse-cards-row') : null;
+    const pagination = rootEl.querySelector('.browse-pagination');
+    const btnPrev = rootEl.querySelector('.browse-page-prev');
+    const btnNext = rootEl.querySelector('.browse-page-next');
+    const indicator = rootEl.querySelector('.browse-page-indicator');
+    if (!viewport || !currentRow) return null;
+
+    let items = [];
+    let pageSize = 6;
+    let loop = false;
+    let pageIndex = 0;
+    let animating = false;
+    // 진행 중인 슬라이드 애니메이션을 transitionend를 기다리지 않고 즉시 마무리하는 함수.
+    // setProducts가 애니메이션 도중 다시 호출되는 경합 상황(예: 짧은 새로고침 간격)에서
+    // 뒤늦게 도착한 transitionend 콜백이 방금 그린 새 화면을 지워버리는 것을 막는다.
+    let finishAnimation = null;
+
+    // createSkeletonCard()의 자리표시자는 실제 카드와 높이가 달라 마지막 페이지에서 그리드
+    // 크기가 흔들리는 원인이 되므로, 실제 카드와 동일한 빈 마크업으로 남은 칸을 채운다.
+    function createPlaceholder() {
+        const card = document.createElement('div');
+        card.className = 'product-card browse-card-placeholder';
+        card.setAttribute('aria-hidden', 'true');
+        card.innerHTML = `
+          <div class="card-img-wrapper"></div>
+          <div class="card-body">
+            <span class="brand-name">&nbsp;</span>
+            <h4 class="product-title">&nbsp;</h4>
+            <div class="price-info" style="display: flex; justify-content: space-between; align-items: center;">
+              <div><span class="price">&nbsp;</span></div>
+              <button class="btn-save-bookmark" tabindex="-1" disabled style="background:none; border:none; padding:4px;">
+                <i class="fa-regular fa-bookmark" style="font-size: 20px; color: #999;"></i>
+              </button>
+            </div>
+            <div class="stats-row">&nbsp;</div>
+          </div>
+        `;
+        return card;
+    }
+
+    function appendCards(row, pageProducts) {
+        pageProducts.forEach(product => {
+            row.appendChild(createProductCard(product));
+        });
+        for (let i = pageProducts.length; i < pageSize; i++) {
+            row.appendChild(createPlaceholder());
+        }
+    }
+
+    function createCardsRow(pageProducts) {
+        const row = document.createElement('div');
+        row.className = 'ranking-cards-row browse-cards-row';
+        appendCards(row, pageProducts);
+        return row;
+    }
+
+    function updateControls(totalPages, direction) {
+        if (pagination) pagination.style.display = totalPages > 1 ? '' : 'none';
+
+        const indicatorText = `${pageIndex + 1} / ${totalPages}`;
+        if (indicator) {
+            if (direction && indicator.textContent !== indicatorText) {
+                indicator.classList.add('browse-indicator-fading');
+                indicator.addEventListener('transitionend', function onFadeOut() {
+                    indicator.removeEventListener('transitionend', onFadeOut);
+                    indicator.textContent = indicatorText;
+                    indicator.classList.remove('browse-indicator-fading');
+                }, { once: true });
+            } else if (!direction) {
+                indicator.textContent = indicatorText;
+            }
+        }
+
+        if (btnPrev) btnPrev.disabled = animating || (!loop && pageIndex === 0);
+        if (btnNext) btnNext.disabled = animating || (!loop && pageIndex >= totalPages - 1);
+    }
+
+    // direction('next'|'prev')이 주어지면 기존 카드(outgoing)와 다음 카드(incoming)를 뷰포트 안에
+    // 나란히 배치한 뒤 같은 방향으로 함께 이동시켜, 두 페이지가 슬라이드되며 전환되는 모션을 만든다.
+    // 없으면(최초 렌더 등) 애니메이션 없이 즉시 반영한다.
+    function renderPage(direction) {
+        const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+        pageIndex = Math.min(Math.max(pageIndex, 0), totalPages - 1);
+        const start = pageIndex * pageSize;
+        const pageProducts = items.slice(start, start + pageSize);
+
+        if (!direction) {
+            currentRow.innerHTML = '';
+            appendCards(currentRow, pageProducts);
+            updateControls(totalPages, direction);
+            return;
+        }
+
+        animating = true;
+
+        const outgoingRow = currentRow;
+        const incomingRow = createCardsRow(pageProducts);
+
+        // 캐러셀 바깥의 코드(예: 스켈레톤/에러 상태를 getElementById로 직접 그리는 호출부)가
+        // 페이지 전환 이후에도 계속 같은 id로 "현재 보이는 행"을 찾을 수 있도록, 요소가 아니라
+        // id 자체를 새 행으로 옮긴다.
+        if (outgoingRow.id) {
+            incomingRow.id = outgoingRow.id;
+            outgoingRow.removeAttribute('id');
+        }
+
+        const outgoingHeight = outgoingRow.offsetHeight;
+        // outgoingRow를 absolute로 빼기 전에 뷰포트 높이를 먼저 고정해둔다. 순서를 바꾸면
+        // outgoingRow가 문서 흐름에서 빠지는 순간 뷰포트가 잠깐 0으로 붕괴했다가 다시 커지는데,
+        // 이 사이에 페이지가 스크롤 하단 근처에 있으면 스크롤 위치가 아래로 밀렸다가 복구되지
+        // 않아 화면이 위로 올라간 것처럼 보이는 문제가 있었다.
+        viewport.style.height = `${outgoingHeight}px`;
+        outgoingRow.classList.add('browse-panel', 'browse-no-transition');
+        outgoingRow.style.transform = 'translateX(0)';
+
+        const enterFrom = direction === 'next' ? '100%' : '-100%';
+        incomingRow.classList.add('browse-panel', 'browse-no-transition');
+        incomingRow.style.transform = `translateX(${enterFrom})`;
+        viewport.appendChild(incomingRow);
+
+        const incomingHeight = incomingRow.offsetHeight;
+        viewport.style.height = `${Math.max(outgoingHeight, incomingHeight)}px`;
+
+        // 강제 리플로우: 두 패널의 시작 위치(transform)를 트랜지션 없이 먼저 확정한 뒤 트랜지션을 켠다
+        void incomingRow.offsetWidth;
+        outgoingRow.classList.remove('browse-no-transition');
+        incomingRow.classList.remove('browse-no-transition');
+
+        // 페이지 인디케이터/버튼은 슬라이드가 시작되는 시점에 목적지 페이지 기준으로 갱신한다
+        updateControls(totalPages, direction);
+
+        function settle() {
+            outgoingRow.remove();
+            incomingRow.classList.remove('browse-panel');
+            incomingRow.style.transform = '';
+            viewport.style.height = '';
+
+            currentRow = incomingRow;
+            animating = false;
+            finishAnimation = null;
+            updateControls(Math.max(1, Math.ceil(items.length / pageSize)));
+        }
+        finishAnimation = settle;
+
+        requestAnimationFrame(() => {
+            const exitTo = direction === 'next' ? '-100%' : '100%';
+            outgoingRow.style.transform = `translateX(${exitTo})`;
+            incomingRow.style.transform = 'translateX(0)';
+            viewport.style.height = `${incomingHeight}px`;
+
+            incomingRow.addEventListener('transitionend', function onSlideEnd() {
+                incomingRow.removeEventListener('transitionend', onSlideEnd);
+                // finishAnimation이 settle이 아니면 setProducts가 이미 즉시 마무리 처리한 것이므로 다시 실행하지 않는다.
+                if (finishAnimation === settle) {
+                    finishAnimation = null;
+                    settle();
+                }
+            }, { once: true });
+        });
+    }
+
+    if (btnPrev) {
+        btnPrev.addEventListener('click', () => {
+            const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+            if (animating) return;
+            if (pageIndex <= 0) {
+                // loop가 켜져 있으면 1페이지에서 한 번 더 누를 때 마지막 페이지로 순환한다.
+                if (!loop || totalPages <= 1) return;
+                pageIndex = totalPages - 1;
+            } else {
+                pageIndex -= 1;
+            }
+            renderPage('prev');
+        });
+    }
+
+    if (btnNext) {
+        btnNext.addEventListener('click', () => {
+            const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+            if (animating) return;
+            if (pageIndex >= totalPages - 1) {
+                // loop가 켜져 있으면 마지막 페이지에서 한 번 더 누를 때 1페이지로 순환한다.
+                if (!loop || totalPages <= 1) return;
+                pageIndex = 0;
+            } else {
+                pageIndex += 1;
+            }
+            renderPage('next');
+        });
+    }
+
+    return {
+        setProducts(products, options = {}) {
+            if (typeof options.pageSize === 'number' && options.pageSize > 0) pageSize = options.pageSize;
+            loop = !!options.loop;
+
+            // 애니메이션 도중 다시 호출된 경우, transitionend를 기다리지 않고 지금 바로
+            // 마무리해서 뒤늦게 도착할 콜백이 아래에서 새로 그리는 화면을 지우지 않게 한다.
+            if (finishAnimation) finishAnimation();
+
+            items = products;
+            pageIndex = 0;
+            renderPage();
+        }
+    };
+}

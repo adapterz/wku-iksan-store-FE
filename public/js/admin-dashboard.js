@@ -1,0 +1,225 @@
+// Isolated prototype: reuses window.requestJson from js/api.js and shared helpers from
+// js/admin-common.js (escapeHtml, formatDate, toast, showPageError, showGate, showApp).
+// No production page scripts are changed.
+'use strict';
+
+let inquiryTab = 'pending';
+let openId = null;
+
+function statCard(label, value, { pending = false, onClick = null } = {}) {
+  const el = document.createElement(onClick ? 'button' : 'div');
+  el.className = 'ai-stat-card' + (pending ? ' pending' : '') + (onClick ? ' clickable' : '');
+  el.innerHTML = `<p class="ai-stat-label">${label}</p><p class="ai-stat-value">${value}</p>`;
+  if (onClick) el.addEventListener('click', onClick);
+  return el;
+}
+
+function renderDashboard(data) {
+  const pendingEl = document.getElementById('pending-stats');
+  pendingEl.replaceChildren(
+    statCard('신고 대기', data.pendingActions.reportCount, { pending: data.pendingActions.reportCount > 0 }),
+    statCard('문의 대기', data.pendingActions.inquiryCount, {
+      pending: data.pendingActions.inquiryCount > 0,
+      onClick: () => activateTab('inquiries')
+    }),
+    statCard('활성 정지 회원', data.pendingActions.activeSuspensionCount, { pending: data.pendingActions.activeSuspensionCount > 0 })
+  );
+
+  const productEl = document.getElementById('product-stats');
+  const showDiscontinued = data.products.discontinuedCount > 0;
+  productEl.className = 'ai-stat-grid' + (showDiscontinued ? '' : ' two');
+  const productCards = [
+    statCard('판매 중 상품', data.products.totalCount),
+    statCard('숨김 상품', data.products.hiddenCount)
+  ];
+  if (showDiscontinued) productCards.push(statCard('단종 상품', data.products.discontinuedCount));
+  productEl.replaceChildren(...productCards);
+
+  const brandRowsEl = document.getElementById('brand-rows');
+  const max = Math.max(...data.products.byBrand.map(b => b.count), 1);
+  brandRowsEl.innerHTML = data.products.byBrand.map(b => `
+    <div class="ai-brand-row">
+      <span class="ai-brand-name">${escapeHtml(b.brand)}</span>
+      <div class="ai-brand-track"><div class="ai-brand-fill" style="width:${Math.round(b.count / max * 100)}%"></div></div>
+      <span class="ai-brand-count">${b.count}</span>
+    </div>`).join('');
+}
+
+async function loadDashboard() {
+  try {
+    const result = await window.requestJson('/api/admin/dashboard');
+    if (result) renderDashboard(result.data);
+  } catch (err) {
+    showPageError(err.message || '대시보드를 불러오지 못했습니다.');
+  }
+}
+
+function buildReplyForm(item) {
+  const appealControls = item.category === 'sanction_appeal'
+    ? `<div class="ai-decision-row">
+        <label><input type="radio" name="decision-${item.inquiryId}" value="approve" checked>정지 해제 승인</label>
+        <label><input type="radio" name="decision-${item.inquiryId}" value="reject">반려</label>
+        <input type="text" class="ai-sanction-input" id="sanction-${item.inquiryId}" placeholder="sanctionId" inputmode="numeric">
+        <span class="ai-decision-hint">해제할 정지 건의 sanctionId를 입력하세요 (<a href="admin-sanctions.html?userId=${item.userId}" target="_blank" rel="noopener">회원 제재 화면에서 조회</a>).</span>
+      </div>`
+    : '';
+  return `<div class="ai-reply-block">${appealControls}
+    <textarea class="ai-textarea" id="reply-${item.inquiryId}" rows="2" placeholder="답변 내용을 입력하세요"></textarea>
+    <p class="ai-field-error" id="err-${item.inquiryId}" hidden></p>
+    <div class="ai-btn-row">
+      <button class="ai-primary" data-submit="${item.inquiryId}">답변 등록</button>
+      <button class="ai-secondary" data-cancel="${item.inquiryId}">취소</button>
+    </div></div>`;
+}
+
+async function submitReply(item) {
+  const textarea = document.getElementById('reply-' + item.inquiryId);
+  const errEl = document.getElementById('err-' + item.inquiryId);
+  const content = textarea.value.trim();
+  if (!content) {
+    errEl.textContent = '답변 내용을 입력하세요.';
+    errEl.hidden = false;
+    return;
+  }
+  errEl.hidden = true;
+
+  const body = { adminReply: content };
+  if (item.category === 'sanction_appeal') {
+    const decision = document.querySelector(`input[name="decision-${item.inquiryId}"]:checked`).value;
+    if (decision === 'approve') {
+      const sanctionInput = document.getElementById('sanction-' + item.inquiryId);
+      const sanctionId = Number(sanctionInput.value);
+      if (!sanctionInput.value.trim() || !Number.isInteger(sanctionId) || sanctionId <= 0) {
+        errEl.textContent = '정지 해제 승인은 sanctionId를 입력해야 합니다.';
+        errEl.hidden = false;
+        return;
+      }
+      body.sanctionId = sanctionId;
+    }
+  }
+
+  try {
+    const result = await window.requestJson('/api/admin/inquiries/' + item.inquiryId, { method: 'PATCH', body });
+    // silent401을 안 줬으므로 세션이 만료된 401 응답은 여기서 undefined로 돌아온다
+    // (전역 로그인 리다이렉트가 이미 예약된 상태) — 이걸 성공으로 착각해 토스트를 띄우면 안 된다.
+    if (!result) return;
+    openId = null;
+    toast('답변을 등록했습니다.');
+    loadInquiries(inquiryTab);
+  } catch (err) {
+    errEl.textContent = err.message || '답변 등록에 실패했습니다.';
+    errEl.hidden = false;
+  }
+}
+
+function renderCard(item) {
+  const card = document.createElement('div');
+  card.className = 'ai-card';
+
+  const catBadge = item.category === 'sanction_appeal'
+    ? '<span class="ai-badge appeal">제재 이의제기</span>'
+    : '<span class="ai-badge general">일반 문의</span>';
+  const statusBadge = item.status === 'pending'
+    ? '<span class="ai-badge status-pending">대기</span>'
+    : '<span class="ai-badge status-answered">답변완료</span>';
+  const isOpen = openId === item.inquiryId;
+
+  let bodyHtml = `<p class="ai-content">${escapeHtml(item.content)}</p>` +
+    `<p class="ai-meta">userId ${item.userId} · ${formatDate(item.createdAt)} · ` +
+    `<a href="admin-sanctions.html?userId=${item.userId}" target="_blank" rel="noopener">이 유저 제재 화면으로</a></p>`;
+  if (item.status === 'answered') {
+    bodyHtml += `<div class="ai-reply-block"><p class="ai-reply-label">관리자 답변</p><p>${escapeHtml(item.adminReply)}</p></div>`;
+  } else if (isOpen) {
+    bodyHtml += buildReplyForm(item);
+  }
+
+  card.innerHTML = `<div class="ai-card-head">
+    <div class="ai-card-head-left">${catBadge}${statusBadge}<span class="ai-id">#${item.inquiryId}</span></div>
+    ${item.status === 'pending' ? `<button class="ai-toggle" data-toggle>${isOpen ? '접기' : '답변하기'}</button>` : ''}
+  </div>${bodyHtml}`;
+
+  const toggleBtn = card.querySelector('[data-toggle]');
+  if (toggleBtn) toggleBtn.addEventListener('click', () => {
+    openId = openId === item.inquiryId ? null : item.inquiryId;
+    loadInquiries(inquiryTab);
+  });
+
+  if (isOpen) {
+    card.querySelector('[data-cancel]').addEventListener('click', () => { openId = null; loadInquiries(inquiryTab); });
+    card.querySelector('[data-submit]').addEventListener('click', () => submitReply(item));
+  }
+
+  return card;
+}
+
+// 탭을 빠르게 연속 전환하면 응답이 요청 순서와 다르게 도착해 이전(오래된) 탭 결과가 최신
+// 결과를 덮어쓸 수 있다(search.js abf86c5와 동일 패턴). 새 요청 시작 시 진행 중인 이전
+// 요청을 취소해서 막는다.
+let inquiriesRequest = null;
+
+async function loadInquiries(status) {
+  inquiryTab = status;
+  document.querySelectorAll('[data-inquiry-tab]').forEach(b => {
+    if (b.dataset.inquiryTab === status) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  });
+
+  if (inquiriesRequest) inquiriesRequest.abort();
+  const controller = new AbortController();
+  inquiriesRequest = controller;
+
+  try {
+    const result = await window.requestJson(`/api/admin/inquiries?status=${status}&limit=50`, { signal: controller.signal });
+    if (controller.signal.aborted) return;
+    if (!result) return;
+    const listEl = document.getElementById('inquiry-list');
+    if (result.data.length === 0) {
+      listEl.innerHTML = '<p class="ai-empty">표시할 문의가 없습니다.</p>';
+      return;
+    }
+    listEl.replaceChildren(...result.data.map(renderCard));
+  } catch (err) {
+    if (controller.signal.aborted) return;
+    showPageError(err.message || '문의 목록을 불러오지 못했습니다.');
+  }
+}
+
+function activateTab(tab) {
+  ['dashboard', 'inquiries'].forEach(key => {
+    const a = document.querySelector(`nav[aria-label="관리자 화면"] a[data-nav-key="${key}"]`);
+    if (!a) return;
+    if (key === tab) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
+  document.getElementById('dashboard-view').hidden = tab !== 'dashboard';
+  document.getElementById('inquiries-view').hidden = tab !== 'inquiries';
+  if (tab === 'dashboard') loadDashboard();
+  else loadInquiries(inquiryTab);
+}
+
+async function checkAndLoad() {
+  let me;
+  try {
+    me = await window.requestJson('/api/auth/me', { silent401: true });
+  } catch (err) {
+    // requestJson은 silent401: true여도 401에는 항상 throw한다(전역 리다이렉트만 건너뛸 뿐,
+    // 조용히 undefined를 반환하지는 않는다) — 그래서 401은 여기서 분기해야 하고,
+    // 아래의 `if (!me)`는 절대 참이 될 수 없는 코드다.
+    if (err && err.status === 401) return showGate();
+    return showFatalError('서버 연결에 실패했습니다.');
+  }
+  if (me.data.role !== 'admin') return showFatalError('관리자 권한이 필요합니다.');
+
+  showApp();
+  // 다른 관리자 화면의 "문의" 링크(admin-dashboard.html?tab=inquiries)로 들어온 경우
+  // 문의 탭을 기본으로 보여주고, 그 외에는 대시보드를 기본으로 보여준다.
+  const initialTab = new URLSearchParams(window.location.search).get('tab') === 'inquiries' ? 'inquiries' : 'dashboard';
+  renderAdminNav(initialTab, activateTab);
+  activateTab(initialTab);
+}
+
+document.querySelectorAll('[data-inquiry-tab]').forEach(btn => {
+  btn.addEventListener('click', () => loadInquiries(btn.dataset.inquiryTab));
+});
+
+checkAndLoad();

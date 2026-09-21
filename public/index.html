@@ -30,6 +30,10 @@
                 <a href="giftbox.html" class="header-icon" title="선물함">
                     <i class="fa-solid fa-gift"></i>
                 </a>
+                <a href="cart.html" class="header-icon" title="장바구니">
+                    <i class="fa-solid fa-bag-shopping"></i>
+                    <span class="cart-count-badge" hidden>0</span>
+                </a>
             </div>
 
 
@@ -41,7 +45,7 @@
         <div class="nav-container nav-container--center">
             <a href="index.html" class="nav-item active">홈</a>
             <a href="brand.html" class="nav-item">브랜드</a>
-            <a href="ranking.html" class="nav-item">실시간 랭킹</a>
+            <a href="ranking.html" class="nav-item">찜 랭킹</a>
         </div>
     </nav>
 
@@ -78,29 +82,50 @@
             </div>
         </section>
 
-        <!-- Section 1: 둘러보기 상품 1 -->
-        <section class="horizontal-product-section">
+        <!-- Section 1: 둘러보기 상품 (고정 2열x3행 그리드 + 하단 좌우 페이지네이션, https://github.com/adapterz/wku-iksan-store-FE/issues/77) -->
+        <section class="ranking-section" id="browse-section">
             <div class="ranking-title-container">
-                <h3 class="ranking-title">둘러보기 상품 1</h3>
+                <h3 class="ranking-title">둘러보기 상품</h3>
+                <div class="info-tooltip-wrap">
+                    <button type="button" class="info-tooltip-btn" id="browse-info-btn" aria-label="둘러보기 상품 노출 기준 안내">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </button>
+                    <div class="info-tooltip" id="browse-info-tooltip" role="tooltip" hidden>
+                        <p>다양한 상품을 두루 보여드리고 있어요.</p>
+                    </div>
+                </div>
             </div>
-            <div class="horizontal-product-list" id="horizontal-list-1">
-                <!-- Dynamically loaded -->
-            </div>
-        </section>
 
-        <!-- Section 2: 둘러보기 상품 2 -->
-        <section class="horizontal-product-section">
-            <div class="ranking-title-container">
-                <h3 class="ranking-title">둘러보기 상품 2</h3>
+            <!-- Browse Cards Row (한 페이지당 6개, 3열x2행 고정, 페이지 전환 시 슬라이딩 애니메이션) -->
+            <div class="browse-cards-viewport" id="browse-cards-viewport">
+                <div class="ranking-cards-row browse-cards-row" id="browse-product-list">
+                    <!-- Dynamically loaded -->
+                </div>
             </div>
-            <div class="horizontal-product-list" id="horizontal-list-2">
-                <!-- Dynamically loaded -->
+
+            <!-- Pagination Controls -->
+            <div class="browse-pagination" id="browse-pagination">
+                <button type="button" id="btn-browse-prev" class="browse-page-btn browse-page-prev" aria-label="이전 페이지">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <span class="browse-page-indicator" id="browse-page-indicator">1 / 1</span>
+                <button type="button" id="btn-browse-next" class="browse-page-btn browse-page-next" aria-label="다음 페이지">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
             </div>
         </section>
 
         <section class="ranking-section">
             <div class="ranking-title-container">
                 <h3 class="ranking-title" id="recommendation-title">회원님을 위한 추천 상품</h3>
+                <div class="info-tooltip-wrap">
+                    <button type="button" class="info-tooltip-btn" id="recommend-info-btn" aria-label="추천 상품 노출 기준 안내">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </button>
+                    <div class="info-tooltip" id="recommend-info-tooltip" role="tooltip" hidden>
+                        <p>고객님께 다양한 상품을 소개해드리고 있어요.</p>
+                    </div>
+                </div>
             </div>
 
             <!-- Segment Filter (Removed) -->
@@ -108,7 +133,7 @@
             <!-- Price Filter Pills (Removed) -->
 
             <!-- Ranking Cards Row -->
-            <div class="ranking-cards-row">
+            <div class="ranking-cards-row" id="recommend-product-list">
                 <!-- Dynamically loaded via API -->
             </div>
 

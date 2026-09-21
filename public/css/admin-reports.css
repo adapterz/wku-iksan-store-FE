@@ -1,0 +1,11 @@
+/* Domain-specific styles for the admin reports (moderation) page. Shared rules live in admin-common.css. */
+
+/* 신고 상태는 상품 상태(.status-active/hidden/discontinued)와 의미가 다르므로
+   전용 배지 클래스를 쓴다(색만 보면 둘 다 노랑/초록/회색이라 우연히 비슷해 보이지만
+   서로 다른 도메인의 상태값이다). */
+.ai-badge.report-status-pending{background:#fff3d9;color:#8a5a10}
+.ai-badge.report-status-actioned{background:#e9f4e1;color:#3c6b2b}
+.ai-badge.report-status-dismissed{background:#eee;color:#888}
+
+/* 신고 원문 인용은 상품명처럼 굵게 강조한다 */
+.ai-content{font-weight:700}

@@ -1,22 +1,27 @@
 const express = require('express');
 const path = require('path');
 const { createProxyMiddleware } = require('http-proxy-middleware');
+const createPageRouter = require('./server/page-router');
 
-const app = express();
 const PORT = process.env.PORT || 8080;
+function createApp({ publicDir = path.join(__dirname, 'public'), backendUrl = process.env.BE_URL || 'http://localhost:3000' } = {}) {
+  const app = express();
 
-// 백엔드 API 서버로 요청 전달 (Proxy)
-app.use(
-  createProxyMiddleware({
-    pathFilter: '/api',
-    target: process.env.BE_URL || 'http://localhost:3000',
-    changeOrigin: true,
-  })
-);
+  // 백엔드 API 서버로 요청 전달 (Proxy)
+  app.use(
+    createProxyMiddleware({
+      pathFilter: '/api',
+      target: backendUrl,
+      changeOrigin: true,
+    })
+  );
 
-// public/ 폴더 정적 파일 서빙
-app.use(express.static(path.join(__dirname, 'public')));
+  // API 프록시 이후에 페이지 URL 정규화 및 정적 파일 처리
+  app.use(createPageRouter(publicDir));
+  return app;
+}
 
-app.listen(PORT, () => {
+if (require.main === module) createApp().listen(PORT, () => {
   console.log(`Frontend server is running on http://localhost:${PORT}`);
 });
+module.exports = { createApp };

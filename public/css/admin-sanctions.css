@@ -1,0 +1,23 @@
+/* Domain-specific styles for the admin sanctions page. Shared rules live in admin-common.css. */
+.ai-section-label{padding:20px 16px 10px;font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.04em}
+
+.as-search{display:flex;gap:8px;padding:16px}
+.as-search input{flex:1;height:40px;border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:0 12px;font-size:14px}
+.as-search input:focus{outline:1px solid #191919}
+.as-search button{height:40px;padding:0 18px;border-radius:8px;background:var(--primary-color);color:#fff;font-weight:700!important;font-size:13px}
+
+.as-empty{text-align:center;padding:60px 16px;color:#999;font-size:13px}
+
+.as-user-line{padding:0 16px 6px;font-size:12px;color:#767676}
+
+.ai-badge.type-warning{background:#fff3d9;color:#8a5a10}
+.ai-badge.type-suspension{background:#fbece0;color:#9a4a22}
+.ai-badge.status-active{background:#e9f4e1;color:#3c6b2b}
+.ai-badge.status-lifted{background:#eef1ec;color:#5f6b5a}
+.ai-badge.status-expired{background:#eee;color:#888}
+
+/* 제재 폼은 다른 화면보다 상단 여백이 살짝 좁다 */
+.as-form-panel{margin:8px 16px 24px}
+.as-type-row{display:flex;gap:16px;margin-bottom:12px;font-size:13px}
+.as-type-row label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.as-field input[type=text],.as-field input[type=datetime-local]{width:100%;height:38px;border:1px solid #ddd;border-radius:8px;padding:0 10px;font-size:13px}

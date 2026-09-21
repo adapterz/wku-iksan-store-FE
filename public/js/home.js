@@ -10,39 +10,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Helper to show skeleton placeholders before API data arrives
   function renderSkeletonState() {
-    const list1 = document.getElementById('horizontal-list-1');
-    const list2 = document.getElementById('horizontal-list-2');
-    const rankingRow = document.querySelector('.ranking-cards-row');
+    const browseRow = document.getElementById('browse-product-list');
+    const recommendRow = document.getElementById('recommend-product-list');
 
-    [list1, list2].forEach(list => {
-      if (!list) return;
-      list.innerHTML = '';
-      for (let i = 0; i < 4; i++) list.appendChild(createSkeletonCard());
+    [browseRow, recommendRow].forEach(row => {
+      if (!row) return;
+      row.innerHTML = '';
+      for (let i = 0; i < 6; i++) row.appendChild(createSkeletonCard());
     });
-
-    if (rankingRow) {
-      rankingRow.innerHTML = '';
-      for (let i = 0; i < 6; i++) rankingRow.appendChild(createSkeletonCard());
-    }
   }
 
   // Helper to show a fallback message across every product section
   function renderFallbackState(message) {
-    const list1 = document.getElementById('horizontal-list-1');
-    const list2 = document.getElementById('horizontal-list-2');
-    const rankingRow = document.querySelector('.ranking-cards-row');
+    const browseRow = document.getElementById('browse-product-list');
+    const recommendRow = document.getElementById('recommend-product-list');
     const html = `
       <div class="empty-state">
         <i class="fa-solid fa-box-open"></i>
         <p>${message}</p>
       </div>
     `;
-    [list1, list2, rankingRow].forEach(el => { if (el) el.innerHTML = html; });
+    [browseRow, recommendRow].forEach(el => { if (el) el.innerHTML = html; });
+
+    const browsePagination = document.getElementById('browse-pagination');
+    if (browsePagination) browsePagination.style.display = 'none';
 
     const btnRankingMore = document.getElementById('btn-ranking-more');
-    if (btnRankingMore) {
-      btnRankingMore.style.display = 'none';
-    }
+    if (btnRankingMore) btnRankingMore.style.display = 'none';
   }
 
   // Helper to show empty state when no products are found
@@ -57,44 +51,31 @@ document.addEventListener('DOMContentLoaded', () => {
   let cachedProducts = [];
   let activeFilteredProducts = [];
   let rankingVisibleCount = 6;
-  let productsVisibleCount = 6;
+  const BROWSE_PAGE_SIZE = 6; // 고정 3열x2행
+  const RECOMMEND_INITIAL_COUNT = 6;
+  const RECOMMEND_PAGE_SIZE = 10;
 
   // Helper to render products into layout elements
   function renderProductsData(products) {
     activeFilteredProducts = products;
-    rankingVisibleCount = products.length; // Default to all products
+    rankingVisibleCount = Math.min(RECOMMEND_INITIAL_COUNT, products.length);
 
-    // Render horizontal list 1 (today's top traded)
-    const list1 = document.getElementById('horizontal-list-1');
-    if (list1) {
-      list1.innerHTML = '';
-      products.forEach(product => {
-        list1.appendChild(createProductCard(product));
+    // 둘러보기 상품: component.js의 공용 캐러셀(페이지당 6개, 3열x2행 + 좌우 페이지네이션)을 재사용한다.
+    window.createBrowseCarousel(document.getElementById('browse-section'), products, { pageSize: BROWSE_PAGE_SIZE });
+
+    // Render recommend products (초기에는 RECOMMEND_INITIAL_COUNT개까지만 노출)
+    const recommendRow = document.getElementById('recommend-product-list');
+    if (recommendRow) {
+      recommendRow.innerHTML = '';
+      products.slice(0, rankingVisibleCount).forEach((product, idx) => {
+        recommendRow.appendChild(createProductCard(product, { showRank: true, rankIndex: idx + 1 }));
       });
     }
 
-    // Render horizontal list 2 (most noted)
-    const list2 = document.getElementById('horizontal-list-2');
-    if (list2) {
-      list2.innerHTML = '';
-      [...products].reverse().forEach(product => {
-        list2.appendChild(createProductCard(product));
-      });
-    }
-
-    // Render ranking products
-    const rankingRow = document.querySelector('.ranking-cards-row');
-    if (rankingRow) {
-      rankingRow.innerHTML = '';
-      products.forEach((product, idx) => {
-        rankingRow.appendChild(createProductCard(product, { showRank: true, rankIndex: idx + 1 }));
-      });
-    }
-
-    // Hide the '더보기' button as we are rendering all by default
+    // 남은 상품이 있을 때만 '더보기' 버튼을 노출한다
     const btnRankingMore = document.getElementById('btn-ranking-more');
     if (btnRankingMore) {
-      btnRankingMore.style.display = 'none';
+      btnRankingMore.style.display = rankingVisibleCount < products.length ? '' : 'none';
     }
   }
 
@@ -184,6 +165,16 @@ document.addEventListener('DOMContentLoaded', () => {
   loadProducts();
   loadCategories();
 
+  // 노출 기준 안내 툴팁: 여닫힘 로직은 component.js의 공용 유틸리티(찜 랭킹에서 사용한 것과 동일)를 재사용한다.
+  window.initInfoTooltip(
+    document.getElementById('browse-info-btn'),
+    document.getElementById('browse-info-tooltip')
+  );
+  window.initInfoTooltip(
+    document.getElementById('recommend-info-btn'),
+    document.getElementById('recommend-info-tooltip')
+  );
+
   // Sync save buttons state across the page
   async function syncSaveButtons() {
     const btns = document.querySelectorAll('.btn-save-bookmark');
@@ -203,24 +194,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('saved-products-updated', syncSaveButtons);
 
+  // component.js가 화면에 보이는 카드 DOM과 sessionStorage 캐시는 이미 갱신해주지만,
+  // cachedProducts/activeFilteredProducts는 이 화면이 메모리에 들고 있는 원본 배열이라
+  // 거기까진 손대지 못한다. 이 배열을 그대로 두면 "다음 목록 → 이전 목록"처럼 같은
+  // 페이지 안에서 카드를 다시 그릴 때(renderBrowsePage/둘러보기 더보기 등) 토글 이전
+  // wishlistCount로 되돌아간다. 두 배열이 항상 같은 상품 객체를 참조하므로(loadProducts에서
+  // activeFilteredProducts = cachedProducts로 대입), 한 객체를 두 번 세지 않도록 Set으로
+  // 이미 처리한 객체를 걸러내고 각 배열을 순회해 원본 wishlistCount 자체를 보정한다.
+  function patchLocalProductCounts(productId, delta) {
+    const targetId = Number(productId);
+    const patched = new Set();
+    [cachedProducts, activeFilteredProducts].forEach(list => {
+      list.forEach(item => {
+        if (item && item.id === targetId && item.wishlistCount !== undefined && !patched.has(item)) {
+          item.wishlistCount = Math.max(0, item.wishlistCount + delta);
+          patched.add(item);
+        }
+      });
+    });
+  }
 
-
-
-
-
-
-
-
-  // Mouse wheel horizontal scrolling for product lists
-  const horizontalLists = document.querySelectorAll('.horizontal-product-list');
-  horizontalLists.forEach(list => {
-    list.addEventListener('wheel', (e) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        list.scrollLeft += e.deltaY;
-      }
-    }, { passive: false });
+  window.addEventListener('saved-products-updated', (e) => {
+    const { productId, isSaved } = e.detail;
+    patchLocalProductCounts(productId, isSaved ? 1 : -1);
   });
+
+
+
+
+
+
+
+
 
   // Sub Tab Segmented Control (선물 테마, 카테고리, 추천 브랜드) Click Logic
   const pillBtns = document.querySelectorAll('.pill-btn');
@@ -240,20 +245,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnRankingMore) {
     btnRankingMore.addEventListener('click', () => {
-      const rankingRow = document.querySelector('.ranking-cards-row');
+      const rankingRow = document.getElementById('recommend-product-list');
       if (!rankingRow) return;
 
-      if (rankingVisibleCount >= activeFilteredProducts.length) {
-        alert('더 이상 불러올 상품이 없습니다.');
-        return;
-      }
+      if (rankingVisibleCount >= activeFilteredProducts.length) return;
 
-      // Get the next 9 products
-      const nextProducts = activeFilteredProducts.slice(rankingVisibleCount, rankingVisibleCount + 9);
+      // Get the next RECOMMEND_PAGE_SIZE products (남은 상품이 더 적으면 남은 만큼만)
+      const nextProducts = activeFilteredProducts.slice(rankingVisibleCount, rankingVisibleCount + RECOMMEND_PAGE_SIZE);
       nextProducts.forEach((product, idx) => {
         rankingRow.appendChild(createProductCard(product, { showRank: true, rankIndex: rankingVisibleCount + idx + 1 }));
       });
       rankingVisibleCount += nextProducts.length;
+
+      // 더 이상 남은 상품이 없으면 버튼을 숨긴다
+      if (rankingVisibleCount >= activeFilteredProducts.length) {
+        btnRankingMore.style.display = 'none';
+      }
     });
   }
 
