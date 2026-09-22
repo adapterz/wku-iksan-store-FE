@@ -1166,6 +1166,23 @@ if (typeof window.addEventListener === 'function') {
     });
 }
 
+// 헤더의 장바구니 아이콘(index.html/mypage.html 정적 마크업 + getSubHeaderHTML, 셋 다 동일한
+// a.header-icon[href="cart.html"])을 비로그인 상태에서 클릭하면, cart.html까지 이동한 뒤 거기서
+// 인증 실패를 처리하는 대신 클릭 시점에 바로 전역 401과 같은 안내(토스트 후 로그인 이동)를 보여준다.
+// API 호출로 즉시 확인하면 매 클릭마다 왕복 지연이 생기므로, checkGlobalAuthStatus가 갱신해두는
+// 캐시된 로그인 플래그만으로 판단한다 — 이 값이 실제 세션과 어긋나 있어도(드묾), cart.html 자체의
+// 로그인 필요 안내 화면이 최종 안전망으로 남아있다.
+document.addEventListener('click', event => {
+    const link = event.target.closest('a.header-icon[href="cart.html"]');
+    if (!link || localStorage.getItem('isLoggedIn') === 'true') return;
+
+    event.preventDefault();
+    window.showToast('로그인이 필요한 서비스입니다.');
+    setTimeout(() => {
+        window.location.href = `login.html?redirect=${encodeURIComponent('cart.html')}`;
+    }, UNAUTHORIZED_REDIRECT_DELAY_MS);
+});
+
 // 정보 아이콘 옆 안내 툴팁을 여닫는 공용 유틸리티.
 // 호버 가능한 기기(데스크톱)에서는 마우스 오버 시 열리고, 클릭은 무시해 깜빡임 없이 유지된다.
 // 호버가 불가능한 터치 기기에서는 mouseenter가 발생하지 않으므로 버튼 클릭으로 토글하고,
