@@ -1175,6 +1175,9 @@ if (typeof window.addEventListener === 'function') {
 document.addEventListener('click', event => {
     const link = event.target.closest('a.header-icon[href="cart.html"]');
     if (!link || localStorage.getItem('isLoggedIn') === 'true') return;
+    // 새 탭/새 창으로 열려는 클릭(가운데 버튼, ctrl/cmd/shift+클릭)은 브라우저 기본 동작을
+    // 그대로 두고 가로채지 않는다. 새 탭에서도 cart.html 자체의 로그인 필요 안내가 뜬다.
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
 
     event.preventDefault();
     window.showToast('로그인이 필요한 서비스입니다.');
