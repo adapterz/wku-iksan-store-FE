@@ -52,7 +52,7 @@ function showFatalError(message) {
 }
 
 // 로컬 프리뷰 하네스에서만 쓰던 /__preview/login(가짜 관리자 로그인)은 실제 서버엔 없으므로,
-// 다른 페이지와 동일한 로그인 리다이렉트 관례(login.html?redirect=...)로 이동한다.
+// 다른 페이지와 동일하게 navigateToLogin(현재 주소를 redirect로 전달, replace 이동)으로 로그인에 보낸다.
 document.getElementById('btn-admin-login').addEventListener('click', () => {
   navigateToLogin(window.location.href);
 });
