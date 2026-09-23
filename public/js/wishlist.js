@@ -24,28 +24,24 @@ document.addEventListener('DOMContentLoaded', () => {
         : '찜한 상품이 없습니다.';
     },
     errorMessage: '찜 목록을 불러오지 못했습니다.',
-    // unauthorizedMessage를 지정하지 않으면 load() 내부에서 401 시 공통 리다이렉트(api.js)를 그대로 탄다.
-    // 이 화면은 아래 auth:updated에서 비로그인 시 load() 자체를 호출하지 않지만, 로그인 상태 확인과
-    // 실제 조회 사이의 레이스 컨디션으로 세션이 만료된 경우에도 동일하게 로그인 화면으로 보내기 위함이다.
-    removeUnsavedCards: true
+    // 계정 전용 로더는 401도 소유자 확인 후 처리해 이전 응답이 새 계정을 리다이렉트하지 않게 한다.
+    removeUnsavedCards: true,
+    accountScoped: true
   });
 
-  // 로그인 상태 확인(auth:updated) 전에도 공백 화면 없이 로딩 중임을 보여주기 위해
-  // 로더의 스켈레톤과 동일한 마크업을 이 시점에 직접 그린다. 실제 데이터 요청은 로그인 여부가
-  // 확정된 뒤(아래 auth:updated)에만 시작하므로 /api/wishlists로의 불필요한 401 요청은 없다.
+  // 최초 계정 확인 전에도 공백 화면 대신 로딩 상태를 표시한다.
   listEl.classList.remove('is-empty');
   listEl.innerHTML = '';
   for (let i = 0; i < 6; i++) listEl.appendChild(createSkeletonCard());
 
-  // component.js가 페이지 로드마다 한 번 확인하는 로그인 상태(/api/auth/me → auth:updated)를 재사용해,
-  // 비로그인 사용자는 /api/wishlists 요청 자체를 생략한다(중복 인증 확인 및 불필요한 401 왕복 방지).
-  // 이슈 #55 회의 결정: 비로그인 접근 시 안내 문구 없이 로그인 화면으로 즉시 이동한다.
-  document.addEventListener('auth:updated', (e) => {
-    const { isLoggedIn } = e.detail || {};
-    if (isLoggedIn) {
-      wishlistLoader.load();
-    } else {
-      window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
-    }
-  }, { once: true });
+  // 최초 진입뿐 아니라 탭 복귀/계정 전환도 공통 확인을 재사용한다.
+  // 비회원은 기존 정책대로 로그인 화면으로 이동하고, 계정 확인 실패는 재시도 안내로 구분한다.
+  window.registerAccountView({
+    clear: () => {
+      wishlistLoader.cancel();
+      wishlistLoader.renderMessage('로그인 상태를 확인하고 있습니다.');
+    },
+    load: () => wishlistLoader.load(),
+    error: () => wishlistLoader.renderMessage('로그인 상태를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.')
+  });
 });

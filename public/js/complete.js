@@ -3,6 +3,11 @@ document.addEventListener("header:ready", async () => {
   const urlParams = new URLSearchParams(window.location.search);
   const orderId = urlParams.get('orderId');
   const orderGroupId = urlParams.get('orderGroupId');
+  const privateContent = document.querySelector('main');
+  const accountStatus = document.createElement('p');
+  accountStatus.setAttribute('role', 'status');
+  accountStatus.hidden = true;
+  document.body.appendChild(accountStatus);
 
   if (!orderId && !orderGroupId) {
     alert("잘못된 접근입니다.");
@@ -10,11 +15,12 @@ document.addEventListener("header:ready", async () => {
     return;
   }
 
-  // bfcache로 페이지가 복원될 때(pageshow, persisted) 재검증할 수 있도록 함수로 분리한다.
-  async function checkCompleteAuthAndLoadOrder() {
+  // 최초 진입과 계정 재확인 때마다 현재 소유자로 주문을 다시 조회한다.
+  async function checkCompleteAuthAndLoadOrder(owner) {
     try {
       const path = orderGroupId ? `/api/order-groups/${orderGroupId}` : `/api/orders/${orderId}`;
-      const result = await requestJson(path);
+      const result = await requestJson(path, { silent401: true });
+      if (!window.accountGuard.isCurrent(owner)) return false;
 
       // result가 없으면(=undefined) api.js 전역 인터셉터가 401을 처리(로그인 페이지 이동)한 것이므로
       // 그 이동을 다른 리다이렉트로 덮어쓰지 않도록 그대로 반환한다.
@@ -27,6 +33,8 @@ document.addEventListener("header:ready", async () => {
         // 주문은 항상 상품 1종류만 담으므로 items[0]만 꺼내 단건 주문과 같은 모양으로 맞춘다.
         const order = orderGroupId ? mapOrderGroupToOrderView(result.data) : result.data;
         renderCompletePage(order);
+        if (privateContent) privateContent.hidden = false;
+        accountStatus.hidden = true;
         // 인증 및 데이터 로드 완료 후 화면 표시 (깜빡임 방지)
         document.body.style.visibility = "visible";
         document.body.style.opacity = "1";
@@ -37,9 +45,10 @@ document.addEventListener("header:ready", async () => {
         return false;
       }
     } catch (error) {
+      if (!window.accountGuard.isCurrent(owner)) return false;
       console.error("주문 정보 조회 실패:", error);
-      // 401은 api.js 전역 인터셉터가 처리하므로 여기선 403 등 나머지 오류만 다룬다.
-      if (error.status === 403) {
+      // 이전 계정의 오류는 위에서 폐기하고 현재 계정의 접근 오류만 안내한다.
+      if (error.status === 401 || error.status === 403) {
         alert("접근 권한이 없습니다.");
         location.href = "login.html";
       } else {
@@ -50,9 +59,25 @@ document.addEventListener("header:ready", async () => {
     }
   }
 
-  // component.js의 공통 헬퍼: 최초 실행 후 bfcache 복원 시 재검증까지 등록해준다.
-  // 최초 조회가 실패한 경우(이미 알림/리다이렉트 처리됨)에는 재검증 리스너를 등록하지 않는다.
-  await window.registerBfcacheRevalidation(checkCompleteAuthAndLoadOrder);
+  // 기존 템플릿/합계/유효기간 렌더링은 유지하고 계정별 생명주기만 연결한다.
+  window.registerAccountView({
+    clear: () => {
+      // 카드 템플릿은 유지하되 이전 수신자·상품·금액이 재검증 중 노출되지 않게 한다.
+      if (privateContent) privateContent.hidden = true;
+      accountStatus.textContent = '로그인 상태를 확인하고 있습니다.';
+      accountStatus.hidden = false;
+      document.body.style.visibility = 'visible';
+      document.body.style.opacity = '1';
+    },
+    load: checkCompleteAuthAndLoadOrder,
+    error: () => {
+      if (privateContent) privateContent.hidden = true;
+      accountStatus.textContent = '로그인 상태를 확인하지 못했습니다. 새로고침 후 다시 시도해주세요.';
+      accountStatus.hidden = false;
+      document.body.style.visibility = 'visible';
+      document.body.style.opacity = '1';
+    }
+  });
 
 });
 
