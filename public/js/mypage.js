@@ -61,8 +61,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         // profile.js의 계정 삭제 흐름과 공유하는 클라이언트 측 로그인 흔적 정리 헬퍼(component.js).
         window.clearClientSession();
-        // 마이페이지는 로그인 이동을 replace로 바꾸지 않는 예외다(navigateToLogin 미사용).
-        window.location.href = 'login.html';
+        // 로그아웃 후 로그인 화면에서 뒤로가기를 눌러도 인증이 필요한 마이페이지로 되돌아와 다시 튕기지 않도록
+        // replace로 이동한다. 로그아웃이므로 로그인 후 돌아올 redirect와 첫 진입 화면 유지는 쓰지 않는다.
+        navigateToLogin();
     }
 
     const profileLogoutBtn = document.getElementById('btn-profile-logout');

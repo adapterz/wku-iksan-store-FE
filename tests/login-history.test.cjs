@@ -157,11 +157,9 @@ test('signup link keeps default behavior for new-tab clicks',()=>{
   assert.deepEqual(p.replaced,[]);
 });
 
-// 마이페이지(로그아웃 후 로그인 이동)는 의도적으로 push를 유지하는 예외다.
-const PUSH_TO_LOGIN_ALLOWED=new Set(['mypage.js']);
 test('no page script pushes the login page with location.href; they must use navigateToLogin',()=>{
   const pushToLogin=/(?:location\.href|location\.assign)\s*(?:=|\()\s*[`'"]\/?login/;
-  for(const file of fs.readdirSync(jsDir).filter(name=>name.endsWith('.js')&&!PUSH_TO_LOGIN_ALLOWED.has(name))){
+  for(const file of fs.readdirSync(jsDir).filter(name=>name.endsWith('.js'))){
     read(file).split('\n').forEach((line,index)=>{
       assert.doesNotMatch(line,pushToLogin,`${file}:${index+1} pushes login onto history: ${line.trim()}`);
     });
