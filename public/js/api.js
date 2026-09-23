@@ -51,6 +51,62 @@ function showUnauthorizedToast(message) {
   showToast(message, 0);
 }
 
+// 탭에서 사이트에 처음 진입한 화면(주소 직접 입력·북마크·외부 사이트에서 유입)의 히스토리 항목에 표시를 남긴다.
+// 로그인 이동이 이 항목을 replace로 덮어쓰면, 로그인 화면에서 뒤로가기를 눌렀을 때 돌아올 사이트 화면이 없어
+// 사이트를 벗어나 버린다. 그래서 이 항목만은 남겨두고(push) 로그인으로 이동하는 데 쓴다.
+// (brand/category처럼 history.replaceState를 쓰는 화면은 이 state를 지우지 않도록 기존 state를 넘겨야 한다.)
+function isFirstSiteEntry() {
+  const state = window.history && window.history.state;
+  return !!(state && state.firstSiteEntry);
+}
+
+(function markFirstSiteEntry() {
+  try {
+    const cameFromSite = document.referrer && new URL(document.referrer).origin === window.location.origin;
+    if (cameFromSite || isFirstSiteEntry()) return;
+    const state = window.history.state;
+    window.history.replaceState({ ...(state && typeof state === 'object' ? state : {}), firstSiteEntry: true }, '');
+  } catch (error) {
+    // history/referrer 접근이 막힌 환경에서는 표시 없이 진행한다(항상 replace로 폴백).
+  }
+})();
+
+// 로그인 페이지로 이동할 때는 기본적으로 replace를 쓴다. href(push)로 이동하면 login 항목이 히스토리에 남아
+// 로그인 후(또는 로그인 화면에서) 뒤로가기를 눌렀을 때 로그인 화면이 다시 나타난다.
+// 단 keepFirstEntry가 true이고 현재 항목이 사이트 첫 진입 화면이면 그 항목을 남기고(push) 이동한다.
+// (사용자가 직접 로그인으로 가는 동작에만 쓴다. 인증이 필수인 화면의 401 처리처럼 되돌아와도 다시 튕기는
+// 경우에는 남길 이유가 없으므로 쓰지 않는다.)
+function goToLogin(url, keepFirstEntry = false) {
+  if (keepFirstEntry && isFirstSiteEntry()) {
+    window.location.assign(url);
+  } else {
+    window.location.replace(url);
+  }
+}
+
+// redirect를 넘기면 로그인 성공 후 돌아올 주소로 전달한다.
+function navigateToLogin(redirect, { keepFirstEntry = false } = {}) {
+  const query = redirect ? `?redirect=${encodeURIComponent(redirect)}` : '';
+  goToLogin(`/login${query}`, keepFirstEntry);
+}
+
+// <a href="login...">으로 로그인에 가는 링크(하단 네비, 장바구니 안내 패널, 회원가입 화면 등)는
+// 링크마다 바인딩하지 않고 위임으로 가로채 같은 규칙(replace, 첫 진입 화면이면 유지)을 적용한다.
+document.addEventListener('click', (e) => {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const link = e.target.closest && e.target.closest('a[href]');
+  if (!link || (link.target && link.target !== '_self') || link.hasAttribute('download')) return;
+  let url;
+  try {
+    url = new URL(link.href, window.location.href);
+  } catch (error) {
+    return;
+  }
+  if (url.origin !== window.location.origin || !/^\/login(?:\.html)?\/?$/.test(url.pathname)) return;
+  e.preventDefault();
+  goToLogin(url.href, true);
+});
+
 // 세션 쿠키, JSON 변환, HTTP·네트워크 오류 처리를 공통으로 수행한다.
 async function requestJson(path, options = {}) {
   const { body, headers = {}, silent401 = false, ...requestOptions } = options;
@@ -99,13 +155,11 @@ async function requestJson(path, options = {}) {
     // 인증이 필수인 페이지가 아니므로 전역 리다이렉트를 건너뛰고 호출부에서 직접 처리하게 한다.
     if (response.status === 401 && !silent401 && !isLoginRequest) {
       showUnauthorizedToast('로그인이 필요한 서비스입니다.');
-      const redirectTarget = encodeURIComponent(window.location.href);
-      setTimeout(() => {
-        // href(push)로 이동하면 현재 페이지가 히스토리에 그대로 남아, 로그인 후 돌아왔다가
-        // 다시 뒤로가기를 누를 때 이 미인증 방문 기록을 다시 거치게 된다. replace로 대체해
-        // 로그인 왕복 과정이 히스토리에 여분의 항목을 남기지 않도록 한다.
-        window.location.replace(`/login.html?redirect=${redirectTarget}`);
-      }, UNAUTHORIZED_REDIRECT_DELAY_MS);
+      // href(push)로 이동하면 현재 페이지가 히스토리에 그대로 남아, 로그인 후 돌아왔다가
+      // 다시 뒤로가기를 누를 때 이 미인증 방문 기록을 다시 거치게 된다. navigateToLogin은
+      // replace로 대체해 로그인 왕복 과정이 히스토리에 여분의 항목을 남기지 않도록 한다.
+      const redirectTarget = window.location.href;
+      setTimeout(() => navigateToLogin(redirectTarget), UNAUTHORIZED_REDIRECT_DELAY_MS);
       return;
     }
 
