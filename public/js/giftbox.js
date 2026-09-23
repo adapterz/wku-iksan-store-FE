@@ -6,32 +6,7 @@ document.addEventListener('header:ready', () => {
   if (giftboxLink) giftboxLink.remove();
 });
 
-// 로그인 여부 확인 (화면을 그리기 전에 먼저 검증 - Route Guard)
-// 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류만 다룬다.
-async function checkGiftboxAuth() {
-  try {
-    const authResult = await requestJson('/api/auth/me');
-    if (!authResult || !authResult.data) {
-      return false;
-    }
-  } catch (error) {
-    console.error("인증 확인 실패:", error);
-    alert("사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
-    return false;
-  }
-
-  document.body.style.visibility = "visible";
-  document.body.style.opacity = "1";
-  return true;
-}
-
 document.addEventListener("header:ready", async () => {
-
-  // component.js의 공통 헬퍼: 최초 실행 후 bfcache 복원 시 재검증까지 등록해준다.
-  const isAuthenticated = await window.registerBfcacheRevalidation(checkGiftboxAuth);
-  if (!isAuthenticated) {
-    return;
-  }
 
   const tabUnused = document.getElementById("tab-unused");
   const tabUsed = document.getElementById("tab-used");
@@ -40,6 +15,13 @@ document.addEventListener("header:ready", async () => {
   const urlParams = new URLSearchParams(window.location.search);
   const initialTab = urlParams.get('tab') === 'used' ? 'used' : 'unused';
   let currentStatus = initialTab;
+  let loadSequence = 0;
+  let activeSettle = null;
+  const guard = window.accountGuard;
+  const showBody = () => {
+    document.body.style.visibility = 'visible';
+    document.body.style.opacity = '1';
+  };
 
   // 마이페이지 "나에게 선물"/"받은 선물" 카드에서 넘어올 때만 쓰는 구분 필터.
   // /api/gifts 응답에 이미 항목마다 isSelfGift가 들어있어서 서버에 새 쿼리를 추가할 필요 없이
@@ -74,21 +56,30 @@ document.addEventListener("header:ready", async () => {
 
   // Load gifts
   const loadGifts = async (status) => {
+    const owner = guard.snapshot();
+    if (!guard.isCurrent(owner) || !owner.userId) return;
+    const sequence = ++loadSequence;
+    if (activeSettle) activeSettle();
+    const isActive = () => sequence === loadSequence && guard.isCurrent(owner);
     currentStatus = status;
     updateTabStyles();
     renderGiftSkeleton();
     const settle = createSkeletonGuard(() => {
-      listContainer.innerHTML = `<div class="empty-state">선물 목록을 불러오지 못했습니다.</div>`;
+      if (isActive()) listContainer.innerHTML = `<div class="empty-state">선물 목록을 불러오지 못했습니다.</div>`;
     }, 1500);
+    activeSettle = settle;
 
     try {
-      const result = await requestJson(`/api/gifts?status=${status}`);
+      const result = await requestJson(`/api/gifts?status=${status}`, { silent401: true });
       settle();
-      renderGiftList(filterByType(result.data || []));
+      if (!isActive() || !result) return;
+      renderGiftList(filterByType(result.data || []), owner);
     } catch (error) {
       settle();
+      if (!isActive()) return;
       // 401은 api.js 전역 인터셉터가 처리하므로 여기선 403 등 나머지 오류만 다룬다.
-      if (error.status === 403) {
+      if (error.status === 401 || error.status === 403) {
+        guard.invalidate();
         alert("접근 권한이 없습니다.");
         location.href = "login.html";
         return;
@@ -114,7 +105,7 @@ document.addEventListener("header:ready", async () => {
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
   };
 
-  const renderGiftList = (gifts) => {
+  const renderGiftList = (gifts, owner) => {
     listContainer.innerHTML = "";
     
     if (gifts.length === 0) {
@@ -128,8 +119,11 @@ document.addEventListener("header:ready", async () => {
       
       // Click event for unused gifts
       if (currentStatus === 'unused') {
-        card.addEventListener('click', () => {
-          location.href = `giftuse.html?giftId=${gift.giftId}`;
+        card.addEventListener('click', async () => {
+          try {
+            await guard.ensureAction(owner);
+            location.href = `giftuse.html?giftId=${gift.giftId}`;
+          } catch (error) { alert(error.message || '로그인 상태를 확인하지 못했습니다.'); }
         });
       }
 
@@ -170,8 +164,11 @@ document.addEventListener("header:ready", async () => {
       if (showReviewButton) {
         const reviewBtn = card.querySelector('.btn-gift-review');
         if (reviewBtn) {
-          reviewBtn.addEventListener('click', () => {
-            window.openReviewEditor(gift.reviewId ? { reviewId: gift.reviewId } : { giftId: gift.giftId });
+          reviewBtn.addEventListener('click', async () => {
+            try {
+              await guard.ensureAction(owner);
+              window.openReviewEditor(gift.reviewId ? { reviewId: gift.reviewId } : { giftId: gift.giftId });
+            } catch (error) { alert(error.message || '로그인 상태를 확인하지 못했습니다.'); }
           });
         }
       }
@@ -191,7 +188,19 @@ document.addEventListener("header:ready", async () => {
   });
 
   // Init
-  loadGifts(currentStatus);
+  window.registerAccountView({
+    clear: () => {
+      loadSequence++;
+      if (activeSettle) activeSettle();
+      listContainer.innerHTML = '<div class="empty-state">로그인 상태를 확인하고 있습니다.</div>';
+      showBody();
+    },
+    load: () => { showBody(); return loadGifts(currentStatus); },
+    error: () => {
+      listContainer.innerHTML = '<div class="empty-state">로그인 상태를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.</div>';
+      showBody();
+    }
+  });
 
 
 
