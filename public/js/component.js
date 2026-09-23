@@ -983,9 +983,11 @@ async function performWishlistToggle(productId) {
         }
     } catch (error) {
         if (error.status === 401 || error.code === 'UNAUTHORIZED') {
-            // 인증 안됨 에러 처리
-            alert('로그인이 필요합니다.');
-            navigateToLogin(window.location.href, { keepFirstEntry: true });
+            // api.js 전역 401 처리와 같은 토스트·지연으로 안내하되, 사용자가 직접 누른 동작이므로
+            // 첫 진입 화면은 히스토리에 남기고 로그인으로 이동한다.
+            showUnauthorizedToast('로그인이 필요한 서비스입니다.');
+            const redirectTarget = window.location.href;
+            setTimeout(() => navigateToLogin(redirectTarget, { keepFirstEntry: true }), UNAUTHORIZED_REDIRECT_DELAY_MS);
             throw error;
         }
         console.error('찜 토글 에러:', error.status, error.code, error);
