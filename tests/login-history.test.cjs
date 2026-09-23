@@ -8,10 +8,10 @@ const read=file=>fs.readFileSync(path.join(jsDir,file),'utf8');
 const ORIGIN='http://localhost';
 
 // referrer 기본값은 같은 사이트에서 넘어온 화면(첫 진입 아님). ''(직접 입력)이나 외부 주소를 주면 첫 진입 화면이 된다.
-function apiPage({url=`${ORIGIN}/product?id=76`,fetch,referrer=`${ORIGIN}/`,state=null}={}){
+function apiPage({url=`${ORIGIN}/product?id=76`,fetch,referrer=`${ORIGIN}/`,state=null,historyLength=2}={}){
   const docEvents=new Map(),timers=[],replaced=[],assigned=[],toasts=[];
   const location={href:url,origin:ORIGIN,replace:target=>replaced.push(target),assign:target=>assigned.push(target)};
-  const history={state,replaceState:next=>{history.state=next;}};
+  const history={state,length:historyLength,replaceState:next=>{history.state=next;}};
   const toastEl={style:{},setAttribute(){},offsetWidth:0,set textContent(v){toasts.push(v);}};
   const ctx={window:{location,history},document:{referrer,addEventListener:(type,fn)=>docEvents.set(type,fn),getElementById:()=>toastEl,createElement:()=>toastEl,body:{appendChild(){}}},
     URL,fetch,setTimeout:(fn,ms)=>timers.push({fn,ms}),clearTimeout(){},console:{error(){}}};
@@ -76,6 +76,14 @@ test('entry that did not come from this site is marked as the first site entry, 
 test('entries reached from within the site are not marked',()=>{
   const p=apiPage({referrer:`${ORIGIN}/product?id=1`});
   assert.equal(p.history.state,null);
+});
+
+test('a new tab opened from a site link is marked as first entry even with a same-site referrer',()=>{
+  const p=apiPage({referrer:`${ORIGIN}/product?id=1`,historyLength:1});
+  assert.deepEqual({...p.history.state},{firstSiteEntry:true});
+  p.click(`${ORIGIN}/login`);
+  assert.deepEqual(p.assigned,[`${ORIGIN}/login`]);
+  assert.deepEqual(p.replaced,[]);
 });
 
 test('first site entry is kept (push) when the user goes to login, other entries are replaced',()=>{

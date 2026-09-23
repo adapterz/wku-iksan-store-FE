@@ -63,7 +63,9 @@ function isFirstSiteEntry() {
 (function markFirstSiteEntry() {
   try {
     const cameFromSite = document.referrer && new URL(document.referrer).origin === window.location.origin;
-    if (cameFromSite || isFirstSiteEntry()) return;
+    // 사이트 안에서 새 탭으로 연 화면은 referrer가 같은 사이트여도 그 탭의 첫 항목이므로 첫 진입으로 본다.
+    const isOnlyEntryInTab = window.history.length === 1;
+    if ((cameFromSite && !isOnlyEntryInTab) || isFirstSiteEntry()) return;
     const state = window.history.state;
     window.history.replaceState({ ...(state && typeof state === 'object' ? state : {}), firstSiteEntry: true }, '');
   } catch (error) {
