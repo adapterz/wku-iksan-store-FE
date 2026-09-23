@@ -965,14 +965,17 @@ async function performWishlistToggle(productId) {
     try {
         if (isWished) {
             // 이미 찜한 상품이면 해제 요청
-            await requestJson(`/api/wishlists/${productId}`, { method: 'DELETE' });
+            // silent401: 전역 401 처리는 예외 없이 undefined를 반환해 찜 성공으로 오인되므로,
+            // 아래 catch에서 직접 로그인 이동(첫 진입 화면 유지)을 처리한다.
+            await requestJson(`/api/wishlists/${productId}`, { method: 'DELETE', silent401: true });
             window._wishlistCache = window._wishlistCache.filter(id => id !== productIdStr);
             isSaved = false;
         } else {
             // 찜하지 않은 상품이면 등록 요청
             await requestJson('/api/wishlists', {
                 method: 'POST',
-                body: { productId: Number(productId) }
+                body: { productId: Number(productId) },
+                silent401: true
             });
             // 등록 성공 후 재조회 대신 캐시에 바로 추가하여, 재조회 실패로 인한 상태 불일치를 방지
             window._wishlistCache = [...wishlist, productIdStr];
