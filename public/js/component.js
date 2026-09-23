@@ -387,6 +387,7 @@ window.ERROR_MESSAGES = Object.freeze({
     PASSWORD_TOO_LONG: '비밀번호는 15자 이하로 입력해주세요',
     COMMON_PASSWORD: '다른 비밀번호를 사용해 주세요.',
     INVALID_PASSWORD: '비밀번호가 일치하지 않습니다.',
+    PASSWORD_CHANGE_CONFLICT: '인증 정보가 변경되었습니다. 다시 로그인해 주세요.',
     // 계정 삭제 오류
     ACCOUNT_HAS_UNUSED_GIFTS: '미사용 선물이 남아있어 계정을 삭제할 수 없습니다.',
     // BE PR #103(adapterz/wku-iksan-store-BE): 활성 정지 중인 회원이 탈퇴로 제재를 회피하지 못하도록
@@ -394,6 +395,7 @@ window.ERROR_MESSAGES = Object.freeze({
     ACCOUNT_HAS_ACTIVE_SANCTION: '이용 정지 중에는 계정을 삭제할 수 없습니다.',
     // 공통 오류
     UNAUTHORIZED: '로그인이 필요합니다.',
+    TOO_MANY_REQUESTS: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
     NETWORK_ERROR: '네트워크 연결을 확인해 주세요.',
     INVALID_JSON_RESPONSE: '서버 응답을 처리할 수 없습니다.',
     INTERNAL_SERVER_ERROR: '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
