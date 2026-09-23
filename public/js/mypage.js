@@ -61,6 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         // profile.js의 계정 삭제 흐름과 공유하는 클라이언트 측 로그인 흔적 정리 헬퍼(component.js).
         window.clearClientSession();
+        // 마이페이지는 로그인 이동을 replace로 바꾸지 않는 예외다(navigateToLogin 미사용).
         window.location.href = 'login.html';
     }
 
