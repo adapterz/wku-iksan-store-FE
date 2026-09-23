@@ -96,7 +96,7 @@ function syncFromUrl() {
     const currentCategoryId = new URLSearchParams(window.location.search).get('categoryId');
     if (!currentCategoryId && categories.length > 0) {
         const firstCategoryId = String(categories[0].id);
-        history.replaceState({}, '', `category?categoryId=${firstCategoryId}`);
+        history.replaceState(history.state || {}, '', `category?categoryId=${firstCategoryId}`);
         syncFromUrl();
     } else {
         updateActiveCategoryLink(currentCategoryId);
