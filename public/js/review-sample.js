@@ -46,7 +46,7 @@
   let signingIn = false;
   async function login() {
     if (signingIn) return;
-    if (!state.preview) { location.href = 'login.html?redirect=' + encodeURIComponent(location.pathname + location.search); return; }
+    if (!state.preview) { location.replace('login.html?redirect=' + encodeURIComponent(location.pathname + location.search)); return; }
     signingIn = true;
     try { await api('/__preview/login','POST'); await auth(); await load(); }
     catch(e) { toast(e.message); } finally { signingIn = false; }

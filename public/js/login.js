@@ -128,12 +128,24 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
+  // 로그인 화면에서 다른 화면으로 나갈 때도 replace를 써서 login 항목이 히스토리에 남지 않게 한다.
+  // (안 그러면 홈/회원가입 화면에서 뒤로가기를 눌렀을 때 로그인 화면으로 되돌아온다.)
   // Home Button Logic
   const btnHome = document.getElementById('btn-home');
   if (btnHome) {
     btnHome.addEventListener('click', (e) => {
       e.preventDefault();
-      window.location.href = 'index.html';
+      window.location.replace('index.html');
+    });
+  }
+
+  // 새 탭 열기(Ctrl/Cmd/Shift 클릭, 가운데 버튼)는 가로채지 않는다.
+  const signupLink = document.querySelector('.auth-footer a[href="signup.html"]');
+  if (signupLink) {
+    signupLink.addEventListener('click', (e) => {
+      if (!isPlainLeftClick(e)) return;
+      e.preventDefault();
+      window.location.replace(signupLink.href);
     });
   }
 });
