@@ -131,7 +131,10 @@ function loginPage(){
   const ctx={window:{location:{search:'',origin:ORIGIN,replace:target=>replaced.push(target)}},
     document:{addEventListener:(type,fn)=>listeners.set(type,fn),getElementById:id=>id==='btn-home'?home:null,querySelector:s=>s==='.auth-footer a[href="signup.html"]'?signup:null},
     localStorage:{setItem(){}},console:{error(){}}};
-  vm.createContext(ctx);vm.runInContext(read('login.js'),ctx);listeners.get('DOMContentLoaded')();
+  vm.createContext(ctx);
+  // login.html은 api.js를 먼저 로드하므로 login.js가 쓰는 공통 헬퍼만 api.js에서 가져온다.
+  vm.runInContext(read('api.js').match(/^function isPlainLeftClick[\s\S]*?^\}/m)[0],ctx);
+  vm.runInContext(read('login.js'),ctx);listeners.get('DOMContentLoaded')();
   const fire=(name,overrides={})=>{
     const event={button:0,metaKey:false,ctrlKey:false,shiftKey:false,altKey:false,defaultPrevented:false,preventDefault(){this.defaultPrevented=true;},...overrides};
     handlers[name](event);return event;

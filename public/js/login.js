@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const signupLink = document.querySelector('.auth-footer a[href="signup.html"]');
   if (signupLink) {
     signupLink.addEventListener('click', (e) => {
-      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      if (!isPlainLeftClick(e)) return;
       e.preventDefault();
       window.location.replace(signupLink.href);
     });

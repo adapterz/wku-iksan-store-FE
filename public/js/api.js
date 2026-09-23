@@ -92,10 +92,15 @@ function navigateToLogin(redirect, { keepFirstEntry = false } = {}) {
   goToLogin(`/login${query}`, keepFirstEntry);
 }
 
+// 새 탭/새 창 열기(Ctrl/Cmd/Shift/Alt 클릭, 가운데 버튼)가 아닌 일반 왼쪽 클릭인지 판별한다.
+function isPlainLeftClick(e) {
+  return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+}
+
 // <a href="login...">으로 로그인에 가는 링크(하단 네비, 장바구니 안내 패널, 회원가입 화면 등)는
 // 링크마다 바인딩하지 않고 위임으로 가로채 같은 규칙(replace, 첫 진입 화면이면 유지)을 적용한다.
 document.addEventListener('click', (e) => {
-  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  if (e.defaultPrevented || !isPlainLeftClick(e)) return;
   const link = e.target.closest && e.target.closest('a[href]');
   if (!link || (link.target && link.target !== '_self') || link.hasAttribute('download')) return;
   let url;
