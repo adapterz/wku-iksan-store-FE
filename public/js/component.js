@@ -982,7 +982,7 @@ async function performWishlistToggle(productId) {
         if (error.status === 401 || error.code === 'UNAUTHORIZED') {
             // 인증 안됨 에러 처리
             alert('로그인이 필요합니다.');
-            window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+            navigateToLogin(window.location.href, { keepFirstEntry: true });
             throw error;
         }
         console.error('찜 토글 에러:', error.status, error.code, error);
