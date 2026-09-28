@@ -1255,12 +1255,14 @@ body.page-brand-body {
 /* 둘러보기/추천 상품 페이지 전환 슬라이딩 애니메이션 (두 패널이 동시에 화면에 보이며 나란히 이동).
    JS(component.js의 공용 createBrowseCarousel)가 애니메이션 중에는 기존 카드(.browse-panel + 이동 중
    transform)와 다음 카드를 뷰포트 안에 절대위치로 나란히 배치하고, 같은 방향으로 함께 translateX시킨 뒤
-   transitionend 시점에 기존 패널을 제거하고 새 패널을 원래 레이아웃으로 되돌린다.
+   transitionend 시점에 기존 패널을 제거하고 새 패널을 원래 레이아웃으로 되돌린다. 두 패널이 하나의
+   띠처럼 붙어 이동하므로, 1페이지 1열이 화면 밖으로 나가는 순간 2페이지 1열이 1페이지 3열 오른쪽에서
+   자연스럽게 나타난다.
    지속시간/커브를 이 선택자들에 한 번만 정의해, 슬라이드(transform)·높이·페이지 인디케이터
    페이드가 전부 같은 리듬으로 움직이고 값 하나만 바꿔도 셋이 같이 조정되게 한다. */
 #browse-section,
 #product-recommend-section {
-  --browse-slide-duration: 1.0s;
+  --browse-slide-duration: 0.9s;
   --browse-slide-easing: cubic-bezier(0.16, 1, 0.3, 1);
 }
 

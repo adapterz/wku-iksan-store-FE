@@ -1649,7 +1649,10 @@ function createBrowseCarouselController(rootEl) {
     }
 
     // direction('next'|'prev')이 주어지면 기존 카드(outgoing)와 다음 카드(incoming)를 뷰포트 안에
-    // 나란히 배치한 뒤 같은 방향으로 함께 이동시켜, 두 페이지가 슬라이드되며 전환되는 모션을 만든다.
+    // 나란히 배치한 뒤 같은 방향으로 함께 이동시켜, 3열 전체가 하나의 띠처럼 이어져 미끄러지는
+    // 모션을 만든다. 1페이지 1열이 화면 밖으로 나가는 순간 2페이지 1열이 1페이지 3열 오른쪽에서
+    // 나타나는 것은 두 페이지를 나란히 붙여놓고 통째로 translateX시키기만 해도 자연스럽게
+    // 성립한다(열을 개별로 다룰 필요가 없다).
     // 없으면(최초 렌더 등) 애니메이션 없이 즉시 반영한다.
     function renderPage(direction) {
         const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
@@ -1686,6 +1689,7 @@ function createBrowseCarouselController(rootEl) {
         outgoingRow.classList.add('browse-panel', 'browse-no-transition');
         outgoingRow.style.transform = 'translateX(0)';
 
+        // next는 incoming을 오른쪽 바깥(1페이지 3열 오른쪽)에, prev는 왼쪽 바깥에 붙여 놓는다.
         const enterFrom = direction === 'next' ? '100%' : '-100%';
         incomingRow.classList.add('browse-panel', 'browse-no-transition');
         incomingRow.style.transform = `translateX(${enterFrom})`;
@@ -1716,19 +1720,21 @@ function createBrowseCarouselController(rootEl) {
         finishAnimation = settle;
 
         requestAnimationFrame(() => {
+            // outgoing은 incoming이 들어온 반대 방향으로 나가, 두 패널이 같은 띠처럼 이어져 이동한다.
             const exitTo = direction === 'next' ? '-100%' : '100%';
             outgoingRow.style.transform = `translateX(${exitTo})`;
             incomingRow.style.transform = 'translateX(0)';
             viewport.style.height = `${incomingHeight}px`;
 
-            incomingRow.addEventListener('transitionend', function onSlideEnd() {
+            incomingRow.addEventListener('transitionend', function onSlideEnd(e) {
+                if (e.propertyName !== 'transform') return;
                 incomingRow.removeEventListener('transitionend', onSlideEnd);
                 // finishAnimation이 settle이 아니면 setProducts가 이미 즉시 마무리 처리한 것이므로 다시 실행하지 않는다.
                 if (finishAnimation === settle) {
                     finishAnimation = null;
                     settle();
                 }
-            }, { once: true });
+            });
         });
     }
 
