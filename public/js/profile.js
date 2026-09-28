@@ -323,7 +323,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!result) return;
         window.clearClientSession();
         await showAlertPopup('계정이 삭제되었습니다.');
-        window.location.href = 'login.html';
+        navigateToLogin();
       } catch (error) {
         console.error('계정 삭제 실패:', error);
         // 실패 케이스에도 비밀번호 입력값이 그대로 남아있지 않도록 비운다.

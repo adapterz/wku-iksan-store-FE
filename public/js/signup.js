@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (result.code === 'SIGNUP_SUCCESS') {
           alert('회원가입이 완료되었습니다. 로그인해주세요.');
-          window.location.href = 'login.html';
+          navigateToLogin();
           return;
         }
         showError(ERROR_MESSAGES[result.code] || '회원가입에 실패했습니다.', getErrorTarget(result.code));

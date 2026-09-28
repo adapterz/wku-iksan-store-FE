@@ -90,7 +90,7 @@ document.addEventListener("header:ready", async () => {
       // 401은 api.js 전역 인터셉터가 처리하므로 여기선 403 등 나머지 오류만 다룬다.
       if (error.status === 403) {
         alert("접근 권한이 없습니다.");
-        location.href = "login.html";
+        navigateToLogin();
         return;
       }
       console.error("선물함 조회 실패:", error);

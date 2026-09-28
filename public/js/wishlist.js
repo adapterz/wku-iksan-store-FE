@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isLoggedIn) {
       wishlistLoader.load();
     } else {
-      window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+      navigateToLogin(window.location.href);
     }
   }, { once: true });
 });

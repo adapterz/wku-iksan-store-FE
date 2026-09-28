@@ -967,14 +967,17 @@ async function performWishlistToggle(productId) {
     try {
         if (isWished) {
             // 이미 찜한 상품이면 해제 요청
-            await requestJson(`/api/wishlists/${productId}`, { method: 'DELETE' });
+            // silent401: 전역 401 처리는 예외 없이 undefined를 반환해 찜 성공으로 오인되므로,
+            // 아래 catch에서 직접 로그인 이동을 처리한다.
+            await requestJson(`/api/wishlists/${productId}`, { method: 'DELETE', silent401: true });
             window._wishlistCache = window._wishlistCache.filter(id => id !== productIdStr);
             isSaved = false;
         } else {
             // 찜하지 않은 상품이면 등록 요청
             await requestJson('/api/wishlists', {
                 method: 'POST',
-                body: { productId: Number(productId) }
+                body: { productId: Number(productId) },
+                silent401: true
             });
             // 등록 성공 후 재조회 대신 캐시에 바로 추가하여, 재조회 실패로 인한 상태 불일치를 방지
             window._wishlistCache = [...wishlist, productIdStr];
@@ -982,9 +985,10 @@ async function performWishlistToggle(productId) {
         }
     } catch (error) {
         if (error.status === 401 || error.code === 'UNAUTHORIZED') {
-            // 인증 안됨 에러 처리
-            alert('로그인이 필요합니다.');
-            window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+            // api.js 전역 401 처리와 같은 토스트·지연으로 안내한 뒤 로그인으로 이동한다.
+            showUnauthorizedToast('로그인이 필요한 서비스입니다.');
+            const redirectTarget = window.location.href;
+            setTimeout(() => navigateToLogin(redirectTarget), UNAUTHORIZED_REDIRECT_DELAY_MS);
             throw error;
         }
         console.error('찜 토글 에러:', error.status, error.code, error);
