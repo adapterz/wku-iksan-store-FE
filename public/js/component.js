@@ -837,16 +837,43 @@ document.addEventListener('DOMContentLoaded', () => {
     sliderSlides.appendChild(firstClone);
     sliderSlides.insertBefore(lastClone, originalSlides[0]);
 
+    // 배너 이미지에는 상품 ID 대신 상품명(data-product-name)을 적어두고, 실제 ID는 상품
+    // 목록 API에서 이름으로 찾아 채운다. 로컬/운영처럼 환경마다 DB의 자동증가 ID가 달라도
+    // 같은 상품명을 쓰는 한 하드코딩 없이 항상 올바른 상품으로 연결하기 위함이다.
+    // 이미 채워진 data-product-id가 있으면 그대로 쓰고, 없으면(최초 조회 전이거나 직전
+    // 조회가 실패한 경우) 클릭 시점에 다시 조회한다 — fetchListWithCache가 캐시를 우선
+    // 사용하므로 실패가 아닌 한 재조회 비용은 거의 없다.
+    async function resolveProductId(img) {
+        const existingId = img.getAttribute('data-product-id');
+        if (existingId) return existingId;
+
+        try {
+            const result = await window.fetchListWithCache('/api/products', window.PRODUCT_CACHE_KEY, window.PRODUCT_CACHE_TTL_MS);
+            const products = result.data || [];
+            const name = img.getAttribute('data-product-name');
+            const product = products.find(p => p.name === name);
+            if (product) {
+                img.setAttribute('data-product-id', product.id);
+                return product.id;
+            }
+        } catch (error) {
+            console.error('배너 상품 ID를 불러오지 못했습니다:', error);
+        }
+        return null;
+    }
+
     // 복제된 인덱스 포함 모든 이미지에 스타일과 클릭 이벤트 추가
     const allSlides = sliderSlides.querySelectorAll('img');
     allSlides.forEach(img => {
         img.style.cursor = 'pointer';
-        img.addEventListener('click', () => {
-            const productId = img.getAttribute('data-product-id');
+        img.addEventListener('click', async () => {
+            const productId = await resolveProductId(img);
             if (productId) {
                 window.location.href = `product.html?id=${productId}`;
             }
         });
+        // 클릭 전에 미리 조회해두면 대부분의 클릭이 대기 없이 바로 이동한다.
+        resolveProductId(img);
     });
 
     // 복제된 마지막 요소(0번 인덱스) 다음인 실제 첫 번째 요소(1번 인덱스)부터 시작
@@ -866,25 +893,77 @@ document.addEventListener('DOMContentLoaded', () => {
         sliderSlides.style.transform = `translateX(-${currentIndex * 100}%)`;
     }
 
+    function goToNext() {
+        if (isTransitioning) return;
+        isTransitioning = true;
+        currentIndex++;
+        updateSlider(true);
+    }
+
+    function goToPrev() {
+        if (isTransitioning) return;
+        isTransitioning = true;
+        currentIndex--;
+        updateSlider(true);
+    }
+
+    // 자동 슬라이드: 일정 주기로 다음 배너로 넘어간다.
+    // 사용자가 직접 이전/다음 버튼을 조작하면 타이머를 리셋해, 조작 직후 바로 또 넘어가지 않게 한다.
+    const AUTO_SLIDE_INTERVAL_MS = 4000;
+    let autoSlideTimer = null;
+
+    function startAutoSlide() {
+        stopAutoSlide();
+        autoSlideTimer = setInterval(goToNext, AUTO_SLIDE_INTERVAL_MS);
+    }
+
+    function stopAutoSlide() {
+        if (autoSlideTimer) {
+            clearInterval(autoSlideTimer);
+            autoSlideTimer = null;
+        }
+    }
+
     if (nextBtn) {
         nextBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (isTransitioning) return;
-            isTransitioning = true;
-            currentIndex++;
-            updateSlider(true);
+            goToNext();
+            startAutoSlide();
         });
     }
 
     if (prevBtn) {
         prevBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (isTransitioning) return;
-            isTransitioning = true;
-            currentIndex--;
-            updateSlider(true);
+            goToPrev();
+            startAutoSlide();
         });
     }
+
+    // 마우스가 배너 위에 있는 동안에는 자동 슬라이드를 멈춘다 (데스크톱 사용성).
+    // isHovering을 별도로 추적해, 호버 중에 탭을 벗어났다 돌아와도(visibilitychange)
+    // 마우스가 여전히 배너 위에 있으면 재시작하지 않도록 한다.
+    let isHovering = false;
+    const sliderContainer = sliderSlides.closest('.ad-banner-slider');
+    if (sliderContainer) {
+        sliderContainer.addEventListener('mouseenter', () => {
+            isHovering = true;
+            stopAutoSlide();
+        });
+        sliderContainer.addEventListener('mouseleave', () => {
+            isHovering = false;
+            startAutoSlide();
+        });
+    }
+
+    // 탭이 백그라운드로 전환되면 멈추고, 돌아오면(호버 중이 아닐 때만) 다시 시작한다.
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopAutoSlide();
+        } else if (!isHovering) {
+            startAutoSlide();
+        }
+    });
 
     // 트랜지션이 끝났을 때 인덱스를 점프하여 무한 순환처럼 보이게 함
     sliderSlides.addEventListener('transitionend', () => {
@@ -897,6 +976,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updateSlider(false);
         }
     });
+
+    startAutoSlide();
 });
 
 // 전역 찜 목록 캐시 및 단일 요청 프라미스
