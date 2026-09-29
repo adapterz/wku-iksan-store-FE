@@ -1188,6 +1188,20 @@ document.addEventListener('click', event => {
     }, UNAUTHORIZED_REDIRECT_DELAY_MS);
 });
 
+// 하단 네비게이션의 찜(위시리스트) 탭과 헤더의 선물함 아이콘도 위 장바구니 아이콘과 같은 방식으로,
+// 비로그인 상태에서 클릭 시 이동 전에 안내 토스트를 보여준 뒤 로그인 페이지로 이동시킨다.
+document.addEventListener('click', event => {
+    const link = event.target.closest('a.nav-item[href="wishlist.html"], a.header-icon[href="giftbox.html"]');
+    if (!link || localStorage.getItem('isLoggedIn') === 'true') return;
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+    event.preventDefault();
+    window.showToast('로그인이 필요한 페이지입니다.');
+    setTimeout(() => {
+        window.location.href = `login.html?redirect=${encodeURIComponent(link.getAttribute('href'))}`;
+    }, UNAUTHORIZED_REDIRECT_DELAY_MS);
+});
+
 // 정보 아이콘 옆 안내 툴팁을 여닫는 공용 유틸리티.
 // 호버 가능한 기기(데스크톱)에서는 마우스 오버 시 열리고, 클릭은 무시해 깜빡임 없이 유지된다.
 // 호버가 불가능한 터치 기기에서는 mouseenter가 발생하지 않으므로 버튼 클릭으로 토글하고,
