@@ -839,16 +839,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 배너 이미지에는 상품 ID 대신 상품명(data-product-name)을 적어두고, 실제 ID는 상품
     // 목록 API에서 이름으로 찾아 채운다. 로컬/운영처럼 환경마다 DB의 자동증가 ID가 달라도
-    // 같은 상품명을 쓰는 한 하드코딩 없이 항상 올바른 상품으로 연결하기 위함이다.
+    // 같은 상품명을 쓰는 한 하드코딩 없이 현재 상품명이 일치하는 항목의 실제 ID로 연결하기
+    // 위함이다. (상품명이 DB에서 고유값으로 보장되지는 않으므로, 동명 상품이 있으면 첫 번째
+    // 항목이 선택된다.)
+    //
+    // 캐시가 없는 최초 진입에서는 배너 8개(원본 6 + 복제 2)가 이 조회를 동시에 트리거할 수
+    // 있는데, fetchListWithCache는 완료된 결과만 캐시하고 진행 중인 요청은 공유하지 않는다.
+    // 그래서 진행 중인 Promise를 여기서 직접 공유해 중복 요청을 막는다. 실패한 Promise는
+    // 남겨두지 않아(finally에서 초기화) 다음 클릭에서 재시도할 수 있다.
+    let productListPromise = null;
+    function loadBannerProducts() {
+        if (!productListPromise) {
+            productListPromise = window.fetchListWithCache('/api/products', window.PRODUCT_CACHE_KEY, window.PRODUCT_CACHE_TTL_MS)
+                .finally(() => { productListPromise = null; });
+        }
+        return productListPromise;
+    }
+
     // 이미 채워진 data-product-id가 있으면 그대로 쓰고, 없으면(최초 조회 전이거나 직전
-    // 조회가 실패한 경우) 클릭 시점에 다시 조회한다 — fetchListWithCache가 캐시를 우선
-    // 사용하므로 실패가 아닌 한 재조회 비용은 거의 없다.
+    // 조회가 실패한 경우) 클릭 시점에 다시 조회한다.
     async function resolveProductId(img) {
         const existingId = img.getAttribute('data-product-id');
         if (existingId) return existingId;
 
         try {
-            const result = await window.fetchListWithCache('/api/products', window.PRODUCT_CACHE_KEY, window.PRODUCT_CACHE_TTL_MS);
+            const result = await loadBannerProducts();
             const products = result.data || [];
             const name = img.getAttribute('data-product-name');
             const product = products.find(p => p.name === name);
@@ -909,11 +924,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 자동 슬라이드: 일정 주기로 다음 배너로 넘어간다.
     // 사용자가 직접 이전/다음 버튼을 조작하면 타이머를 리셋해, 조작 직후 바로 또 넘어가지 않게 한다.
+    // 마우스가 배너 위에 있거나(isHovering) 탭이 백그라운드인 동안에는 버튼 조작 직후에도
+    // 자동 전환이 다시 시작되면 안 되므로, 그 판단을 모든 호출부가 공유하는 startAutoSlide
+    // 한 곳에 둔다 — 버튼 클릭 핸들러가 각자 판단하지 않는다.
     const AUTO_SLIDE_INTERVAL_MS = 4000;
     let autoSlideTimer = null;
+    let isHovering = false;
 
     function startAutoSlide() {
         stopAutoSlide();
+        if (isHovering || document.hidden) return;
         autoSlideTimer = setInterval(goToNext, AUTO_SLIDE_INTERVAL_MS);
     }
 
@@ -941,9 +961,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 마우스가 배너 위에 있는 동안에는 자동 슬라이드를 멈춘다 (데스크톱 사용성).
-    // isHovering을 별도로 추적해, 호버 중에 탭을 벗어났다 돌아와도(visibilitychange)
-    // 마우스가 여전히 배너 위에 있으면 재시작하지 않도록 한다.
-    let isHovering = false;
     const sliderContainer = sliderSlides.closest('.ad-banner-slider');
     if (sliderContainer) {
         sliderContainer.addEventListener('mouseenter', () => {
@@ -956,11 +973,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 탭이 백그라운드로 전환되면 멈추고, 돌아오면(호버 중이 아닐 때만) 다시 시작한다.
+    // 탭이 백그라운드로 전환되면 멈추고, 돌아오면(호버 중이 아닐 때만 startAutoSlide 내부에서) 다시 시작한다.
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             stopAutoSlide();
-        } else if (!isHovering) {
+        } else {
             startAutoSlide();
         }
     });
