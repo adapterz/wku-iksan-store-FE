@@ -280,3 +280,99 @@ test('late gift acknowledgement does not clear the new account notification IDs'
   assert.equal(await p.ctx.notifyGiftArrivalSeen(), 'success');
   assert.deepEqual(Array.from(p.calls.filter(x => x.options.method === 'PATCH')[1].options.body.giftIds), [20]);
 });
+
+for (const [kind, initial, expected] of [
+  ['delete', ['1', '2'], []], ['add', [], ['1', '2']], ['mixed', ['1'], ['2']]
+]) {
+  for (const order of [[1, 2], [2, 1]]) {
+    test(`concurrent wishlist ${kind} preserves both changes in completion order ${order}`, async () => {
+      const waits = { 1: deferred(), 2: deferred() };
+      const p = page((url, options) => waits[options.method === 'POST' ? options.body.productId : url.split('/').pop()].promise);
+      await p.guard.refresh(); p.window._wishlistCache = [...initial];
+      const actions = { 1: p.window.toggleSavedProduct(1), 2: p.window.toggleSavedProduct(2) };
+      await flush();
+      assert.equal(p.calls.filter(x => ['POST', 'DELETE'].includes(x.options.method)).length, 2);
+      for (const id of order) { waits[id].resolve({ data: {} }); await actions[id]; }
+      assert.deepEqual(Array.from(p.window._wishlistCache).sort(), expected);
+    });
+  }
+}
+
+test('failed wishlist mutation does not undo another successful mutation', async () => {
+  const first = deferred(), second = deferred();
+  const p = page(url => url.endsWith('/1') ? first.promise : second.promise);
+  await p.guard.refresh(); p.window._wishlistCache = ['1', '2'];
+  const a = p.window.toggleSavedProduct(1), b = p.window.toggleSavedProduct(2);
+  const failed = assert.rejects(b, /offline/); await flush();
+  first.resolve({ data: {} }); await a; second.reject(new Error('offline')); await failed;
+  assert.deepEqual(Array.from(p.window._wishlistCache), ['2']);
+});
+
+test('same product rapid clicks still share one wishlist mutation', async () => {
+  const wait = deferred(), p = page(() => wait.promise);
+  await p.guard.refresh(); p.window._wishlistCache = [];
+  const a = p.window.toggleSavedProduct(1), b = p.window.toggleSavedProduct(1); await flush();
+  assert.equal(p.calls.filter(x => x.options.method === 'POST').length, 1);
+  wait.resolve({ data: {} }); await Promise.all([a, b]);
+  assert.deepEqual(Array.from(p.window._wishlistCache), ['1']);
+});
+
+async function openPrivatePage(p, name) {
+  p.document.body = element(); p.ctx.createSkeletonGuard = () => () => {};
+  p.ctx.createSkeletonCard = element;
+  p.add('main'); p.add('gift-list-container'); p.add('tab-unused'); p.add('tab-used'); p.add('wishlist-product-list');
+  p.window.location.href = `https://example.test/${name}?${name === 'complete' ? 'orderGroupId=10' : 'tab=used'}`;
+  p.window.location.search = name === 'complete' ? '?orderGroupId=10' : '?tab=used';
+  p.run(`${name}.js`);
+  if (name === 'complete') p.ctx.renderCompletePage = () => {};
+  if (name === 'wishlist') p.document.listeners.get('DOMContentLoaded').at(-1)();
+  else await p.document.fire('header:ready');
+  await flush();
+}
+
+for (const name of ['giftbox', 'complete']) {
+  test(`${name}: real requestJson handles current-owner data 401 with return URL and replace`, async () => {
+    const p = page();
+    p.ctx.fetch = async url => ({
+      ok: url === '/api/auth/me', status: url === '/api/auth/me' ? 200 : 401,
+      json: async () => url === '/api/auth/me' ? { data: { userId: 1 } } : { message: 'expired' }
+    });
+    p.run('api.js'); await openPrivatePage(p, name);
+    assert.deepEqual(p.redirects, [`login.html?redirect=${encodeURIComponent(p.window.location.href)}`]);
+    assert.deepEqual(p.alerts, []);
+    assert.equal(p.guard.isCurrent(p.guard.snapshot()), false);
+    if (name === 'complete') assert.equal(p.elements.get('main').hidden, true);
+  });
+
+  test(`${name}: old-owner data 401 cannot redirect the new account`, async () => {
+    const old = deferred(); let reads = 0;
+    const p = page(() => ++reads === 1 ? old.promise : Promise.resolve({ data: [] }));
+    await openPrivatePage(p, name);
+    p.user(2); await p.guard.refresh(); await flush();
+    old.reject({ status: 401 }); await flush();
+    assert.deepEqual(p.redirects, []); assert.deepEqual(p.alerts, []);
+    assert.equal(p.guard.currentUser().userId, 2);
+  });
+
+  test(`${name}: 403 retains permission-error handling rather than being treated as expiry`, async () => {
+    const p = page(async () => { throw { status: 403 }; });
+    await openPrivatePage(p, name);
+    assert.deepEqual(p.alerts, ['접근 권한이 없습니다.']);
+    assert.equal(p.window.location.href, 'login.html'); assert.deepEqual(p.redirects, []);
+  });
+}
+
+for (const name of ['giftbox', 'complete', 'wishlist']) {
+  test(`${name}: authentication failure exposes a reload button without signing out`, async () => {
+    const p = page(); let reloads = 0;
+    p.window.location.reload = () => reloads++;
+    p.authError({ status: 503 }); await openPrivatePage(p, name);
+    const container = name === 'complete' ? p.document.body.children[0]
+      : p.elements.get(name === 'giftbox' ? 'gift-list-container' : 'wishlist-product-list');
+    const retry = container.children.find(child => child.textContent === '새로고침하여 다시 시도');
+    assert.ok(retry); assert.equal(retry.type, 'button');
+    await retry.fire('click'); assert.equal(reloads, 1);
+    assert.deepEqual(p.redirects, []); assert.deepEqual(p.alerts, []);
+    assert.equal(p.calls.some(x => x.url !== '/api/auth/me'), false);
+  });
+}

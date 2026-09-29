@@ -22,8 +22,7 @@ document.addEventListener("header:ready", async () => {
       const result = await requestJson(path, { silent401: true });
       if (!window.accountGuard.isCurrent(owner)) return false;
 
-      // result가 없으면(=undefined) api.js 전역 인터셉터가 401을 처리(로그인 페이지 이동)한 것이므로
-      // 그 이동을 다른 리다이렉트로 덮어쓰지 않도록 그대로 반환한다.
+      // silent401 요청의 인증 오류는 catch에서 소유자를 확인한 뒤 처리한다.
       if (!result) {
         return false;
       }
@@ -48,7 +47,10 @@ document.addEventListener("header:ready", async () => {
       if (!window.accountGuard.isCurrent(owner)) return false;
       console.error("주문 정보 조회 실패:", error);
       // 이전 계정의 오류는 위에서 폐기하고 현재 계정의 접근 오류만 안내한다.
-      if (error.status === 401 || error.status === 403) {
+      if (error.status === 401) {
+        window.accountGuard.invalidate();
+        window.location.replace(`login.html?redirect=${encodeURIComponent(window.location.href)}`);
+      } else if (error.status === 403) {
         alert("접근 권한이 없습니다.");
         location.href = "login.html";
       } else {
@@ -73,6 +75,7 @@ document.addEventListener("header:ready", async () => {
     error: () => {
       if (privateContent) privateContent.hidden = true;
       accountStatus.textContent = '로그인 상태를 확인하지 못했습니다. 새로고침 후 다시 시도해주세요.';
+      window.appendAccountRetryButton(accountStatus);
       accountStatus.hidden = false;
       document.body.style.visibility = 'visible';
       document.body.style.opacity = '1';

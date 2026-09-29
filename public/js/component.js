@@ -79,6 +79,16 @@ window.registerAccountView = function({ clear, load, error }) {
     guard.refresh().then(show).catch(() => {});
 };
 
+// 인증 확인 실패 화면에서 탭 전환 없이 다시 시도할 수 있게 한다.
+// 페이지를 새로 열어 기존 요청/렌더링 상태도 함께 초기화한다.
+window.appendAccountRetryButton = function(container) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = '새로고침하여 다시 시도';
+    button.addEventListener('click', () => window.location.reload());
+    container.appendChild(button);
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     let scheduled = false;
     const resume = () => {
@@ -1116,7 +1126,8 @@ async function performWishlistToggle(productId) {
             // 이미 찜한 상품이면 해제 요청
             await requestJson(`/api/wishlists/${productId}`, { method: 'DELETE', silent401: true });
             if (!window.accountGuard.isCurrent(owner)) throw Object.assign(new Error('로그인 상태가 변경됐습니다.'), { code: 'STALE_ACCOUNT' });
-            window._wishlistCache = wishlist.filter(id => id !== productIdStr);
+            // 다른 상품 요청이 먼저 완료했을 수 있으므로 최신 캐시에 이번 변경만 반영한다.
+            window._wishlistCache = window._wishlistCache.filter(id => id !== productIdStr);
             isSaved = false;
         } else {
             // 찜하지 않은 상품이면 등록 요청
@@ -1127,7 +1138,7 @@ async function performWishlistToggle(productId) {
             });
             if (!window.accountGuard.isCurrent(owner)) throw Object.assign(new Error('로그인 상태가 변경됐습니다.'), { code: 'STALE_ACCOUNT' });
             // 등록 성공 후 재조회 대신 캐시에 바로 추가하여, 재조회 실패로 인한 상태 불일치를 방지
-            window._wishlistCache = [...wishlist, productIdStr];
+            window._wishlistCache = [...new Set([...window._wishlistCache, productIdStr])];
             isSaved = true;
         }
     } catch (error) {

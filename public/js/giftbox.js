@@ -77,8 +77,13 @@ document.addEventListener("header:ready", async () => {
     } catch (error) {
       settle();
       if (!isActive()) return;
-      // 401은 api.js 전역 인터셉터가 처리하므로 여기선 403 등 나머지 오류만 다룬다.
-      if (error.status === 401 || error.status === 403) {
+      // silent401 요청이므로 현재 소유자의 로그인 만료만 직접 처리한다.
+      if (error.status === 401) {
+        guard.invalidate();
+        window.location.replace(`login.html?redirect=${encodeURIComponent(window.location.href)}`);
+        return;
+      }
+      if (error.status === 403) {
         guard.invalidate();
         alert("접근 권한이 없습니다.");
         location.href = "login.html";
@@ -197,7 +202,8 @@ document.addEventListener("header:ready", async () => {
     },
     load: () => { showBody(); return loadGifts(currentStatus); },
     error: () => {
-      listContainer.innerHTML = '<div class="empty-state">로그인 상태를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.</div>';
+      listContainer.innerHTML = '<div class="empty-state">로그인 상태를 확인하지 못했습니다. 다시 시도해주세요.</div>';
+      window.appendAccountRetryButton(listContainer);
       showBody();
     }
   });
