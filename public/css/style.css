@@ -2406,6 +2406,12 @@ body.page-product {
   margin-bottom: 16px;
 }
 
+/* .skeleton의 display: inline-block이 author 스타일이라 [hidden]의 기본 display: none보다
+   우선 적용된다. hidden 처리 시 skeleton 제거를 빠뜨려도 실제로 숨겨지도록 하는 방어선. */
+.tab-panel-description-img-wrapper[hidden] {
+  display: none;
+}
+
 .tab-panel-description-img {
   display: block;
   width: 100%;

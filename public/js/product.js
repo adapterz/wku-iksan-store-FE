@@ -71,7 +71,10 @@ function renderProduct(product) {
       descImgElement.src = product.descriptionImageUrl;
       descImgElement.alt = `${product.name} 상품 이미지`;
     } else {
+      // hidden만 주면 .skeleton의 display: inline-block이 [hidden]의 기본 display: none을
+      // 덮어써서(author 스타일이 UA 스타일보다 우선) 빈 회색 영역이 그대로 남는다.
       descImgWrapperElement.hidden = true;
+      descImgWrapperElement.classList.remove('skeleton');
     }
   }
   if (descElement) descElement.textContent = product.description || '등록된 상품설명이 없습니다.';
