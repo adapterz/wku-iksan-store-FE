@@ -677,6 +677,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     checkGlobalAuthStatus();
 
+    // 뒤로가기/앞으로가기로 bfcache에서 페이지가 복원될 때는 DOMContentLoaded가 다시 실행되지
+    // 않아 위 최초 호출 이후로 로그인 상태가 재검증되지 않는다. 그 사이 로그아웃했거나
+    // 세션이 만료된 경우 하단 네비게이션의 "마이" 아이콘이 실제와 다른(로그인된) 상태로 남는
+    // 문제가 있어, 장바구니 뱃지(아래)와 같은 방식으로 pageshow에서 다시 검증한다.
+    window.addEventListener('pageshow', event => {
+        if (!event.persisted) return;
+        checkGlobalAuthStatus();
+    });
+
     function updateActiveStates() {
         const navItems = document.querySelectorAll('.bottom-nav .nav-item, .nav-bar .nav-item');
         if (navItems.length === 0) return;
