@@ -1511,6 +1511,12 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
 
     window.addEventListener('saved-products-updated', syncSaveButtons);
 
+    // bfcache 복원(pageshow)마다 checkGlobalAuthStatus가 다시 쏘는 auth:updated에도 반응해,
+    // 로그인 상태가 바뀐 채 뒤로가기로 돌아왔을 때 이미 그려진 카드의 찜 아이콘이 예전 상태로
+    // 남지 않도록 한다. removeUnsavedCards 화면(위시리스트)은 e.detail이 없으면 그냥 무시하므로
+    // 안전하다 — 그 화면은 비로그인 시 auth:updated에서 별도로 로그인 페이지로 이동한다.
+    document.addEventListener('auth:updated', syncSaveButtons);
+
     // 빠르게 재요청할 때 응답이 요청 순서와 다르게 도착해 이전(오래된) 결과가
     // 최신 결과를 덮어쓰는 것을 막기 위해, 새 요청을 시작할 때마다 진행 중인 이전 요청을 취소한다.
     let current = null;
