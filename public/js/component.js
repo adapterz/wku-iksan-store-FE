@@ -5,6 +5,113 @@ function getPageFile(pathname) {
     return filename.endsWith('.html') ? filename : `${filename}.html`;
 }
 
+// 개인 화면/캐시의 소유자를 로그인 여부가 아닌 userId + 조회 세대로 구분한다.
+// 탭 복귀 중에는 이전 응답을 먼저 무효화하고, 서버 확인 실패를 로그아웃으로 단정하지 않는다.
+window.accountGuard = (() => {
+    let user = null, initialized = false, verified = false, generation = 0, pending = null;
+    const snapshot = () => ({ userId: user?.userId ?? null, generation });
+    const isCurrent = token => !!token && verified && token.generation === generation && token.userId === (user?.userId ?? null);
+    function invalidate() {
+        generation++;
+        verified = false;
+        pending = null;
+        document.dispatchEvent(new CustomEvent('account:invalidated'));
+    }
+    async function refresh() {
+        if (pending) return pending;
+        const started = generation;
+        const promise = (async () => {
+            let next;
+            try {
+                const result = await requestJson('/api/auth/me', { silent401: true, cache: 'no-store' });
+                if (!result?.data?.userId) throw new Error('로그인 정보를 확인하지 못했습니다.');
+                next = result.data;
+            } catch (error) {
+                if (started !== generation) throw Object.assign(new Error('이전 계정 확인 응답'), { code: 'STALE_ACCOUNT' });
+                if (error.status !== 401) {
+                    document.dispatchEvent(new CustomEvent('account:error', { detail: error }));
+                    throw error;
+                }
+                next = null;
+            }
+            if (started !== generation) throw Object.assign(new Error('이전 계정 확인 응답'), { code: 'STALE_ACCOUNT' });
+            const changed = initialized && (user?.userId ?? null) !== (next?.userId ?? null);
+            const publish = !verified || !initialized || changed;
+            if (changed) invalidate();
+            user = next;
+            initialized = verified = true;
+            if (publish) document.dispatchEvent(new CustomEvent('account:ready', { detail: { user, token: snapshot() } }));
+            return user;
+        })();
+        pending = promise;
+        try { return await promise; }
+        finally { if (pending === promise) pending = null; }
+    }
+    async function ensureAction(token = snapshot()) {
+        const current = await refresh();
+        if (!current) throw Object.assign(new Error('로그인이 필요합니다.'), { status: 401 });
+        if (!isCurrent(token)) throw Object.assign(new Error('로그인 상태가 변경됐어요. 새로 불러온 화면에서 다시 시도해주세요.'), { code: 'STALE_ACCOUNT' });
+        return token;
+    }
+    return { snapshot, isCurrent, refresh, ensureAction, invalidate, currentUser: () => user };
+})();
+
+// 페이지별 렌더링은 기존 파일에 두고, 계정 변경/복원 때 정리와 재조회를 묶는다.
+window.registerAccountView = function({ clear, load, error }) {
+    let lastGeneration = -1;
+    const guard = window.accountGuard;
+    const show = async () => {
+        const token = guard.snapshot();
+        if (!guard.isCurrent(token) || lastGeneration === token.generation) return;
+        lastGeneration = token.generation;
+        clear();
+        if (!token.userId) {
+            window.location.replace(`login.html?redirect=${encodeURIComponent(window.location.href)}`);
+            return;
+        }
+        try { await load(token); }
+        catch (failure) { if (guard.isCurrent(token)) error(failure); }
+    };
+    document.addEventListener('account:invalidated', clear);
+    document.addEventListener('account:ready', show);
+    document.addEventListener('account:error', event => error(event.detail));
+    // refresh가 account:error를 전달하므로 여기서 같은 오류를 두 번 표시하지 않는다.
+    guard.refresh().then(show).catch(() => {});
+};
+
+// 인증 확인 실패 화면에서 탭 전환 없이 다시 시도할 수 있게 한다.
+// 페이지를 새로 열어 기존 요청/렌더링 상태도 함께 초기화한다.
+window.appendAccountRetryButton = function(container) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = '새로고침하여 다시 시도';
+    button.addEventListener('click', () => window.location.reload());
+    container.appendChild(button);
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    let scheduled = false;
+    const resume = () => {
+        if (document.visibilityState === 'hidden' || scheduled) return;
+        scheduled = true;
+        // focus/visibilitychange/pageshow가 함께 발생해도 한 번만 확인한다.
+        window.accountGuard.invalidate();
+        setTimeout(() => {
+            scheduled = false;
+            window.accountGuard.refresh().catch(error => {
+                if (error.code !== 'STALE_ACCOUNT') console.error('로그인 상태 재확인 실패:', error);
+            });
+        }, 0);
+    };
+    window.addEventListener('focus', resume);
+    window.addEventListener('pageshow', event => { if (event.persisted) resume(); });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') window.accountGuard.invalidate();
+        else resume();
+    });
+    window.addEventListener('storage', event => { if (event.key === 'isLoggedIn') resume(); });
+});
+
 // 전체화면 검색 모달 공통 HTML 반환 함수
 function getSearchOverlayHTML() {
     return `
@@ -31,7 +138,7 @@ if (document.body && !document.getElementById('search-overlay')) {
 }
 
 // ===== 선물 도착 알림 모달 =====
-// 로그인 상태로 확인될 때마다(auth:updated) 확인 안 한 선물이 있는지 체크해서 모달로 안내한다.
+// 계정 확인 완료(account:ready) 후 확인 안 한 선물이 있는지 체크해서 모달로 안내한다.
 // BE 이슈 #101 계약 기준: GET /api/gifts/unnotified → { count, giftIds }, PATCH /api/gifts/notify.
 // (이슈 #100 논의 반영) 목록 API(/api/gifts/unnotified)는 count/giftIds만 내려주고 보낸사람·
 // 상품명·메시지는 포함하지 않으므로, 안내된 giftId별로 이미 그 정보를 내려주는 상세 API
@@ -133,9 +240,24 @@ function renderGiftArrivalList(entries) {
 // 확인 처리 요청에 실어 보내므로, 모달이 열려있는 동안 새로 도착한 선물(이번 조회 대상이
 // 아니었던 것)이 실수로 함께 확인 처리되지 않는다.
 let pendingGiftArrivalIds = [];
+let giftArrivalOwner = null;
+let giftArrivalRequest = 0;
 
-window.showGiftArrivalModal = async function(count, giftIds) {
+document.addEventListener('account:invalidated', () => {
+    giftArrivalRequest++;
+    pendingGiftArrivalIds = [];
+    giftArrivalOwner = null;
+    document.getElementById('gift-arrival-modal')?.classList.remove('open');
+    const list = document.getElementById('gift-arrival-list');
+    if (list) list.innerHTML = '';
+    const count = document.getElementById('gift-arrival-count');
+    if (count) count.textContent = '0';
+});
+
+window.showGiftArrivalModal = async function(count, giftIds, owner = window.accountGuard.snapshot()) {
+    if (!window.accountGuard.isCurrent(owner) || !owner.userId) return;
     pendingGiftArrivalIds = giftIds;
+    giftArrivalOwner = owner;
     const modal = document.getElementById('gift-arrival-modal');
     const countEl = document.getElementById('gift-arrival-count');
     const listEl = document.getElementById('gift-arrival-list');
@@ -161,28 +283,31 @@ window.showGiftArrivalModal = async function(count, giftIds) {
     // 오래된 결과로 화면을 덮어쓰지 않는다(search.js abf86c5와 동일한 패턴).
     if (!modal || !modal.classList.contains('open')) return;
     if (pendingGiftArrivalIds !== giftIds) return;
+    if (!window.accountGuard.isCurrent(owner)) return;
 
     renderGiftArrivalList(details);
 };
 
-// 확인 안 한 선물이 있는지 조회. auth:updated에서 isLoggedIn일 때만 호출되므로 비로그인
+// 확인 안 한 선물이 있는지 조회. account:ready에서 user가 있을 때만 호출되므로 비로그인
 // 사용자에게는 이 요청 자체가 나가지 않는다. 알림은 페이지의 핵심 기능이 아니므로,
 // 조회 실패(BE 미구현 포함) 시에도 다른 기능을 막지 않도록 로그만 남기고 조용히 넘어간다.
 async function checkGiftArrival() {
+    const owner = window.accountGuard.snapshot();
+    const sequence = ++giftArrivalRequest;
     try {
         const result = await requestJson('/api/gifts/unnotified', { silent401: true });
+        if (!window.accountGuard.isCurrent(owner) || sequence !== giftArrivalRequest) return;
         const { count, giftIds } = result?.data || {};
         if (count > 0 && Array.isArray(giftIds) && giftIds.length > 0) {
-            window.showGiftArrivalModal(count, giftIds);
+            window.showGiftArrivalModal(count, giftIds, owner);
         }
     } catch (error) {
         console.error('선물 도착 알림 확인 실패:', error);
     }
 }
 
-document.addEventListener('auth:updated', (e) => {
-    const { isLoggedIn } = e.detail || {};
-    if (isLoggedIn) checkGiftArrival();
+document.addEventListener('account:ready', (e) => {
+    if (e.detail.user) checkGiftArrival();
 });
 
 // 확인 처리 API 호출. pendingGiftArrivalIds(모달에 실제로 안내됐던 ID)만 넘긴다.
@@ -194,13 +319,24 @@ document.addEventListener('auth:updated', (e) => {
 // - 'failed': 그 외 실패(네트워크 오류 등). 재시도 가능하도록 상태를 그대로 유지한다.
 async function notifyGiftArrivalSeen() {
     if (!pendingGiftArrivalIds.length) return 'success';
+    const owner = giftArrivalOwner;
+    const ids = pendingGiftArrivalIds;
     let result;
     try {
+        await window.accountGuard.ensureAction(owner);
         result = await requestJson('/api/gifts/notify', {
             method: 'PATCH',
-            body: { giftIds: pendingGiftArrivalIds }
+            body: { giftIds: ids },
+            silent401: true
         });
+        if (!window.accountGuard.isCurrent(owner) || pendingGiftArrivalIds !== ids) return 'changed';
     } catch (error) {
+        if (error.code === 'STALE_ACCOUNT' || !window.accountGuard.isCurrent(owner)) return 'changed';
+        if (error.status === 401) {
+            window.accountGuard.invalidate();
+            window.location.replace(`login.html?redirect=${encodeURIComponent(window.location.href)}`);
+            return 'auth-required';
+        }
         console.error('선물 도착 확인 처리 실패:', error);
         return 'failed';
     }
@@ -482,8 +618,7 @@ window.getPasswordStrength = function(value, { minLength = 8, maxLength = 15 } =
 // 서버 세션 종료(로그아웃 API 호출 등)는 호출부 책임이고, 이 함수는 클라이언트에 남는 상태만 지운다.
 window.clearClientSession = function() {
     localStorage.removeItem('isLoggedIn');
-    window._wishlistCache = null;
-    window._wishlistFetchPromise = null;
+    window.accountGuard.invalidate();
 };
 
 // 검색 결과 페이지(search.html) 전용 헤더 HTML 반환 함수
@@ -628,20 +763,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 전역 인증 상태 체크 및 하단 네비게이션 업데이트
-    async function checkGlobalAuthStatus() {
-        let isLoggedIn = false;
-        let nickname = '';
-        try {
-            // requestJson이 전역(api.js)에 선언되어 있다고 가정
-            // silent401: 로그인 여부만 조용히 확인하는 배경 호출이므로 전역 401 리다이렉트를 건너뛴다.
-            if (typeof requestJson === 'function') {
-                const result = await requestJson('/api/auth/me', { silent401: true });
-                isLoggedIn = true;
-                nickname = result.data?.nickname || '';
-            }
-        } catch (error) {
-            isLoggedIn = false;
-        }
+    function checkGlobalAuthStatus(user) {
+        const isLoggedIn = !!user;
+        const nickname = user?.nickname || '';
 
         const myBtn = document.getElementById('btn-bottom-my');
         const myIcon = document.getElementById('bottom-login-status-icon');
@@ -672,10 +796,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 인증 정보를 필요한 곳(home.js 등)에서 사용할 수 있도록 커스텀 이벤트 디스패치
-        document.dispatchEvent(new CustomEvent('auth:updated', { detail: { isLoggedIn, nickname } }));
+        document.dispatchEvent(new CustomEvent('auth:updated', { detail: { isLoggedIn, nickname, userId: user?.userId ?? null } }));
     }
 
-    checkGlobalAuthStatus();
+    document.addEventListener('account:ready', event => checkGlobalAuthStatus(event.detail.user));
+    window.accountGuard.refresh().then(checkGlobalAuthStatus).catch(error => console.error('로그인 상태 확인 실패:', error));
 
     // 뒤로가기/앞으로가기로 bfcache에서 페이지가 복원될 때는 DOMContentLoaded가 다시 실행되지
     // 않아 위 최초 호출 이후로 로그인 상태가 재검증되지 않는다. 그 사이 로그아웃했거나
@@ -846,16 +971,58 @@ document.addEventListener('DOMContentLoaded', () => {
     sliderSlides.appendChild(firstClone);
     sliderSlides.insertBefore(lastClone, originalSlides[0]);
 
+    // 배너 이미지에는 상품 ID 대신 상품명(data-product-name)을 적어두고, 실제 ID는 상품
+    // 목록 API에서 이름으로 찾아 채운다. 로컬/운영처럼 환경마다 DB의 자동증가 ID가 달라도
+    // 같은 상품명을 쓰는 한 하드코딩 없이 현재 상품명이 일치하는 항목의 실제 ID로 연결하기
+    // 위함이다. (상품명이 DB에서 고유값으로 보장되지는 않으므로, 동명 상품이 있으면 첫 번째
+    // 항목이 선택된다.)
+    //
+    // 캐시가 없는 최초 진입에서는 배너 8개(원본 6 + 복제 2)가 이 조회를 동시에 트리거할 수
+    // 있는데, fetchListWithCache는 완료된 결과만 캐시하고 진행 중인 요청은 공유하지 않는다.
+    // 그래서 진행 중인 Promise를 여기서 직접 공유해 중복 요청을 막는다. 실패한 Promise는
+    // 남겨두지 않아(finally에서 초기화) 다음 클릭에서 재시도할 수 있다.
+    let productListPromise = null;
+    function loadBannerProducts() {
+        if (!productListPromise) {
+            productListPromise = window.fetchListWithCache('/api/products', window.PRODUCT_CACHE_KEY, window.PRODUCT_CACHE_TTL_MS)
+                .finally(() => { productListPromise = null; });
+        }
+        return productListPromise;
+    }
+
+    // 이미 채워진 data-product-id가 있으면 그대로 쓰고, 없으면(최초 조회 전이거나 직전
+    // 조회가 실패한 경우) 클릭 시점에 다시 조회한다.
+    async function resolveProductId(img) {
+        const existingId = img.getAttribute('data-product-id');
+        if (existingId) return existingId;
+
+        try {
+            const result = await loadBannerProducts();
+            const products = result.data || [];
+            const name = img.getAttribute('data-product-name');
+            const product = products.find(p => p.name === name);
+            if (product) {
+                img.setAttribute('data-product-id', product.id);
+                return product.id;
+            }
+        } catch (error) {
+            console.error('배너 상품 ID를 불러오지 못했습니다:', error);
+        }
+        return null;
+    }
+
     // 복제된 인덱스 포함 모든 이미지에 스타일과 클릭 이벤트 추가
     const allSlides = sliderSlides.querySelectorAll('img');
     allSlides.forEach(img => {
         img.style.cursor = 'pointer';
-        img.addEventListener('click', () => {
-            const productId = img.getAttribute('data-product-id');
+        img.addEventListener('click', async () => {
+            const productId = await resolveProductId(img);
             if (productId) {
                 window.location.href = `product.html?id=${productId}`;
             }
         });
+        // 클릭 전에 미리 조회해두면 대부분의 클릭이 대기 없이 바로 이동한다.
+        resolveProductId(img);
     });
 
     // 복제된 마지막 요소(0번 인덱스) 다음인 실제 첫 번째 요소(1번 인덱스)부터 시작
@@ -875,25 +1042,79 @@ document.addEventListener('DOMContentLoaded', () => {
         sliderSlides.style.transform = `translateX(-${currentIndex * 100}%)`;
     }
 
+    function goToNext() {
+        if (isTransitioning) return;
+        isTransitioning = true;
+        currentIndex++;
+        updateSlider(true);
+    }
+
+    function goToPrev() {
+        if (isTransitioning) return;
+        isTransitioning = true;
+        currentIndex--;
+        updateSlider(true);
+    }
+
+    // 자동 슬라이드: 일정 주기로 다음 배너로 넘어간다.
+    // 사용자가 직접 이전/다음 버튼을 조작하면 타이머를 리셋해, 조작 직후 바로 또 넘어가지 않게 한다.
+    // 마우스가 배너 위에 있거나(isHovering) 탭이 백그라운드인 동안에는 버튼 조작 직후에도
+    // 자동 전환이 다시 시작되면 안 되므로, 그 판단을 모든 호출부가 공유하는 startAutoSlide
+    // 한 곳에 둔다 — 버튼 클릭 핸들러가 각자 판단하지 않는다.
+    const AUTO_SLIDE_INTERVAL_MS = 4000;
+    let autoSlideTimer = null;
+    let isHovering = false;
+
+    function startAutoSlide() {
+        stopAutoSlide();
+        if (isHovering || document.hidden) return;
+        autoSlideTimer = setInterval(goToNext, AUTO_SLIDE_INTERVAL_MS);
+    }
+
+    function stopAutoSlide() {
+        if (autoSlideTimer) {
+            clearInterval(autoSlideTimer);
+            autoSlideTimer = null;
+        }
+    }
+
     if (nextBtn) {
         nextBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (isTransitioning) return;
-            isTransitioning = true;
-            currentIndex++;
-            updateSlider(true);
+            goToNext();
+            startAutoSlide();
         });
     }
 
     if (prevBtn) {
         prevBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (isTransitioning) return;
-            isTransitioning = true;
-            currentIndex--;
-            updateSlider(true);
+            goToPrev();
+            startAutoSlide();
         });
     }
+
+    // 마우스가 배너 위에 있는 동안에는 자동 슬라이드를 멈춘다 (데스크톱 사용성).
+    const sliderContainer = sliderSlides.closest('.ad-banner-slider');
+    if (sliderContainer) {
+        sliderContainer.addEventListener('mouseenter', () => {
+            isHovering = true;
+            stopAutoSlide();
+        });
+        sliderContainer.addEventListener('mouseleave', () => {
+            isHovering = false;
+            startAutoSlide();
+        });
+    }
+
+    // 탭이 백그라운드로 전환되면 멈추고, 돌아오면(호버 중이 아닐 때만 startAutoSlide 내부에서) 다시 시작한다.
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopAutoSlide();
+        } else {
+            startAutoSlide();
+        }
+    });
 
     // 트랜지션이 끝났을 때 인덱스를 점프하여 무한 순환처럼 보이게 함
     sliderSlides.addEventListener('transitionend', () => {
@@ -906,17 +1127,42 @@ document.addEventListener('DOMContentLoaded', () => {
             updateSlider(false);
         }
     });
+
+    startAutoSlide();
 });
 
 // 전역 찜 목록 캐시 및 단일 요청 프라미스
 window._wishlistCache = null;
 window._wishlistFetchPromise = null;
 
+document.addEventListener('account:invalidated', () => {
+    window._wishlistCache = null;
+    window._wishlistFetchPromise = null;
+    pendingWishlistToggles.clear();
+    document.querySelectorAll('.btn-save-bookmark i').forEach(icon => window.updateWishlistIcon(icon, false));
+    invalidateCartCache();
+    document.querySelectorAll('.cart-count-badge').forEach(badge => { badge.hidden = true; });
+});
+document.addEventListener('account:ready', async () => {
+    window.updateCartBadge();
+    const owner = window.accountGuard.snapshot();
+    const buttons = document.querySelectorAll('.btn-save-bookmark');
+    if (!buttons.length) return;
+    try {
+        const saved = await ensureWishlistLoaded();
+        if (!window.accountGuard.isCurrent(owner)) return;
+        buttons.forEach(button => window.updateWishlistIcon(button.querySelector('i'), saved.includes(button.dataset.productId)));
+    } catch (error) { if (error.code !== 'STALE_ACCOUNT') console.error('찜 상태 갱신 실패:', error); }
+});
+
 // 찜 목록 캐시가 없다면 서버에서 최초 1회 전체 조회하여 캐시를 채우는 공통 헬퍼 (Singleflight 패턴 적용)
 async function ensureWishlistLoaded() {
+    if (!window.accountGuard.isCurrent(window.accountGuard.snapshot())) await window.accountGuard.refresh();
+    const owner = window.accountGuard.snapshot();
+    if (!owner.userId) return [];
     if (!window._wishlistCache) {
         if (!window._wishlistFetchPromise) {
-            window._wishlistFetchPromise = (async () => {
+            const promise = (async () => {
                 try {
                     // silent401: 비로그인 상태에서도 홈 화면 등에서 조용히 빈 찜 목록으로 처리해야 하므로
                     // 전역 401 리다이렉트를 건너뛴다.
@@ -932,14 +1178,16 @@ async function ensureWishlistLoaded() {
                         return [];
                     }
                     // 네트워크 오류, 500 등은 캐시를 오염시키지 않고 다음 요청에서 재조회하도록 함
-                    window._wishlistCache = null;
                     throw error;
                 } finally {
-                    window._wishlistFetchPromise = null;
+                    if (window._wishlistFetchPromise === promise) window._wishlistFetchPromise = null;
                 }
             })();
+            window._wishlistFetchPromise = promise;
         }
-        window._wishlistCache = await window._wishlistFetchPromise;
+        const saved = await window._wishlistFetchPromise;
+        if (!window.accountGuard.isCurrent(owner)) throw Object.assign(new Error('이전 계정의 찜 응답'), { code: 'STALE_ACCOUNT' });
+        window._wishlistCache = saved;
     }
     return window._wishlistCache;
 }
@@ -959,16 +1207,25 @@ window.toggleSavedProduct = function(productId) {
     }
 
     const request = performWishlistToggle(productId).finally(() => {
-        pendingWishlistToggles.delete(key);
+        if (pendingWishlistToggles.get(key) === request) pendingWishlistToggles.delete(key);
     });
     pendingWishlistToggles.set(key, request);
     return request;
 };
 
 async function performWishlistToggle(productId) {
+    const owner = window.accountGuard.snapshot();
+    // 화면에서 클릭한 계정과 실제 서버 계정이 다르면 이번 클릭은 실행하지 않는다.
+    try { await window.accountGuard.ensureAction(owner); }
+    catch (error) {
+        alert(error.message || '로그인 상태를 확인하지 못했습니다. 다시 시도해주세요.');
+        if (error.status === 401) window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+        throw error;
+    }
     // 초기 목록 조회가 진행 중이라면 완료를 기다려, 늦게 도착한 조회 결과가
     // 이후의 토글 결과를 덮어쓰는 레이스 컨디션을 방지
     const wishlist = await ensureWishlistLoaded();
+    if (!window.accountGuard.isCurrent(owner)) throw Object.assign(new Error('로그인 상태가 변경됐습니다.'), { code: 'STALE_ACCOUNT' });
     const productIdStr = productId.toString();
     const isWished = wishlist.includes(productIdStr);
     let isSaved = isWished;
@@ -976,21 +1233,27 @@ async function performWishlistToggle(productId) {
     try {
         if (isWished) {
             // 이미 찜한 상품이면 해제 요청
-            await requestJson(`/api/wishlists/${productId}`, { method: 'DELETE' });
+            await requestJson(`/api/wishlists/${productId}`, { method: 'DELETE', silent401: true });
+            if (!window.accountGuard.isCurrent(owner)) throw Object.assign(new Error('로그인 상태가 변경됐습니다.'), { code: 'STALE_ACCOUNT' });
+            // 다른 상품 요청이 먼저 완료했을 수 있으므로 최신 캐시에 이번 변경만 반영한다.
             window._wishlistCache = window._wishlistCache.filter(id => id !== productIdStr);
             isSaved = false;
         } else {
             // 찜하지 않은 상품이면 등록 요청
             await requestJson('/api/wishlists', {
                 method: 'POST',
-                body: { productId: Number(productId) }
+                body: { productId: Number(productId) },
+                silent401: true
             });
+            if (!window.accountGuard.isCurrent(owner)) throw Object.assign(new Error('로그인 상태가 변경됐습니다.'), { code: 'STALE_ACCOUNT' });
             // 등록 성공 후 재조회 대신 캐시에 바로 추가하여, 재조회 실패로 인한 상태 불일치를 방지
-            window._wishlistCache = [...wishlist, productIdStr];
+            window._wishlistCache = [...new Set([...window._wishlistCache, productIdStr])];
             isSaved = true;
         }
     } catch (error) {
+        if (!window.accountGuard.isCurrent(owner)) throw error;
         if (error.status === 401 || error.code === 'UNAUTHORIZED') {
+            window.accountGuard.invalidate();
             // 인증 안됨 에러 처리 — alert 대신 다른 로그인 필요 안내와 동일하게 토스트 후 이동한다.
             window.showToast('로그인이 필요한 페이지입니다.');
             setTimeout(() => {
@@ -1150,8 +1413,11 @@ async function getCartTotalQuantity() {
 // 현재 장바구니 총 수량으로 갱신한다. 0개면 숨긴다.
 window.updateCartBadge = async function() {
     if (!document.querySelectorAll('.cart-count-badge').length) return;
+    const owner = window.accountGuard.snapshot();
+    const accountScoped = !!window.accountGuard.currentUser() || window.accountGuard.isCurrent(owner);
     try {
         const total = await getCartTotalQuantity();
+        if (accountScoped && !window.accountGuard.isCurrent(owner)) return;
         document.querySelectorAll('.cart-count-badge').forEach(badge => {
             if (total > 0) {
                 badge.textContent = total > 99 ? '99+' : String(total);
@@ -1434,7 +1700,7 @@ window.createSkeletonCard = function() {
 // showRank: true면 각 카드에 순위 배지를 표시한다. GET /api/products/ranking처럼 응답 항목에 이미
 //   rank가 매겨져 있는 화면(ranking.html) 전용. 미지정 시 기존처럼 배지 없이 렌더링.
 // request: 기본 requestJson 대신 캐시 등을 적용한 요청 함수를 화면별로 주입할 때 사용한다.
-window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessage, errorMessage, blankMessage, mapResults, unauthorizedMessage, removeUnsavedCards, showRank, request = window.requestJson }) {
+window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessage, errorMessage, blankMessage, mapResults, unauthorizedMessage, removeUnsavedCards, showRank, accountScoped = false, request = window.requestJson }) {
     function renderSkeletonState() {
         if (!listEl) return;
         listEl.classList.remove('is-empty');
@@ -1520,15 +1786,19 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
     // 빠르게 재요청할 때 응답이 요청 순서와 다르게 도착해 이전(오래된) 결과가
     // 최신 결과를 덮어쓰는 것을 막기 위해, 새 요청을 시작할 때마다 진행 중인 이전 요청을 취소한다.
     let current = null;
+    function cancel() {
+        if (!current) return;
+        current.controller.abort();
+        current.settle();
+        current = null;
+    }
 
     // showSkeleton=false: 이미 결과가 떠 있는 상태에서의 재요청은 기존 카드를 그대로 유지하다가
     // 응답이 오면 바로 새 카드로 교체한다(스켈레톤 왕복으로 인한 깜빡임 방지).
     async function load(query, { showSkeleton = true } = {}) {
-        if (current) {
-            current.controller.abort();
-            current.settle();
-            current = null;
-        }
+        cancel();
+        const owner = accountScoped ? window.accountGuard.snapshot() : null;
+        const isActive = () => !accountScoped || window.accountGuard.isCurrent(owner);
 
         const path = buildRequestPath(query);
         if (!path) {
@@ -1543,7 +1813,7 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
             renderSkeletonState();
         }
         const settle = createSkeletonGuard(() => {
-            renderFallbackState(errorMessage);
+            if (!controller.signal.aborted && isActive()) renderFallbackState(errorMessage);
         }, 5000);
 
         current = { controller, settle };
@@ -1551,9 +1821,9 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
         try {
             // silent401: unauthorizedMessage가 지정된 화면(예: 위시리스트)은 전역 401 리다이렉트 대신
             // 이 컨트롤러의 catch 블록에서 안내 문구로 직접 처리한다.
-            const result = await request(path, { signal: controller.signal, silent401: !!unauthorizedMessage });
+            const result = await request(path, { signal: controller.signal, silent401: !!unauthorizedMessage || accountScoped });
             settle();
-            if (controller.signal.aborted) return;
+            if (controller.signal.aborted || !isActive()) return;
             const rawItems = (result && result.data && Array.isArray(result.data)) ? result.data : [];
             const products = mapResults ? mapResults(rawItems) : rawItems;
             if (products.length === 0) {
@@ -1565,7 +1835,12 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
             return result;
         } catch (error) {
             settle();
-            if (controller.signal.aborted || error.name === 'AbortError') return;
+            if (controller.signal.aborted || error.name === 'AbortError' || !isActive()) return;
+            if (accountScoped && error.status === 401) {
+                window.accountGuard.invalidate();
+                window.location.replace(`login.html?redirect=${encodeURIComponent(window.location.href)}`);
+                return;
+            }
             if (error.status === 401 && unauthorizedMessage) {
                 renderFallbackState(unauthorizedMessage);
                 return;
@@ -1575,7 +1850,7 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
         }
     }
 
-    return { load, renderMessage: renderFallbackState };
+    return { load, cancel, renderMessage: renderFallbackState };
 };
 
 // 공용 "둘러보기형" 상품 캐러셀: 페이지당 6개(3열x2행 고정) + 하단 좌우 페이지네이션 +
@@ -1680,7 +1955,10 @@ function createBrowseCarouselController(rootEl) {
     }
 
     // direction('next'|'prev')이 주어지면 기존 카드(outgoing)와 다음 카드(incoming)를 뷰포트 안에
-    // 나란히 배치한 뒤 같은 방향으로 함께 이동시켜, 두 페이지가 슬라이드되며 전환되는 모션을 만든다.
+    // 나란히 배치한 뒤 같은 방향으로 함께 이동시켜, 3열 전체가 하나의 띠처럼 이어져 미끄러지는
+    // 모션을 만든다. 1페이지 1열이 화면 밖으로 나가는 순간 2페이지 1열이 1페이지 3열 오른쪽에서
+    // 나타나는 것은 두 페이지를 나란히 붙여놓고 통째로 translateX시키기만 해도 자연스럽게
+    // 성립한다(열을 개별로 다룰 필요가 없다).
     // 없으면(최초 렌더 등) 애니메이션 없이 즉시 반영한다.
     function renderPage(direction) {
         const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
@@ -1717,6 +1995,7 @@ function createBrowseCarouselController(rootEl) {
         outgoingRow.classList.add('browse-panel', 'browse-no-transition');
         outgoingRow.style.transform = 'translateX(0)';
 
+        // next는 incoming을 오른쪽 바깥(1페이지 3열 오른쪽)에, prev는 왼쪽 바깥에 붙여 놓는다.
         const enterFrom = direction === 'next' ? '100%' : '-100%';
         incomingRow.classList.add('browse-panel', 'browse-no-transition');
         incomingRow.style.transform = `translateX(${enterFrom})`;
@@ -1747,19 +2026,21 @@ function createBrowseCarouselController(rootEl) {
         finishAnimation = settle;
 
         requestAnimationFrame(() => {
+            // outgoing은 incoming이 들어온 반대 방향으로 나가, 두 패널이 같은 띠처럼 이어져 이동한다.
             const exitTo = direction === 'next' ? '-100%' : '100%';
             outgoingRow.style.transform = `translateX(${exitTo})`;
             incomingRow.style.transform = 'translateX(0)';
             viewport.style.height = `${incomingHeight}px`;
 
-            incomingRow.addEventListener('transitionend', function onSlideEnd() {
+            incomingRow.addEventListener('transitionend', function onSlideEnd(e) {
+                if (e.propertyName !== 'transform') return;
                 incomingRow.removeEventListener('transitionend', onSlideEnd);
                 // finishAnimation이 settle이 아니면 setProducts가 이미 즉시 마무리 처리한 것이므로 다시 실행하지 않는다.
                 if (finishAnimation === settle) {
                     finishAnimation = null;
                     settle();
                 }
-            }, { once: true });
+            });
         });
     }
 
