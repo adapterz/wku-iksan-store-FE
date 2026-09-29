@@ -24,9 +24,23 @@ function renderProduct(product) {
   const cardElement = document.querySelector('.product-detail-card');
   if (cardElement) cardElement.style.display = '';
 
-  if (imgElement) {
-    imgElement.src = product.thumbnailUrl;
-    imgElement.style.display = 'block';
+  // 썸네일 URL이 없으면 img.src에 null을 그대로 넣지 않는다 — 브라우저가 이를 문자열 "null"로
+  // 취급해 존재하지 않는 경로로 요청하면서 깨진 이미지 아이콘이 노출되기 때문이다. 대신
+  // 브랜드 목록(brand.js)과 동일한 has-fallback 패턴으로 "이미지 준비 중" 대체 표시를 보여준다.
+  // URL이 있어도 실제 로드가 실패하는 경우는 product.html의 #product-img onerror가 같은 방식으로 처리한다.
+  if (imgElement && imgWrapper) {
+    imgWrapper.classList.remove('has-fallback');
+    imgWrapper.removeAttribute('aria-hidden');
+    if (product.thumbnailUrl) {
+      imgElement.hidden = false;
+      imgElement.style.display = 'block';
+      imgElement.src = product.thumbnailUrl;
+    } else {
+      imgElement.hidden = true;
+      imgElement.style.display = 'none';
+      imgWrapper.classList.add('has-fallback');
+      imgWrapper.setAttribute('aria-hidden', 'true');
+    }
   }
   if (imgWrapper) imgWrapper.classList.remove('skeleton');
 

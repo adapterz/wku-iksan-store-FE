@@ -30,7 +30,11 @@
         </div>
         <div class="product-detail-card">
             <div class="product-image-container skeleton" id="product-img-wrapper">
-                <img id="product-img" src="" alt="상품 이미지" class="product-detail-img" style="display: none;">
+                <!-- src를 처음부터 빈 문자열로 두면 브라우저가 그 자체를 로드 실패로 보고 데이터가
+                     도착하기도 전에 onerror를 바로 실행한다(스켈레톤 대신 대체 표시가 먼저 깜빡임).
+                     src 속성 자체를 생략해 실제 URL이 채워지기 전까지는 아무 요청도 안 일어나게 한다. -->
+                <img id="product-img" alt="상품 이미지" class="product-detail-img" style="display: none;"
+                     onerror="this.hidden = true; this.style.display = 'none'; this.parentElement.classList.add('has-fallback'); this.parentElement.setAttribute('aria-hidden', 'true');">
             </div>
             <div class="product-info-container">
                 <span id="product-brand" class="product-detail-brand skeleton" style="min-width: 60px; min-height: 14px;"></span>
@@ -83,9 +87,9 @@
             <!-- Tab Panel: 상품설명 -->
             <div class="product-tab-panel" id="tab-panel-description" data-panel="description">
                 <div class="tab-panel-description-img-wrapper skeleton" id="product-description-img-wrapper" hidden>
-                    <img id="product-description-img" class="tab-panel-description-img" src="" alt=""
+                    <img id="product-description-img" class="tab-panel-description-img" alt=""
                          onload="this.parentElement.classList.remove('skeleton'); this.classList.add('loaded');"
-                         onerror="this.parentElement.classList.remove('skeleton'); this.style.opacity=1;">
+                         onerror="this.parentElement.classList.remove('skeleton'); this.parentElement.hidden = true;">
                 </div>
                 <p id="product-description" class="tab-panel-description-text"></p>
             </div>
