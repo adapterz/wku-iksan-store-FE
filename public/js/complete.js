@@ -28,8 +28,7 @@ document.addEventListener("header:ready", async () => {
       }
 
       if (result.data) {
-        // order-groups는 상품 1개 객체가 아니라 items 배열로 온다. bottom-sheet에서 만든 묶음
-        // 주문은 항상 상품 1종류만 담으므로 items[0]만 꺼내 단건 주문과 같은 모양으로 맞춘다.
+        // 주문 그룹의 전체 상품·수량·주문 총액을 완료 화면에 전달한다.
         const order = orderGroupId ? mapOrderGroupToOrderView(result.data) : result.data;
         renderCompletePage(order);
         if (privateContent) privateContent.hidden = false;
@@ -166,16 +165,17 @@ function renderCompletePage(order) {
     });
   }
 
-  // 상품이 2종 이상일 때만 전체 수량·총액 요약을 보여준다 (단건/단일 상품 묶음은 카드 하나로 충분).
+  // 단건·상품 1종 주문도 수량과 서버의 주문 총액을 보여준다. 현재 상품 가격으로 재계산하지 않는다.
   const summaryEl = document.getElementById("gift-summary");
   if (summaryEl) {
-    if (items.length > 1) {
+    if (items.length > 0) {
       summaryEl.hidden = false;
       summaryEl.textContent = order.totalPrice != null
         ? `총 ${items.length}종 · 교환권 ${totalQuantity}개 · ${order.totalPrice.toLocaleString()}원`
         : `총 ${items.length}종 · 교환권 ${totalQuantity}개`;
     } else {
       summaryEl.hidden = true;
+      summaryEl.textContent = '';
     }
   }
 
