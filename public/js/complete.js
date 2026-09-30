@@ -97,9 +97,9 @@ function mapOrderGroupToOrderView(group) {
   };
 }
 
-// "N일" 같은 기간 표기를 볼드로 강조해서 넣는다 (예: "발급일로부터 365일 이내에 사용 가능").
+// 공통 정책의 "N년" 및 기존 "N일" 기간 표기를 볼드로 강조한다.
 function renderValidPeriodText(el, text) {
-  const match = text.match(/\d+\s*일/);
+  const match = text.match(/\d+\s*(?:년|일)/);
   if (!match) {
     el.textContent = text;
     return;
@@ -179,12 +179,11 @@ function renderCompletePage(order) {
     }
   }
 
-  // Usage Period — 상품이 1개일 때만 그 상품의 validPeriod를 쓴다 (order-groups 응답에는 없어
-  // 기본 문구로 대체되고, 묶음일 때는 상품마다 다를 수 있어 공통 문구를 쓴다).
+  // #138의 1년 공통 정책으로 안내한다. 상품의 자유입력 validPeriod는
+  // 발급 교환권의 만료일이 아니므로 단건·그룹 여부에 따라 안내 기준을 바꾸지 않는다.
   const giftValidPeriod = document.getElementById("gift-valid-period");
   if (giftValidPeriod) {
-    const validPeriodText = (items.length === 1 && items[0].validPeriod) || "발급일로부터 365일 이내에 사용 가능";
-    renderValidPeriodText(giftValidPeriod, validPeriodText);
+    renderValidPeriodText(giftValidPeriod, "발급일로부터 1년 이내에 사용 가능");
   }
 }
 
