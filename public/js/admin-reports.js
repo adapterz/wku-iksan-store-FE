@@ -119,9 +119,13 @@ async function loadReports(status, page = 1) {
   // 중복 클릭 방지를 위해 로딩 중 표시만 한다. showPageError는 다시 숨기는 로직이 없어서,
   // 1페이지 조회가 실패했다가 재시도로 성공해도 이전 에러 문구가 화면에 남아있었다 — 1페이지
   // 재조회를 시작하는 시점에 지워서, 성공하면 안 보이고 실패하면 catch에서 다시 뜨게 한다.
+  // report-list도 응답을 기다리지 않고 즉시 비운다(PR #118 리뷰) — 그대로 두면 새 필터가
+  // 선택된 채로 이전 필터의 카드·액션 버튼(기각/조치)이 계속 보이고 눌리는 상태가 된다.
+  // 실패해도 다시 채워 넣지 않으므로, 에러 메시지가 빈 목록 위에 뜨는 정상적인 상태가 된다.
   if (isFirstPage) {
     loadedFilter = null;
     document.getElementById('page-error').hidden = true;
+    document.getElementById('report-list').innerHTML = '';
   } else {
     isLoadingMore = true;
   }
