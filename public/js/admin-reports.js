@@ -5,6 +5,10 @@
 let statusFilter = 'pending';
 let currentPage = 1;
 let totalPages = 1;
+// currentPage/totalPages가 실제로 어느 필터의 결과인지. 필터를 바꾸면 응답이 오기 전까지
+// null로 비워, "더 보기"가 이전 필터의 페이지 번호로 다음 페이지를 요청하지 못하게 막는다.
+let loadedFilter = null;
+let isLoadingMore = false;
 
 function statusBadge(status) {
   const map = {
@@ -78,40 +82,79 @@ function renderList(reports, { append = false } = {}) {
     listEl.insertAdjacentHTML('beforeend', reports.map(reportCard).join(''));
   }
   wireReportActionButtons();
+  updateLoadMoreButton();
+}
 
+// "더 보기"는 currentPage/totalPages가 지금 선택된 필터(statusFilter)의 결과일 때만 보인다.
+// 필터를 바꾼 직후에는 loadedFilter가 비워져(null) 있어 새 필터의 1페이지가 도착하기 전까지
+// 자동으로 숨겨진다(수정 방향 1). 조회 중에는 추가 클릭을 막기 위해 비활성화한다(수정 방향 2).
+function updateLoadMoreButton() {
   const loadMoreBtn = document.getElementById('reports-load-more');
-  loadMoreBtn.hidden = currentPage >= totalPages;
+  const ready = loadedFilter === statusFilter && currentPage < totalPages;
+  loadMoreBtn.hidden = !ready;
+  loadMoreBtn.disabled = isLoadingMore;
 }
 
 // 상태 필터를 빠르게 연속 전환하면 응답이 요청 순서와 다르게 도착해 이전(오래된) 필터 결과가
 // 최신 결과를 덮어쓸 수 있다(search.js abf86c5와 동일 패턴). 새 요청 시작 시 진행 중인 이전
-// 요청을 취소해서 막는다.
+// 요청을 취소해서 막는다. 다만 취소 타이밍만으로는 "필터 전환 중 응답이 오기 전에 더 보기를
+// 눌러 잘못된 다음 페이지를 요청하는" 경우까지 막지 못해서, 아래 requestToken으로 한 번 더
+// 오래된 응답을 걸러낸다(이슈 #138 7번 — 신고 필터 전환 중 '더 보기' 클릭 시 목록 혼합).
 let reportsRequest = null;
+let requestToken = 0;
 
 // BE가 이미 meta.page/totalCount/totalPages를 내려주는데 limit=50 고정 첫 페이지만 요청하고
 // 있어서, 한 상태에 신고가 50건을 넘으면 그 뒤는 화면에서 영영 확인할 수 없었다(PR #98 리뷰
 // 지적 — 로컬 DB에 51건 넣어 재현됨). page를 받아 "더 보기"로 이어 붙이도록 고쳤다.
 async function loadReports(status, page = 1) {
+  const isFirstPage = page === 1;
   statusFilter = status;
   document.querySelectorAll('.ap-status-filter [data-status]').forEach(b => {
     if (b.dataset.status === status) b.setAttribute('aria-current', 'page');
     else b.removeAttribute('aria-current');
   });
 
+  // 필터를 바꾸면(1페이지 요청) 이전 필터의 currentPage/totalPages를 즉시 무효화해, 응답이
+  // 오기 전까지 "더 보기"가 숨겨지고 다음 페이지도 계산되지 않게 한다. 추가 조회(2페이지~)는
+  // 중복 클릭 방지를 위해 로딩 중 표시만 한다. showPageError는 다시 숨기는 로직이 없어서,
+  // 1페이지 조회가 실패했다가 재시도로 성공해도 이전 에러 문구가 화면에 남아있었다 — 1페이지
+  // 재조회를 시작하는 시점에 지워서, 성공하면 안 보이고 실패하면 catch에서 다시 뜨게 한다.
+  if (isFirstPage) {
+    loadedFilter = null;
+    document.getElementById('page-error').hidden = true;
+  } else {
+    isLoadingMore = true;
+  }
+  updateLoadMoreButton();
+
   if (reportsRequest) reportsRequest.abort();
   const controller = new AbortController();
   reportsRequest = controller;
+  const myToken = ++requestToken;
 
   try {
     const result = await window.requestJson(`/api/admin/reports?status=${status}&limit=50&page=${page}`, { signal: controller.signal });
-    if (controller.signal.aborted) return;
+    if (controller.signal.aborted || myToken !== requestToken) return;
     if (!result) return;
     currentPage = result.meta.page;
     totalPages = result.meta.totalPages;
-    renderList(result.data, { append: page > 1 });
+    loadedFilter = status;
+    renderList(result.data, { append: !isFirstPage });
   } catch (err) {
-    if (controller.signal.aborted) return;
-    showPageError(err.message || '신고 목록을 불러오지 못했습니다.');
+    if (controller.signal.aborted || myToken !== requestToken) return;
+    if (isFirstPage) {
+      // 1페이지 실패: 더 보기로 건너뛰지 않도록 loadedFilter를 비운 채로 둔다. 새로고침/필터
+      // 재클릭으로 1페이지부터 다시 시도할 수 있다.
+      showPageError(err.message || '신고 목록을 불러오지 못했습니다.');
+    } else {
+      // 추가 조회 실패: 기존 목록·페이지는 그대로 두고 같은 다음 페이지를 다시 시도할 수 있게 한다.
+      toast(err.message || '목록을 더 불러오지 못했습니다. 다시 시도해주세요.');
+    }
+  } finally {
+    if (myToken === requestToken) {
+      isLoadingMore = false;
+      updateLoadMoreButton();
+    }
   }
 }
 
@@ -135,6 +178,9 @@ document.querySelectorAll('.ap-status-filter [data-status]').forEach(btn => {
 });
 
 document.getElementById('reports-load-more').addEventListener('click', () => {
+  // updateLoadMoreButton()이 이미 숨김/비활성화로 막아주지만, 클릭과 상태 반영 사이의
+  // 짧은 틈까지 막기 위해 핸들러에서도 같은 조건을 한 번 더 확인한다.
+  if (isLoadingMore || loadedFilter !== statusFilter || currentPage >= totalPages) return;
   loadReports(statusFilter, currentPage + 1);
 });
 
