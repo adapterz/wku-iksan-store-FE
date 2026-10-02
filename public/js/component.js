@@ -764,6 +764,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 전역 인증 상태 체크 및 하단 네비게이션 업데이트
     function checkGlobalAuthStatus(user) {
+        // 서버 인증 확인에 성공했을 때(로그인/비로그인 모두) 표시한다. 장바구니 아이콘 클릭 가드가
+        // 이 값을 보고, 아직 확인 전이면 로그인 여부를 함부로 판단하지 않는다(이슈 #106).
+        // 네트워크 장애·5xx로 확인이 실패하면 이 함수가 호출되지 않아 플래그가 꺼진 채로 남고,
+        // 가드는 개입하지 않는다 — accountGuard의 "서버 확인 실패를 로그아웃으로 단정하지 않는다"
+        // 설계와 같은 방향이다(PR #117 리뷰).
+        window._authCheckSettled = true;
         const isLoggedIn = !!user;
         const nickname = user?.nickname || '';
 
@@ -1438,11 +1444,15 @@ if (typeof window.addEventListener === 'function') {
 // a.header-icon[href="cart.html"])을 비로그인 상태에서 클릭하면, cart.html까지 이동한 뒤 거기서
 // 인증 실패를 처리하는 대신 클릭 시점에 바로 전역 401과 같은 안내(토스트 후 로그인 이동)를 보여준다.
 // API 호출로 즉시 확인하면 매 클릭마다 왕복 지연이 생기므로, checkGlobalAuthStatus가 갱신해두는
-// 캐시된 로그인 플래그만으로 판단한다 — 이 값이 실제 세션과 어긋나 있어도(드묾), cart.html 자체의
-// 로그인 필요 안내 화면이 최종 안전망으로 남아있다.
+// 캐시된 로그인 플래그로 판단한다.
+//
+// 이슈 #106: 최초 인증 확인(checkGlobalAuthStatus)이 비동기라, 그 응답이 오기 전 아주 짧은
+// 시간 안에 클릭하면 실제로는 로그인된 사용자를 비로그인으로 오판해 로그인 폼을 다시 보여주는
+// 레이스 컨디션이 있었다. window._authCheckSettled가 꺼져 있으면(최초 확인 전) 판단을 보류하고
+// 가로채지 않는다 — 진짜 비로그인이어도 cart.html 자체의 "로그인이 필요해요" 안내가 남아있다.
 document.addEventListener('click', event => {
     const link = event.target.closest('a.header-icon[href="cart.html"]');
-    if (!link || localStorage.getItem('isLoggedIn') === 'true') return;
+    if (!link || !window._authCheckSettled || localStorage.getItem('isLoggedIn') === 'true') return;
     // 새 탭/새 창으로 열려는 클릭(가운데 버튼, ctrl/cmd/shift+클릭)은 브라우저 기본 동작을
     // 그대로 두고 가로채지 않는다. 새 탭에서도 cart.html 자체의 로그인 필요 안내가 뜬다.
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
