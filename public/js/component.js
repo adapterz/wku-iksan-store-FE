@@ -764,8 +764,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 전역 인증 상태 체크 및 하단 네비게이션 업데이트
     function checkGlobalAuthStatus(user) {
-        // 최초 1회 인증 확인이 끝났음을 표시한다(성공/실패 무관). 장바구니 아이콘 클릭 가드가
+        // 서버 인증 확인에 성공했을 때(로그인/비로그인 모두) 표시한다. 장바구니 아이콘 클릭 가드가
         // 이 값을 보고, 아직 확인 전이면 로그인 여부를 함부로 판단하지 않는다(이슈 #106).
+        // 네트워크 장애·5xx로 확인이 실패하면 이 함수가 호출되지 않아 플래그가 꺼진 채로 남고,
+        // 가드는 개입하지 않는다 — accountGuard의 "서버 확인 실패를 로그아웃으로 단정하지 않는다"
+        // 설계와 같은 방향이다(PR #117 리뷰).
         window._authCheckSettled = true;
         const isLoggedIn = !!user;
         const nickname = user?.nickname || '';
