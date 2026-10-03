@@ -126,7 +126,10 @@ function getSearchOverlayHTML() {
         </div>
     </div>
     <div class="search-overlay-body">
-        <h4 class="recent-searches-title">최근 검색어</h4>
+        <div class="recent-searches-header">
+            <h4 class="recent-searches-title">최근 검색어</h4>
+            <button type="button" class="btn-clear-recent-searches">전체삭제</button>
+        </div>
         <div class="recent-keywords-list"></div>
     </div>
 </div>`;
@@ -381,10 +384,56 @@ async function notifyGiftArrivalSeen() {
     }
 })();
 
+// ===== 최근 검색어 (localStorage) =====
+const RECENT_SEARCHES_KEY = 'iksanstore:recentSearches:v1';
+const RECENT_SEARCHES_LIMIT = 10;
+
+// 저장된 최근 검색어 목록을 최신순으로 반환한다. 저장소 접근/파싱에 실패하면 빈 배열을 반환한다.
+function getRecentSearches() {
+    try {
+        const raw = localStorage.getItem(RECENT_SEARCHES_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        console.warn('최근 검색어 조회 실패:', error);
+        return [];
+    }
+}
+
+function saveRecentSearches(keywords) {
+    try {
+        localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(keywords));
+    } catch (error) {
+        // 저장 용량 초과 등으로 저장에 실패해도 검색 자체는 계속 동작해야 한다.
+        console.warn('최근 검색어 저장 실패:', error);
+    }
+}
+
+// 검색어를 최근 검색어 맨 앞에 추가한다. 기존에 같은 검색어가 있으면 제거 후 재삽입하고, 최대 개수를 넘으면 오래된 것부터 버린다.
+function addRecentSearch(keyword) {
+    const trimmed = (keyword || '').trim();
+    if (!trimmed) return;
+
+    const existing = getRecentSearches().filter((item) => item !== trimmed);
+    existing.unshift(trimmed);
+    saveRecentSearches(existing.slice(0, RECENT_SEARCHES_LIMIT));
+}
+
+function removeRecentSearch(keyword) {
+    const remaining = getRecentSearches().filter((item) => item !== keyword);
+    saveRecentSearches(remaining);
+}
+
+function clearRecentSearches() {
+    saveRecentSearches([]);
+}
+
 // 검색어를 받아 검색 결과 페이지로 이동하는 공통 유틸리티 (빈 값은 무시)
 function navigateToSearch(keyword) {
     const trimmed = (keyword || '').trim();
     if (!trimmed) return;
+    addRecentSearch(trimmed);
     window.location.href = `search.html?keyword=${encodeURIComponent(trimmed)}`;
 }
 
@@ -667,6 +716,8 @@ window.renderSearchHeader = function(keyword) {
         // 호출하지 않으면 모바일 가상 키보드가 계속 떠 있는다.
         searchPageInput.blur();
         if (typeof window.onSearchPageKeywordSubmit === 'function') {
+            // 재검색은 navigateToSearch()를 거치지 않으므로 제출 시 여기서 기록한다.
+            addRecentSearch(trimmed);
             window.onSearchPageKeywordSubmit(trimmed);
         } else {
             navigateToSearch(trimmed);
@@ -866,9 +917,62 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 검색 오버레이 공통 로직 (전역 위임 또는 DOMContentLoaded 이후 바인딩)
     const searchOverlay = document.getElementById('search-overlay');
+
+    // 최근 검색어 뱃지 렌더링 (오버레이를 열 때마다 최신 상태로 다시 그린다)
+    function renderRecentSearches() {
+        if (!searchOverlay) return;
+        const recentHeader = searchOverlay.querySelector('.recent-searches-header');
+        const recentList = searchOverlay.querySelector('.recent-keywords-list');
+        if (!recentList) return;
+
+        const keywords = getRecentSearches();
+        recentList.innerHTML = '';
+
+        if (keywords.length === 0) {
+            if (recentHeader) recentHeader.style.display = 'none';
+            recentList.innerHTML = '<p class="recent-searches-empty">최근 검색 내역이 없습니다.</p>';
+            return;
+        }
+
+        if (recentHeader) recentHeader.style.display = '';
+        keywords.forEach((keyword) => {
+            const badge = document.createElement('span');
+            badge.className = 'keyword-badge';
+
+            const textBtn = document.createElement('button');
+            textBtn.type = 'button';
+            textBtn.className = 'keyword-badge-text';
+            textBtn.textContent = keyword;
+            textBtn.addEventListener('click', () => navigateToSearch(keyword));
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'keyword-badge-remove';
+            removeBtn.setAttribute('aria-label', `${keyword} 삭제`);
+            removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeRecentSearch(keyword);
+                renderRecentSearches();
+            });
+
+            badge.appendChild(textBtn);
+            badge.appendChild(removeBtn);
+            recentList.appendChild(badge);
+        });
+    }
+
     if (searchOverlay) {
         const searchInput = searchOverlay.querySelector('.search-overlay-input');
         const searchIcon = searchOverlay.querySelector('.search-overlay-input-icon');
+
+        const clearRecentBtn = searchOverlay.querySelector('.btn-clear-recent-searches');
+        if (clearRecentBtn) {
+            clearRecentBtn.addEventListener('click', () => {
+                clearRecentSearches();
+                renderRecentSearches();
+            });
+        }
 
         // btn-search-open은 메인(index.html)에서는 정적, 서브페이지에서는 동적 삽입됨
         // 동적 삽입 이후에 바인딩하기 위해 문서 전체에 위임(이벤트 버블링) 사용
@@ -877,6 +981,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (openBtn) {
                 e.preventDefault();
                 searchOverlay.classList.add('open');
+                renderRecentSearches();
                 if (searchInput) {
                     setTimeout(() => searchInput.focus(), 50);
                 }
@@ -931,6 +1036,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             if (searchOverlay) {
                 searchOverlay.classList.add('open');
+                renderRecentSearches();
                 const searchInput = searchOverlay.querySelector('.search-overlay-input');
                 if (searchInput) {
                     setTimeout(() => searchInput.focus(), 50);
