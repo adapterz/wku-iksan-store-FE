@@ -808,6 +808,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('account:ready', event => checkGlobalAuthStatus(event.detail.user));
     window.accountGuard.refresh().then(checkGlobalAuthStatus).catch(error => console.error('로그인 상태 확인 실패:', error));
 
+    // bfcache 복원은 공통 accountGuard의 pageshow 재검증 → account:ready로 갱신한다.
+    // 이 함수는 인증 조회가 아니라 전달받은 user의 표시만 담당하므로, 인자 없이 호출하면
+    // 확인 전/네트워크 오류에도 비로그인으로 오판한다. 별도 pageshow 호출을 추가하지 않는다.
+
     function updateActiveStates() {
         const navItems = document.querySelectorAll('.bottom-nav .nav-item, .nav-bar .nav-item');
         if (navItems.length === 0) return;
@@ -1251,9 +1255,11 @@ async function performWishlistToggle(productId) {
         if (!window.accountGuard.isCurrent(owner)) throw error;
         if (error.status === 401 || error.code === 'UNAUTHORIZED') {
             window.accountGuard.invalidate();
-            // 인증 안됨 에러 처리
-            alert('로그인이 필요합니다.');
-            window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+            // 인증 안됨 에러 처리 — alert 대신 다른 로그인 필요 안내와 동일하게 토스트 후 이동한다.
+            window.showToast('로그인이 필요한 페이지입니다.');
+            setTimeout(() => {
+                window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+            }, UNAUTHORIZED_REDIRECT_DELAY_MS);
             throw error;
         }
         console.error('찜 토글 에러:', error.status, error.code, error);
@@ -1461,6 +1467,22 @@ document.addEventListener('click', event => {
     window.showToast('로그인이 필요한 서비스입니다.');
     setTimeout(() => {
         window.location.href = `login.html?redirect=${encodeURIComponent('cart.html')}`;
+    }, UNAUTHORIZED_REDIRECT_DELAY_MS);
+});
+
+// 하단 네비게이션의 찜(위시리스트) 탭과 헤더의 선물함 아이콘도 위 장바구니 아이콘과 같은 방식으로,
+// 비로그인 상태에서 클릭 시 이동 전에 안내 토스트를 보여준 뒤 로그인 페이지로 이동시킨다.
+// 장바구니 가드와 같은 이유(이슈 #106)로, 최초 인증 확인 전(window._authCheckSettled 꺼짐)에는
+// 로그인 여부를 판단하지 않고 가로채지 않는다. 그 경우에도 각 페이지 자체의 401 처리가 남아 있다.
+document.addEventListener('click', event => {
+    const link = event.target.closest('a.nav-item[href="wishlist.html"], a.header-icon[href="giftbox.html"]');
+    if (!link || !window._authCheckSettled || localStorage.getItem('isLoggedIn') === 'true') return;
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+    event.preventDefault();
+    window.showToast('로그인이 필요한 페이지입니다.');
+    setTimeout(() => {
+        window.location.href = `login.html?redirect=${encodeURIComponent(link.getAttribute('href'))}`;
     }, UNAUTHORIZED_REDIRECT_DELAY_MS);
 });
 
@@ -1761,6 +1783,12 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
     }
 
     window.addEventListener('saved-products-updated', syncSaveButtons);
+
+    // bfcache 복원 후 accountGuard의 인증 확인 결과로 전달되는 auth:updated에도 반응해,
+    // 로그인 상태가 바뀐 채 뒤로가기로 돌아왔을 때 이미 그려진 카드의 찜 아이콘이 예전 상태로
+    // 남지 않도록 한다. removeUnsavedCards 화면은 detail.productId가 없으면 무시하며,
+    // 위시리스트의 비로그인 이동은 registerAccountView가 확인된 인증 결과로 처리한다.
+    document.addEventListener('auth:updated', syncSaveButtons);
 
     // 빠르게 재요청할 때 응답이 요청 순서와 다르게 도착해 이전(오래된) 결과가
     // 최신 결과를 덮어쓰는 것을 막기 위해, 새 요청을 시작할 때마다 진행 중인 이전 요청을 취소한다.
