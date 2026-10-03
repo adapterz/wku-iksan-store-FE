@@ -28,13 +28,13 @@ function element() {
 }
 function page(extraRequest = async () => ({ data: [] })) {
   let userId = 1, authFailure = null, authWait = null;
-  const elements = new Map(), timers = [], alerts = [], redirects = [], calls = [];
+  const elements = new Map(), timers = [], alerts = [], redirects = [], calls = [], storage = new Map();
   const document = Object.assign(target(), { body: null, visibilityState: 'visible',
     getElementById: id => elements.get(id) || null,
     querySelector: selector => selector === 'main' ? elements.get('main') : null,
     querySelectorAll: () => [], createElement: element
   });
-  const window = Object.assign(target(), { location: { href: 'https://example.test/giftbox', search: '', replace: url => redirects.push(url) } });
+  const window = Object.assign(target(), { location: { href: 'https://example.test/giftbox', pathname: '/giftbox', search: '', replace: url => redirects.push(url) } });
   const requestJson = async (url, options = {}) => {
     calls.push({ url, options });
     if (url === '/api/auth/me') {
@@ -50,17 +50,95 @@ function page(extraRequest = async () => ({ data: [] })) {
     console: { error() {}, log() {} }, alert: message => alerts.push(message),
     CustomEvent: class { constructor(type, options = {}) { this.type = type; this.detail = options.detail; } },
     setTimeout: fn => { timers.push(fn); return timers.length; }, clearTimeout() {}, AbortController, URLSearchParams,
-    localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+    localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, String(value)), removeItem: key => storage.delete(key) },
     sessionStorage: { length: 0 },
   });
   const run = name => vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/js', name), 'utf8'), ctx);
   run('component.js');
-  return { ctx, window, document, elements, timers, alerts, redirects, calls, run,
+  return { ctx, window, document, elements, timers, alerts, redirects, calls, storage, run,
     add(id) { const el = element(); elements.set(id, el); return el; },
     user(id) { userId = id; }, authError(error) { authFailure = error; }, authDeferred(d) { authWait = d; },
     guard: window.accountGuard
   };
 }
+
+// Run BOTH the existing account lifecycle and actual header DOMContentLoaded setup.
+// Lifecycle-only fixtures cannot catch incorrect anonymous UI events from the header.
+async function headerPage() {
+  const p = page();
+  for (const id of ['btn-bottom-my', 'bottom-login-status-icon', 'bottom-login-status-dot', 'bottom-login-status-text']) p.add(id);
+  p.authEvents = [];
+  p.document.addEventListener('auth:updated', event => p.authEvents.push(event.detail));
+  await p.document.fire('DOMContentLoaded');
+  assert.equal(p.storage.get('isLoggedIn'), 'true');
+  assert.equal(p.elements.get('bottom-login-status-text').textContent, '마이');
+  p.authEvents.length = 0;
+  return p;
+}
+
+test('bfcache header does not publish anonymous state or intercept links while auth is pending', async () => {
+  const p = await headerPage(), slow = deferred(); p.authDeferred(slow);
+  await p.window.fire('pageshow', { persisted: true });
+  assert.equal(p.authEvents.length, 0);
+  assert.equal(p.storage.get('isLoggedIn'), 'true');
+  assert.equal(p.elements.get('bottom-login-status-text').textContent, '마이');
+  for (const href of ['wishlist.html', 'giftbox.html']) {
+    let prevented = false;
+    await p.document.fire('click', {
+      button: 0, ctrlKey: false, metaKey: false, shiftKey: false,
+      target: { closest: selector => selector.includes(`href="${href}"`) ? { getAttribute: () => href } : null },
+      preventDefault() { prevented = true; }
+    });
+    assert.equal(prevented, false);
+  }
+  const before = p.calls.filter(call => call.url === '/api/auth/me').length;
+  p.timers.shift()(); await flush();
+  slow.resolve({ data: { userId: 1, nickname: 'user1' } }); await flush();
+  assert.equal(p.calls.filter(call => call.url === '/api/auth/me').length, before + 1);
+  assert.equal(p.authEvents.length, 1);
+  assert.equal(p.authEvents[0].isLoggedIn, true);
+  assert.equal(p.elements.get('btn-bottom-my').href, 'mypage.html');
+});
+
+test('bfcache header keeps previous login display on network failure, without anonymous auth event', async () => {
+  const p = await headerPage(); p.authError(new Error('offline'));
+  await p.window.fire('pageshow', { persisted: true });
+  p.timers.shift()(); await flush();
+  assert.equal(p.authEvents.length, 0);
+  assert.equal(p.storage.get('isLoggedIn'), 'true');
+  assert.equal(p.elements.get('bottom-login-status-text').textContent, '마이');
+  assert.equal(p.guard.isCurrent(p.guard.snapshot()), false, 'failed revalidation must not authorize actions');
+});
+
+test('bfcache header publishes logout only after a confirmed server 401', async () => {
+  const p = await headerPage(); p.user(null);
+  await p.window.fire('pageshow', { persisted: true });
+  assert.equal(p.authEvents.length, 0);
+  p.timers.shift()(); await flush();
+  assert.equal(p.authEvents.length, 1);
+  assert.equal(p.authEvents[0].isLoggedIn, false);
+  assert.equal(p.storage.has('isLoggedIn'), false);
+  assert.equal(p.elements.get('bottom-login-status-text').textContent, '로그인');
+  assert.match(p.elements.get('btn-bottom-my').href, /^login\.html\?redirect=/);
+});
+
+test('bfcache header updates the new account without an intermediate anonymous event', async () => {
+  const p = await headerPage(); p.user(2);
+  await p.window.fire('pageshow', { persisted: true });
+  p.timers.shift()(); await flush();
+  assert.equal(p.authEvents.length, 1);
+  assert.equal(p.authEvents[0].userId, 2);
+  assert.equal(p.authEvents[0].nickname, 'user2');
+  assert.equal(p.authEvents[0].isLoggedIn, true);
+});
+
+test('non-persisted pageshow does not change the header or request another auth check', async () => {
+  const p = await headerPage(), before = p.calls.length;
+  await p.window.fire('pageshow', { persisted: false });
+  assert.equal(p.authEvents.length, 0);
+  assert.equal(p.calls.length, before);
+  assert.equal(p.timers.length, 0);
+});
 
 test('authentication is singleflight; network failure does not turn a verified user into signed-out', async () => {
   const p = page();

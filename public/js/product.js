@@ -630,7 +630,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   window.addEventListener('saved-products-updated', syncProductSaveButtons);
-  // bfcache 복원(pageshow)마다 checkGlobalAuthStatus가 다시 쏘는 auth:updated에도 반응해,
+  // bfcache 복원 후 accountGuard의 인증 확인 결과로 전달되는 auth:updated에도 반응해,
   // 로그인 상태가 바뀐 채 뒤로가기로 돌아왔을 때 저장 버튼 아이콘이 예전 상태로 남지 않도록 한다.
   document.addEventListener('auth:updated', syncProductSaveButtons);
 });

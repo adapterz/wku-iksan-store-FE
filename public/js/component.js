@@ -808,14 +808,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('account:ready', event => checkGlobalAuthStatus(event.detail.user));
     window.accountGuard.refresh().then(checkGlobalAuthStatus).catch(error => console.error('로그인 상태 확인 실패:', error));
 
-    // 뒤로가기/앞으로가기로 bfcache에서 페이지가 복원될 때는 DOMContentLoaded가 다시 실행되지
-    // 않아 위 최초 호출 이후로 로그인 상태가 재검증되지 않는다. 그 사이 로그아웃했거나
-    // 세션이 만료된 경우 하단 네비게이션의 "마이" 아이콘이 실제와 다른(로그인된) 상태로 남는
-    // 문제가 있어, 장바구니 뱃지(아래)와 같은 방식으로 pageshow에서 다시 검증한다.
-    window.addEventListener('pageshow', event => {
-        if (!event.persisted) return;
-        checkGlobalAuthStatus();
-    });
+    // bfcache 복원은 공통 accountGuard의 pageshow 재검증 → account:ready로 갱신한다.
+    // 이 함수는 인증 조회가 아니라 전달받은 user의 표시만 담당하므로, 인자 없이 호출하면
+    // 확인 전/네트워크 오류에도 비로그인으로 오판한다. 별도 pageshow 호출을 추가하지 않는다.
 
     function updateActiveStates() {
         const navItems = document.querySelectorAll('.bottom-nav .nav-item, .nav-bar .nav-item');
@@ -1789,10 +1784,10 @@ window.createProductListLoader = function(listEl, { buildRequestPath, emptyMessa
 
     window.addEventListener('saved-products-updated', syncSaveButtons);
 
-    // bfcache 복원(pageshow)마다 checkGlobalAuthStatus가 다시 쏘는 auth:updated에도 반응해,
+    // bfcache 복원 후 accountGuard의 인증 확인 결과로 전달되는 auth:updated에도 반응해,
     // 로그인 상태가 바뀐 채 뒤로가기로 돌아왔을 때 이미 그려진 카드의 찜 아이콘이 예전 상태로
-    // 남지 않도록 한다. removeUnsavedCards 화면(위시리스트)은 e.detail이 없으면 그냥 무시하므로
-    // 안전하다 — 그 화면은 비로그인 시 auth:updated에서 별도로 로그인 페이지로 이동한다.
+    // 남지 않도록 한다. removeUnsavedCards 화면은 detail.productId가 없으면 무시하며,
+    // 위시리스트의 비로그인 이동은 registerAccountView가 확인된 인증 결과로 처리한다.
     document.addEventListener('auth:updated', syncSaveButtons);
 
     // 빠르게 재요청할 때 응답이 요청 순서와 다르게 도착해 이전(오래된) 결과가
