@@ -28,8 +28,7 @@ document.addEventListener("header:ready", async () => {
       }
 
       if (result.data) {
-        // order-groups는 상품 1개 객체가 아니라 items 배열로 온다. bottom-sheet에서 만든 묶음
-        // 주문은 항상 상품 1종류만 담으므로 items[0]만 꺼내 단건 주문과 같은 모양으로 맞춘다.
+        // 주문 그룹의 전체 상품·수량·주문 총액을 완료 화면에 전달한다.
         const order = orderGroupId ? mapOrderGroupToOrderView(result.data) : result.data;
         renderCompletePage(order);
         if (privateContent) privateContent.hidden = false;
@@ -97,9 +96,9 @@ function mapOrderGroupToOrderView(group) {
   };
 }
 
-// "N일" 같은 기간 표기를 볼드로 강조해서 넣는다 (예: "발급일로부터 365일 이내에 사용 가능").
+// 공통 정책의 "N년" 및 기존 "N일" 기간 표기를 볼드로 강조한다.
 function renderValidPeriodText(el, text) {
-  const match = text.match(/\d+\s*일/);
+  const match = text.match(/\d+\s*(?:년|일)/);
   if (!match) {
     el.textContent = text;
     return;
@@ -166,25 +165,25 @@ function renderCompletePage(order) {
     });
   }
 
-  // 상품이 2종 이상일 때만 전체 수량·총액 요약을 보여준다 (단건/단일 상품 묶음은 카드 하나로 충분).
+  // 단건·상품 1종 주문도 수량과 서버의 주문 총액을 보여준다. 현재 상품 가격으로 재계산하지 않는다.
   const summaryEl = document.getElementById("gift-summary");
   if (summaryEl) {
-    if (items.length > 1) {
+    if (items.length > 0) {
       summaryEl.hidden = false;
       summaryEl.textContent = order.totalPrice != null
         ? `총 ${items.length}종 · 교환권 ${totalQuantity}개 · ${order.totalPrice.toLocaleString()}원`
         : `총 ${items.length}종 · 교환권 ${totalQuantity}개`;
     } else {
       summaryEl.hidden = true;
+      summaryEl.textContent = '';
     }
   }
 
-  // Usage Period — 상품이 1개일 때만 그 상품의 validPeriod를 쓴다 (order-groups 응답에는 없어
-  // 기본 문구로 대체되고, 묶음일 때는 상품마다 다를 수 있어 공통 문구를 쓴다).
+  // #138의 1년 공통 정책으로 안내한다. 상품의 자유입력 validPeriod는
+  // 발급 교환권의 만료일이 아니므로 단건·그룹 여부에 따라 안내 기준을 바꾸지 않는다.
   const giftValidPeriod = document.getElementById("gift-valid-period");
   if (giftValidPeriod) {
-    const validPeriodText = (items.length === 1 && items[0].validPeriod) || "발급일로부터 365일 이내에 사용 가능";
-    renderValidPeriodText(giftValidPeriod, validPeriodText);
+    renderValidPeriodText(giftValidPeriod, "발급일로부터 1년 이내에 사용 가능");
   }
 }
 
