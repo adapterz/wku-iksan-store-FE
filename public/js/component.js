@@ -579,6 +579,8 @@ window.renderSearchHeader = function(keyword) {
         // 호출하지 않으면 모바일 가상 키보드가 계속 떠 있는다.
         searchPageInput.blur();
         if (typeof window.onSearchPageKeywordSubmit === 'function') {
+            // 재검색은 navigateToSearch()를 거치지 않으므로 제출 시 여기서 기록한다.
+            addRecentSearch(trimmed);
             window.onSearchPageKeywordSubmit(trimmed);
         } else {
             navigateToSearch(trimmed);
