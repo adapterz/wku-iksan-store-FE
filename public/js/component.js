@@ -1477,9 +1477,11 @@ document.addEventListener('click', event => {
 
 // 하단 네비게이션의 찜(위시리스트) 탭과 헤더의 선물함 아이콘도 위 장바구니 아이콘과 같은 방식으로,
 // 비로그인 상태에서 클릭 시 이동 전에 안내 토스트를 보여준 뒤 로그인 페이지로 이동시킨다.
+// 장바구니 가드와 같은 이유(이슈 #106)로, 최초 인증 확인 전(window._authCheckSettled 꺼짐)에는
+// 로그인 여부를 판단하지 않고 가로채지 않는다. 그 경우에도 각 페이지 자체의 401 처리가 남아 있다.
 document.addEventListener('click', event => {
     const link = event.target.closest('a.nav-item[href="wishlist.html"], a.header-icon[href="giftbox.html"]');
-    if (!link || localStorage.getItem('isLoggedIn') === 'true') return;
+    if (!link || !window._authCheckSettled || localStorage.getItem('isLoggedIn') === 'true') return;
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
 
     event.preventDefault();
