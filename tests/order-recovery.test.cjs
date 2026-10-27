@@ -23,12 +23,19 @@ function dom(page) {
 async function orderPage(options = {}) {
   const d = dom('order.html'), calls = [], storage = options.storage || new Map(), alerts = [];
   let userId = 1, reloads = 0, revalidate;
-  const location = { search: options.search || '?productId=1&type=gift&quantity=2', href: '', reload() { reloads++; } };
+  const replaced = [], winEvents = {};
+  const location = { search: options.search || '?productId=1&type=gift&quantity=2', href: '', reload() { reloads++; },
+    replace(url) { replaced.push(url); this.href = url; } };
+  // history.state는 주문서 히스토리 항목 ID(이슈 #74)를 담는다. 같은 항목으로 다시 들어오는 경우를
+  // 흉내내려면 이전 페이지의 history를 options.history로 넘긴다.
+  const history = options.history || { state: null, backs: 0, replaceState(state) { this.state = state; },
+    pushState(state) { this.state = state; }, back() { this.backs++; } };
   const context = { document: d.document, location, URLSearchParams, console: { error() {} },
     alert: msg => alerts.push(msg), crypto: require('node:crypto'), setTimeout, clearTimeout,
     sessionStorage: { getItem: k => storage.get(k) || null, removeItem: k => storage.delete(k),
       setItem(k, v) { if (options.storageFails) throw Error('Storage unavailable'); storage.set(k, v); } },
-    window: { location, registerBfcacheRevalidation: async f => { revalidate = f; return f(); } },
+    window: { location, addEventListener(n, f) { winEvents[n] = f; }, registerBfcacheRevalidation: async f => { revalidate = f; return f(); } },
+    history,
     requestJson: async (url, request = {}) => {
       calls.push({ url, ...request });
       if (url === '/api/auth/me') {
@@ -43,7 +50,7 @@ async function orderPage(options = {}) {
       return { data: { name: 'coffee', price: 4500 } };
     } };
   vm.createContext(context); vm.runInContext(read('js/order.js'), context); await d.events.DOMContentLoaded();
-  return { ...d, context, calls, storage, alerts, location, setUser: id => { userId = id; }, reloads: () => reloads,
+  return { ...d, context, calls, storage, alerts, location, history, replaced, winEvents, setUser: id => { userId = id; }, reloads: () => reloads,
     revalidate: () => revalidate(), posts: () => calls.filter(c => c.method === 'POST'),
     click: id => d.nodes.get(id).events.click(), async chooseReceiver() { d.nodes.get('receiver-nickname-input').value = 'friend'; await d.nodes.get('btn-search-user').events.click(); } };
 }
@@ -72,7 +79,8 @@ for (const [kind, search, stored] of [
     assert.equal(p.calls.length, 1); await p.click('btn-retry-pending-order');
     assert.equal(p.posts()[0].headers['Idempotency-Key'], stored.key);
     assert.equal(JSON.stringify(p.posts()[0].body), JSON.stringify(stored.body));
-    assert.equal(p.location.href, 'complete.html?orderGroupId=9'); assert.equal(storage.size, 0);
+    assert.equal(p.location.href, 'complete.html?orderGroupId=9');
+    assert.equal(storage.has(`${kind}-order-pending:1`), false);
   });
   test(`${kind}: storage failure blocks POST and leaves submission usable`, async () => {
     const p = await orderPage({ search, storageFails: true }); if (kind === 'direct') await p.chooseReceiver();
@@ -223,3 +231,61 @@ test('cart recheck changes only label and never replaces icon-containing button 
   fail=false;await p.click();assert.equal(p.nodes.get('btn-sheet-cart-label').textContent,'장바구니');
   assert.match(read('product.html'),/fa-bag-shopping[\s\S]*?id="btn-sheet-cart-label"/);
 });
+
+// 이슈 #74: 결제 완료 후 완료 화면에서 뒤로가기로 같은 주문서 항목에 돌아왔을 때
+for (const [kind, search, entryKey, entryValue, fallback] of [
+  ['direct', '?productId=1&type=gift&quantity=2', 'orderEntryProductId', '1', 'product.html?id=1'],
+  ['bundle', '?cartItemIds=11&type=self', 'orderEntryCartItemIds', '11', 'cart.html']
+]) {
+  const submit = async p => { if (kind === 'direct') await p.chooseReceiver(); await p.click('btn-submit-order'); };
+  const completed = storage => JSON.parse(storage.get('completedOrderEntries') || '[]');
+
+  test(`${kind}: success replaces the order entry with complete page and marks it completed`, async () => {
+    const p = await orderPage({ search });
+    await submit(p);
+    assert.deepEqual(p.replaced, ['complete.html?orderGroupId=9']);
+    assert.ok(p.history.state.orderEntryId);
+    assert.deepEqual(completed(p.storage), [p.history.state.orderEntryId]);
+  });
+
+  test(`${kind}: returning to a completed entry never shows the form or POSTs again`, async () => {
+    const first = await orderPage({ search });
+    await submit(first);
+    const again = await orderPage({ search, storage: first.storage, history: first.history });
+    assert.equal(again.calls.length, 0);
+    assert.notEqual(again.document.body.style.visibility, 'visible');
+    assert.deepEqual(again.replaced, [fallback]);
+  });
+
+  test(`${kind}: completed entry reached from its entry page goes back instead of stacking a new page`, async () => {
+    const storage = new Map([[entryKey, entryValue]]);
+    const first = await orderPage({ search, storage });
+    await submit(first);
+    // 이후 다른 주문 진입으로 표시가 바뀌어도, 처음 판단해 항목에 기록한 값을 쓴다.
+    storage.set(entryKey, 'other');
+    const again = await orderPage({ search, storage, history: first.history });
+    assert.equal(again.history.backs, 1);
+    assert.deepEqual(again.replaced, []);
+  });
+
+  test(`${kind}: bfcache restore after completion leaves once per restore`, async () => {
+    const p = await orderPage({ search });
+    await submit(p);
+    assert.equal(await p.revalidate(), false);
+    assert.equal(await p.revalidate(), false);
+    assert.deepEqual(p.replaced, ['complete.html?orderGroupId=9', fallback]);
+    // 떠난 뒤(pagehide) 다시 bfcache로 복원되면 그때 다시 빠져나가야 흰 화면에 머물지 않는다.
+    p.winEvents.pagehide();
+    await p.revalidate();
+    assert.deepEqual(p.replaced, ['complete.html?orderGroupId=9', fallback, fallback]);
+  });
+
+  test(`${kind}: a new entry for the same URL after completion is a normal order form`, async () => {
+    const first = await orderPage({ search });
+    await submit(first);
+    const fresh = await orderPage({ search, storage: first.storage });
+    assert.ok(fresh.calls.length > 0);
+    assert.equal(fresh.document.body.style.visibility, 'visible');
+    assert.deepEqual(fresh.replaced, []);
+  });
+}

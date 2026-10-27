@@ -138,6 +138,9 @@
     const selected = selectedItems();
     if (!selected.length || selected.some(item => !item.canOrder)) return;
     const cartItemIds = selected.map(item => item.cartItemId).join(',');
+    // order.js가 "장바구니를 거쳐 들어왔는지" 판단하는 표시(상품 상세의 orderEntryProductId와 같은 역할).
+    // 결제 완료 후 뒤로가기 시 바로 아래 장바구니 기록을 재사용하는 데 쓴다(이슈 #74).
+    try { sessionStorage.setItem('orderEntryCartItemIds', cartItemIds); } catch (e) { /* 없으면 cart.html로 교체 이동 */ }
     location.href = new URL(`order.html?cartItemIds=${cartItemIds}&type=${type}`, location.href).href;
   }
   $('btn-order-self').onclick = () => goToOrder('self');
