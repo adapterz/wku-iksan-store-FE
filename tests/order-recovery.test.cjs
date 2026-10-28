@@ -357,3 +357,27 @@ for (const [kind, search, target, fallback] of [
     assert.equal(p.history.state.orderEntryFromPage, false);
   });
 }
+
+test('lost response recovered on another product order page also completes the original order entry', async () => {
+  // 상품 1 주문서에서 결제 응답 유실 → 상품 2 주문서로 이동 → 보관된 상품 1 요청을 "다시 확인"으로 완료
+  // → 뒤로가기로 상품 1 주문서에 돌아와도 결제 화면이 다시 보이지 않아야 한다(중복 결제 방지).
+  const storage = new Map([['orderEntryFlow', JSON.stringify({ flowId: 'flow-product-1', target: 'product:1' })]]);
+  let lose = true;
+  const post = async () => {
+    if (lose) { lose = false; throw networkError(); }
+    return { data: { orderGroupId: 9 } };
+  };
+  const first = await orderPage({ storage, post });
+  await first.chooseReceiver(); await first.click('btn-submit-order');
+  assert.equal(pendingKeys(storage).length, 1);
+  storage.set('orderEntryFlow', JSON.stringify({ flowId: 'flow-product-2', target: 'product:2' }));
+  const second = await orderPage({ search: '?productId=2&type=gift&quantity=1', storage, post });
+  await second.click('btn-retry-pending-order');
+  assert.deepEqual(second.replaced, ['complete.html?orderGroupId=9']);
+  assert.deepEqual(JSON.parse(storage.get('completedOrderFlows')).sort(), ['flow-product-1', 'flow-product-2']);
+  assert.equal(storage.has('orderEntryFlow'), false);
+  const backToFirst = await orderPage({ storage, history: first.history, post });
+  assert.equal(backToFirst.calls.length, 0);
+  assert.notEqual(backToFirst.document.body.style.visibility, 'visible');
+  assert.equal(backToFirst.history.backs, 1);
+});

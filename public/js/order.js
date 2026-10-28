@@ -67,13 +67,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   function isCompletedOrderEntry() {
     return readCompletedOrderFlows().includes(orderFlowId);
   }
-  function markOrderEntryCompleted() {
+  // paidFlowId: 실제로 결제된 주문의 주문 시도 ID(보관 요청에 함께 저장된 값). 응답이 끊긴 주문의 결과를
+  // 다른 상품의 주문서에서 "다시 확인"으로 완료한 경우, 지금 주문서와 실제 결제된 주문서의 주문 시도가 다르다.
+  // 둘 다 완료로 표시해야 뒤로가기로 원래 주문서에 돌아갔을 때 다시 결제할 수 없다.
+  function markOrderEntryCompleted(paidFlowId) {
     try {
-      const flows = readCompletedOrderFlows().filter(id => id !== orderFlowId);
-      flows.push(orderFlowId);
+      const doneIds = [...new Set([orderFlowId, paidFlowId].filter(Boolean))];
+      const flows = readCompletedOrderFlows().filter(id => !doneIds.includes(id));
+      flows.push(...doneIds);
       sessionStorage.setItem(COMPLETED_ORDER_FLOWS_KEY, JSON.stringify(flows.slice(-20)));
       // 이 주문 시도는 끝났으므로, 이후 같은 대상의 주문서가 이 ID를 이어받지 않게 지운다.
-      if (readOrderEntryFlow()?.flowId === orderFlowId) sessionStorage.removeItem(ORDER_ENTRY_FLOW_KEY);
+      const entryFlow = JSON.parse(sessionStorage.getItem(ORDER_ENTRY_FLOW_KEY) || 'null');
+      if (entryFlow && doneIds.includes(entryFlow.flowId)) sessionStorage.removeItem(ORDER_ENTRY_FLOW_KEY);
     } catch (e) { /* 표시를 못 남겨도 주문 결과 이동은 그대로 진행한다 */ }
   }
   // pageshow(bfcache 복원)와 popstate가 같은 복원에서 함께 발생해도 이동은 한 번만 한다.
@@ -296,7 +301,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         try { sessionStorage.removeItem(storageKey); } catch (e) { /* 같은 소유자의 기존 키는 그대로 재확인 가능 */ }
         // 이 주문서 항목을 완료로 표시하고, 지금 서 있는 기록(방지용 기록)을 완료 화면으로 교체한다
         // (이슈 #74). href로 이동하면 방지용 기록이 남아 완료 화면 뒤로가기가 주문서로 돌아간다.
-        markOrderEntryCompleted();
+        markOrderEntryCompleted(pending.flowId);
         location.replace(`complete.html?orderGroupId=${orderResult.data.orderGroupId}`);
         return;
       }
@@ -673,7 +678,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           isSelfGift: isSelfGift,
           receiverId: Number(receiverId)
         };
-    const pending = { key: crypto.randomUUID(), body: requestBody };
+    // flowId: 이 요청이 어느 주문 시도에서 나갔는지. 결과를 다른 주문서에서 확인하더라도 원래 주문서를
+    // 완료로 표시하는 데 쓴다(이슈 #74).
+    const pending = { key: crypto.randomUUID(), body: requestBody, flowId: orderFlowId };
 
     // 재시도 안전성의 핵심은 "요청을 보내기 전에 먼저 보관"하는 순서다. 보관 자체가 실패하면
     // (저장소 접근 불가 등) 새로고침 후 같은 키로 복원할 방법이 없어지므로, 이 경우엔 요청을
