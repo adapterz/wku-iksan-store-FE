@@ -30,8 +30,9 @@ async function orderPage(options = {}) {
     replace(url) { replaced.push(url); this.href = url; } };
   // history.state는 주문서 히스토리 항목 ID(이슈 #74)를 담는다. 같은 항목으로 다시 들어오는 경우를
   // 흉내내려면 이전 페이지의 history를 options.history로 넘긴다.
-  const history = options.history || { state: null, backs: 0, replaceState(state) { this.state = state; },
-    pushState(state) { this.state = state; }, back() { this.backs++; } };
+  const history = options.history || { state: null, backs: 0, gos: [], replaceState(state) { this.state = state; },
+    pushState(state) { this.state = state; }, back() { this.backs++; },
+    go(n) { if (n === -1) this.backs++; else this.gos.push(n); } };
   const context = { document: d.document, location, URLSearchParams, console: { error() {} },
     alert: msg => alerts.push(msg), crypto: require('node:crypto'), setTimeout, clearTimeout,
     sessionStorage: { getItem: k => storage.get(k) || null, removeItem: k => storage.delete(k),
@@ -380,4 +381,17 @@ test('lost response recovered on another product order page also completes the o
   assert.equal(backToFirst.calls.length, 0);
   assert.notEqual(backToFirst.document.body.style.visibility, 'visible');
   assert.equal(backToFirst.history.backs, 1);
+});
+
+test('completed order reached at its back-guard entry skips the same-document entry below', async () => {
+  // 주문서에서 링크로 다른 화면에 갔다가 뒤로가기로 돌아오면 방지용 기록(orderBackGuard)에 도착한다.
+  // 바로 아래는 같은 문서의 주문서 기록이라 한 칸만 물러나면 빈 화면에 멈추므로 두 칸 물러나야 한다.
+  const storage = new Map([['orderEntryFlow', JSON.stringify({ flowId: 'flow-guard', target: 'product:1' })]]);
+  const first = await orderPage({ storage });
+  await first.chooseReceiver(); await first.click('btn-submit-order');
+  first.history.state = { ...first.history.state, orderBackGuard: true };
+  const atGuard = await orderPage({ storage, history: first.history });
+  assert.equal(atGuard.calls.length, 0);
+  assert.deepEqual(atGuard.history.gos, [-2]);
+  assert.equal(atGuard.history.backs, 0);
 });

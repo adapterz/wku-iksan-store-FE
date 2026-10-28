@@ -91,7 +91,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (cameFromEntryPage) {
       // 바로 아래 항목(진입 화면, 또는 같은 주문 시도의 이전 주문서)을 그대로 재사용한다(새 항목을
       // 쌓지 않음). 이전 주문서도 완료로 인식되므로 다시 한 칸 물러나 결국 진입 화면에 도착한다.
-      history.back();
+      // 지금 서 있는 곳이 뒤로가기 방지용 기록이면(주문서에서 링크로 다른 화면에 갔다가 돌아온 경우)
+      // 바로 아래는 같은 문서의 주문서 기록이라, 한 칸만 물러나면 페이지가 다시 로드되지 않고 숨겨진
+      // 빈 화면에 멈춘다. 그 기록까지 건너뛰어 두 칸 물러난다.
+      history.go(history.state && history.state.orderBackGuard ? -2 : -1);
     } else {
       // 주소로 직접 들어온 경우 등은 아래 항목을 알 수 없어 이 항목 자체를 교체한다.
       location.replace(isBundle ? 'cart.html' : (productId ? `product.html?id=${encodeURIComponent(productId)}` : 'index.html'));
