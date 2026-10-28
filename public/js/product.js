@@ -244,6 +244,11 @@ function initBottomSheet(productId) {
       // 나에게 선물하기/선물하기 둘 다 기존처럼 결제 페이지(order.html)로 이동한다.
       // order.html은 즉시 구매 그룹 주문 API(POST /api/order-groups/direct)를 쓰므로 수량이 반영된다.
       sessionStorage.setItem('orderEntryProductId', String(productId));
+      // 주문 시도 ID(이슈 #74). 로그인을 거쳐 주문서가 다시 열려도 같은 ID를 이어받아, 결제 완료 후
+      // 뒤로가기 시 주문서들을 모두 건너뛰고 이 상품 상세로 돌아온다(order.js 참고).
+      try {
+        sessionStorage.setItem('orderEntryFlow', JSON.stringify({ flowId: crypto.randomUUID(), target: `product:${productId}` }));
+      } catch (e) { /* 없으면 order.js가 직접 만든다 */ }
       window.location.href = `order.html?productId=${productId}&type=${sheetState.orderType}&quantity=${sheetState.quantity}`;
     });
   }
