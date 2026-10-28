@@ -17,40 +17,63 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 이슈 #74: 결제 완료 후 완료 화면에서 뒤로가기를 누르면 이 주문서로 다시 돌아왔다. 결제 성공 시
   // 보관 요청을 지우기 때문에, 새로 불러온 주문서에서 "결제하기"를 다시 누르면 새 Idempotency-Key로
   // 같은 주문이 한 번 더 생성될 수 있었다(bfcache로 복원되면 "결제 진행 중..."에서 멈춘 화면).
-  // 주문서 히스토리 항목마다 고유 ID를 history.state에 남겨두고, 결제가 끝난 항목이면 주문서를 다시
-  // 보여주지 않고 진입 전 화면(상품 상세/장바구니)으로 보낸다. ID를 URL이 아니라 히스토리 항목에
-  // 붙이므로, 같은 상품을 새로 주문하러 들어온 경우(새 항목)는 막히지 않는다.
-  const COMPLETED_ORDER_ENTRIES_KEY = 'completedOrderEntries';
+  //
+  // "결제 끝남"은 히스토리 항목 하나가 아니라 "주문 시도" 단위로 표시한다. 로그인을 거치면(또는 결제
+  // 도중 세션이 만료돼 다시 로그인하면) 같은 주문에 대한 주문서 항목이 두 개 남는다 — 로그인 전/만료 전에
+  // 열렸던 주문서①과 다시 열린 주문서②. 항목 단위로만 표시하면 주문서①이 그대로 다시 보였다(PR #119 리뷰).
+  // 상품 상세/장바구니가 주문서로 보낼 때 주문 시도 ID를 sessionStorage(orderEntryFlow)에 남기고,
+  // 같은 대상의 주문서는 열릴 때마다 그 ID를 이어받아 history.state에 기록한다. 결제가 끝나면 그 ID를
+  // 완료로 표시하므로 주문서①·②가 모두 완료로 인식된다. 결제 후에는 orderEntryFlow를 지워, 같은 상품을
+  // 새로 주문하면 새 ID가 만들어진다(새 주문은 막히지 않음).
+  const COMPLETED_ORDER_FLOWS_KEY = 'completedOrderFlows';
+  const ORDER_ENTRY_FLOW_KEY = 'orderEntryFlow';
+  const orderTarget = isBundle ? `cart:${urlParams.get('cartItemIds')}` : `product:${productId}`;
   const entryState = (history.state && typeof history.state === 'object') ? history.state : {};
-  const orderEntryId = entryState.orderEntryId || crypto.randomUUID();
-  // 바로 아래 히스토리 항목이 진입 화면인지는 처음 열릴 때 한 번만 판단해 항목에 기록해둔다
-  // (sessionStorage 표시는 이후 다른 주문 진입 때 덮어써지므로 나중에 다시 읽으면 틀릴 수 있다).
-  const cameFromEntryPage = entryState.orderEntryId ? !!entryState.orderEntryFromPage : (() => {
+
+  function readOrderEntryFlow() {
     try {
-      return isBundle
-        ? sessionStorage.getItem('orderEntryCartItemIds') === urlParams.get('cartItemIds')
-        : !!productId && sessionStorage.getItem('orderEntryProductId') === productId;
-    } catch (e) { return false; }
-  })();
-  if (!entryState.orderEntryId) {
+      const flow = JSON.parse(sessionStorage.getItem(ORDER_ENTRY_FLOW_KEY) || 'null');
+      return flow && flow.flowId && flow.target === orderTarget ? flow : null;
+    } catch (e) { return null; }
+  }
+  let orderFlowId = entryState.orderFlowId;
+  // 바로 아래 히스토리 항목으로 돌아가도 되는지(진입 화면이거나 같은 주문 시도의 이전 주문서)는 처음
+  // 열릴 때 한 번만 판단해 항목에 기록해둔다. sessionStorage 표시는 이후 바뀔 수 있기 때문이다.
+  let cameFromEntryPage = !!entryState.orderEntryFromPage;
+  if (!orderFlowId) {
+    const inheritedFlow = readOrderEntryFlow();
+    if (inheritedFlow) {
+      orderFlowId = inheritedFlow.flowId;
+      cameFromEntryPage = true;
+    } else {
+      // 주소로 직접 들어온 경우: 아래 항목을 알 수 없다. 이후 로그인을 거쳐 다시 열리는 주문서가
+      // 같은 주문 시도로 이어받을 수 있도록 여기서 ID를 만들어 남겨둔다.
+      orderFlowId = crypto.randomUUID();
+      cameFromEntryPage = false;
+      try {
+        sessionStorage.setItem(ORDER_ENTRY_FLOW_KEY, JSON.stringify({ flowId: orderFlowId, target: orderTarget }));
+      } catch (e) { /* 저장하지 못해도 이 주문서 항목 자체의 완료 판단은 동작한다 */ }
+    }
     // 기존 state(PR #105의 firstSiteEntry 등)를 지우지 않도록 펼쳐서 함께 남긴다.
-    history.replaceState({ ...entryState, orderEntryId, orderEntryFromPage: cameFromEntryPage }, '', location.href);
+    history.replaceState({ ...entryState, orderFlowId, orderEntryFromPage: cameFromEntryPage }, '', location.href);
   }
 
-  function readCompletedOrderEntries() {
+  function readCompletedOrderFlows() {
     try {
-      const saved = JSON.parse(sessionStorage.getItem(COMPLETED_ORDER_ENTRIES_KEY) || '[]');
+      const saved = JSON.parse(sessionStorage.getItem(COMPLETED_ORDER_FLOWS_KEY) || '[]');
       return Array.isArray(saved) ? saved : [];
     } catch (e) { return []; }
   }
   function isCompletedOrderEntry() {
-    return readCompletedOrderEntries().includes(orderEntryId);
+    return readCompletedOrderFlows().includes(orderFlowId);
   }
   function markOrderEntryCompleted() {
     try {
-      const entries = readCompletedOrderEntries().filter(id => id !== orderEntryId);
-      entries.push(orderEntryId);
-      sessionStorage.setItem(COMPLETED_ORDER_ENTRIES_KEY, JSON.stringify(entries.slice(-20)));
+      const flows = readCompletedOrderFlows().filter(id => id !== orderFlowId);
+      flows.push(orderFlowId);
+      sessionStorage.setItem(COMPLETED_ORDER_FLOWS_KEY, JSON.stringify(flows.slice(-20)));
+      // 이 주문 시도는 끝났으므로, 이후 같은 대상의 주문서가 이 ID를 이어받지 않게 지운다.
+      if (readOrderEntryFlow()?.flowId === orderFlowId) sessionStorage.removeItem(ORDER_ENTRY_FLOW_KEY);
     } catch (e) { /* 표시를 못 남겨도 주문 결과 이동은 그대로 진행한다 */ }
   }
   // pageshow(bfcache 복원)와 popstate가 같은 복원에서 함께 발생해도 이동은 한 번만 한다.
@@ -61,7 +84,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (leavingCompletedEntry) return;
     leavingCompletedEntry = true;
     if (cameFromEntryPage) {
-      // 진입 화면 항목이 바로 아래에 있으므로 그 항목을 그대로 재사용한다(새 항목을 쌓지 않음).
+      // 바로 아래 항목(진입 화면, 또는 같은 주문 시도의 이전 주문서)을 그대로 재사용한다(새 항목을
+      // 쌓지 않음). 이전 주문서도 완료로 인식되므로 다시 한 칸 물러나 결국 진입 화면에 도착한다.
       history.back();
     } else {
       // 주소로 직접 들어온 경우 등은 아래 항목을 알 수 없어 이 항목 자체를 교체한다.
@@ -154,7 +178,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 이미 방지용 기록이 쌓여있는 상태(orderBackGuard: true)라면 여기서 또 pushState하지 않는다.
     // 그렇지 않으면 새로고침할 때마다 방지용 기록이 누적되어, 항상 두 칸만 이동하는
     // "나가기"(history.go(-2))가 주문서 페이지를 벗어나지 못하게 된다.
-    // 방지용 기록에도 주문서 항목 ID(orderEntryId 등)를 그대로 넘겨, 이 기록에서 새로고침해도
+    // 방지용 기록에도 주문 시도 ID(orderFlowId 등)를 그대로 넘겨, 이 기록에서 새로고침해도
     // 같은 주문서 항목으로 인식되게 한다.
     if (!(history.state && history.state.orderBackGuard)) {
       history.pushState({ ...history.state, orderBackGuard: true }, '', location.href);
