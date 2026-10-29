@@ -442,6 +442,25 @@ function createReviewCard(review) {
     editBtn.addEventListener('click', () => window.openReviewEditor({ reviewId: review.reviewId }));
     actions.appendChild(editBtn);
     card.appendChild(actions);
+  } else {
+    // 다른 사람이 쓴 후기에만 신고 버튼을 둔다. BE는 본인 후기 신고를 막지 않으므로 FE에서 isMine으로 거른다.
+    // 위치·스타일은 내 후기의 "수정 · 삭제"와 같게 맞춰 후기 읽기를 방해하지 않게 한다.
+    const actions = document.createElement('div');
+    actions.className = 'review-card-actions';
+    const reportBtn = document.createElement('button');
+    reportBtn.type = 'button';
+    reportBtn.className = 'review-card-report-btn';
+    reportBtn.textContent = '신고';
+    reportBtn.addEventListener('click', () => window.openReviewReport({
+      reviewId: review.reviewId,
+      content: review.content,
+      onReported: () => {
+        reportBtn.disabled = true;
+        reportBtn.textContent = '신고함';
+      }
+    }));
+    actions.appendChild(reportBtn);
+    card.appendChild(actions);
   }
 
   return card;

@@ -1,4 +1,4 @@
-// 리뷰 작성·수정·삭제 모달. 상품 상세(product.js)와 선물함(giftbox.js) 등 여러 화면에서
+// 리뷰 작성·수정·삭제·신고 모달. 상품 상세(product.js)와 선물함(giftbox.js) 등 여러 화면에서
 // 같은 모달을 공유해서 쓴다. 완료되면 review:changed 커스텀 이벤트를 document에 쏘고,
 // 각 화면은 자기 목록에 해당하는 이벤트만 걸러서 새로고침한다(auth:updated 등 기존 이벤트 패턴과 동일).
 (function () {
@@ -10,7 +10,10 @@
     REVIEW_NOT_FOUND: '후기를 찾을 수 없어요. 목록을 다시 확인해주세요.',
     // canReview는 정지 여부를 반영하지 않아 목록에서는 버튼이 그대로 활성화돼 있다.
     // 실제 저장 시점에 BE가 이 코드로 막으므로, 여기서 안내 문구로 바꿔준다.
-    SUSPENDED_FROM_REVIEWS: '정지된 계정은 후기를 작성·수정할 수 없어요.'
+    SUSPENDED_FROM_REVIEWS: '정지된 계정은 후기를 작성·수정할 수 없어요.',
+    REPORT_ALREADY_EXISTS: '이미 신고한 후기예요.',
+    REPORT_REASON_TOO_LONG: '신고 사유는 500자 이내로 입력해주세요.',
+    TOO_MANY_REQUESTS: '요청이 너무 많아요. 잠시 후 다시 시도해주세요.'
   };
 
   function errorMessage(error) {
@@ -52,6 +55,25 @@
       <div class="review-confirm-actions">
         <button type="button" id="review-delete-cancel" class="review-secondary-btn">취소</button>
         <button type="button" id="review-delete-confirm" class="review-danger-btn">삭제하기</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="review-report-modal" class="review-modal">
+  <div class="review-modal-content">
+    <div class="review-modal-header">
+      <h2>후기 신고</h2>
+      <button type="button" id="review-report-close" class="review-modal-close" aria-label="닫기">&times;</button>
+    </div>
+    <div class="review-modal-body">
+      <p class="review-report-guide">신고 사유를 알려주세요. 관리자가 확인한 뒤 조치합니다.</p>
+      <p class="review-report-target" id="review-report-target"></p>
+      <textarea id="review-report-reason" class="review-content-input" maxlength="500" placeholder="예: 욕설·비방, 광고, 상품과 관계없는 내용"></textarea>
+      <div class="review-content-counter"><span id="review-report-count">0</span> / 500</div>
+      <p class="review-form-error" id="review-report-error" role="alert"></p>
+      <div class="review-confirm-actions">
+        <button type="button" id="review-report-cancel" class="review-secondary-btn">취소</button>
+        <button type="button" id="review-report-submit" class="review-danger-btn" disabled>신고하기</button>
       </div>
     </div>
   </div>
@@ -256,6 +278,78 @@
     }
   }
 
+  // 후기 신고(POST /api/reviews/:id/reports). 작성·수정 모달과는 진행 상태를 따로 둔다.
+  // target: { reviewId, content, onReported } — onReported는 접수됐거나 이미 신고한 후기일 때 호출되어,
+  // 화면이 그 카드의 신고 버튼을 "신고함"으로 바꿀 수 있게 한다.
+  const reportState = { busy: false, target: null };
+
+  function updateReportState() {
+    const length = [...$('review-report-reason').value.trim()].length;
+    $('review-report-count').textContent = length.toLocaleString();
+    $('review-report-submit').disabled = reportState.busy || length < 1 || length > 500;
+  }
+
+  function setReportBusy(value) {
+    reportState.busy = value;
+    $('review-report-close').disabled = value;
+    $('review-report-cancel').disabled = value;
+    updateReportState();
+  }
+
+  function closeReport(force) {
+    if (reportState.busy && !force) return;
+    $('review-report-modal').classList.remove('open');
+  }
+
+  function openReviewReport(target) {
+    if (reportState.busy || !target || !target.reviewId) return;
+    // 신고는 로그인이 필요하다. 비로그인으로 사유까지 입력한 뒤 제출 시점에 로그인 화면으로 보내면
+    // 입력이 사라지므로, 모달을 열기 전에 안내한다. 최초 인증 확인 전(_authCheckSettled 꺼짐)에는
+    // 로그인 여부를 판단하지 않고 열어둔다(이슈 #106) — 제출 시 401이면 공통 처리가 로그인으로 보낸다.
+    // localStorage.isLoggedIn은 하단 네비가 있는 화면에서만 갱신되어 상품 상세에서는 오래된 값일 수
+    // 있으므로, 서버 확인 결과(accountGuard)로 판단한다.
+    if (window._authCheckSettled && !window.accountGuard.currentUser()) {
+      window.showToast('로그인이 필요한 서비스입니다.');
+      setTimeout(() => {
+        window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+      }, UNAUTHORIZED_REDIRECT_DELAY_MS);
+      return;
+    }
+    reportState.target = target;
+    $('review-report-target').textContent = target.content || '';
+    $('review-report-reason').value = '';
+    $('review-report-error').textContent = '';
+    updateReportState();
+    $('review-report-modal').classList.add('open');
+    $('review-report-reason').focus();
+  }
+
+  async function submitReport() {
+    if (reportState.busy || $('review-report-submit').disabled || !reportState.target) return;
+    const { reviewId, onReported } = reportState.target;
+    const reason = $('review-report-reason').value.trim();
+    setReportBusy(true);
+    $('review-report-error').textContent = '';
+    try {
+      const result = await window.requestJson('/api/reviews/' + reviewId + '/reports', { method: 'POST', body: { reason } });
+      if (!result) return; // 401: 공통 처리가 로그인 이동을 맡는다
+      closeReport(true);
+      toast('신고가 접수되었어요.');
+      if (onReported) onReported();
+    } catch (error) {
+      if (error && error.code === 'REPORT_ALREADY_EXISTS') {
+        // 이미 신고한 후기는 실패가 아니라 "접수된 상태"이므로 모달을 닫고 버튼도 신고함으로 바꾼다.
+        closeReport(true);
+        toast(errorMessage(error));
+        if (onReported) onReported();
+      } else {
+        $('review-report-error').textContent = errorMessage(error);
+      }
+    } finally {
+      setReportBusy(false);
+    }
+  }
+
   buildRatingInput();
   $('review-editor-close').addEventListener('click', closeEditor);
   $('review-content').addEventListener('input', updateContentCounter);
@@ -264,5 +358,11 @@
   $('review-delete-cancel').addEventListener('click', closeDeleteConfirm);
   $('review-delete-confirm').addEventListener('click', deleteReview);
 
+  $('review-report-close').addEventListener('click', closeReport);
+  $('review-report-cancel').addEventListener('click', closeReport);
+  $('review-report-reason').addEventListener('input', updateReportState);
+  $('review-report-submit').addEventListener('click', submitReport);
+
   window.openReviewEditor = openReviewEditor;
+  window.openReviewReport = openReviewReport;
 })();

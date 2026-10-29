@@ -2530,10 +2530,16 @@ body.page-product {
   margin-top: 8px;
 }
 
-.review-card-edit-btn {
+.review-card-edit-btn,
+.review-card-report-btn {
   font-size: 11px;
   color: var(--text-muted);
   text-decoration: underline;
+}
+
+.review-card-report-btn:disabled {
+  text-decoration: none;
+  cursor: default;
 }
 
 .review-error {
@@ -4118,6 +4124,32 @@ body.page-complete {
 }
 
 .review-delete-link[hidden] {
+  display: none;
+}
+
+/* 후기 신고 모달: 안내 문구와 신고 대상 후기 미리보기(긴 후기는 3줄까지만) */
+.review-report-guide {
+  font-size: 12px;
+  color: var(--text-sub);
+  margin-bottom: 10px;
+}
+
+.review-report-target {
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background-color: #FAFAFA;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-sub);
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.review-report-target:empty {
   display: none;
 }
 
