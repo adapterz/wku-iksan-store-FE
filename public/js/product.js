@@ -560,6 +560,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // 후기 응답의 isMine(내 후기면 "수정 · 삭제", 아니면 "신고")은 조회한 계정 기준이다. 다른 탭에서 계정을
+  // 바꾸고 새로고침 없이 돌아오면 이전 계정 기준 버튼이 남아, 새 계정이 자기 후기를 신고할 수 있었다
+  // (BE는 본인 후기 신고를 막지 않는다). 계정이 실제로 바뀐 경우에만 목록을 다시 받는다 — account:ready는
+  // 탭 복귀 때마다 같은 계정으로도 발생하므로 userId를 비교한다. 첫 이벤트는 기준값만 기록한다.
+  let reviewViewerUserId;
+  document.addEventListener('account:ready', (e) => {
+    const userId = e.detail.user?.userId ?? null;
+    if (reviewViewerUserId !== undefined && userId !== reviewViewerUserId) {
+      loadProductReviews(productId);
+    }
+    reviewViewerUserId = userId;
+  });
+
   // 뒤로가기 버튼은 component.js의 bindHeaderBackButton()이 공통으로 처리한다.
   // (여기서 별도로 또 바인딩하면 클릭 한 번에 history.back()이 두 번 호출되어
   //  히스토리가 2칸 뒤로 이동하면서 홈을 건너뛰는 문제가 있었다.)

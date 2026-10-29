@@ -315,7 +315,13 @@
       }, UNAUTHORIZED_REDIRECT_DELAY_MS);
       return;
     }
-    reportState.target = target;
+    // 신고 창을 연 계정. 창이 열린 사이 다른 탭에서 계정이 바뀌면 아래 account:ready에서 창을 닫는다.
+    // 최초 인증 확인 전에 열었다면(viewerVerified=false) 첫 확인 결과를 기준으로 삼는다.
+    reportState.target = {
+      ...target,
+      viewerUserId: window.accountGuard.currentUser()?.userId ?? null,
+      viewerVerified: !!window._authCheckSettled
+    };
     $('review-report-target').textContent = target.content || '';
     $('review-report-reason').value = '';
     $('review-report-error').textContent = '';
@@ -362,6 +368,23 @@
   $('review-report-cancel').addEventListener('click', closeReport);
   $('review-report-reason').addEventListener('input', updateReportState);
   $('review-report-submit').addEventListener('click', submitReport);
+  // 신고 창이 열린 사이 계정이 바뀌면(다른 탭 로그인·로그아웃 후 복귀) 창을 닫는다. 그대로 두면 새 계정
+  // 세션으로 신고가 나가, 새 계정이 자기 후기를 신고하게 될 수 있다. account:ready는 탭 복귀 때마다 같은
+  // 계정으로도 발생하므로 userId를 비교하고, 바뀐 경우에만 닫는다.
+  document.addEventListener('account:ready', (event) => {
+    const target = reportState.target;
+    if (!target || !$('review-report-modal').classList.contains('open')) return;
+    const userId = event.detail.user?.userId ?? null;
+    if (!target.viewerVerified) {
+      target.viewerUserId = userId;
+      target.viewerVerified = true;
+      return;
+    }
+    if (userId !== target.viewerUserId) {
+      closeReport(true);
+      toast('로그인 계정이 바뀌어 신고 창을 닫았어요.');
+    }
+  });
 
   window.openReviewEditor = openReviewEditor;
   window.openReviewReport = openReviewReport;
