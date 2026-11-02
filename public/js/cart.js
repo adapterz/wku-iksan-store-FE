@@ -138,6 +138,11 @@
     const selected = selectedItems();
     if (!selected.length || selected.some(item => !item.canOrder)) return;
     const cartItemIds = selected.map(item => item.cartItemId).join(',');
+    // 주문 시도 ID(이슈 #74). order.js가 이 값으로 "장바구니를 거쳐 들어왔는지"와 "결제 끝남"을
+    // 판단한다 — 결제 완료 후 뒤로가기 시 주문서를 다시 보여주지 않고 이 장바구니 기록으로 돌아온다.
+    try {
+      sessionStorage.setItem('orderEntryFlow', JSON.stringify({ flowId: crypto.randomUUID(), target: `cart:${cartItemIds}` }));
+    } catch (e) { /* 없으면 order.js가 직접 만든다(완료 후 cart.html로 교체 이동) */ }
     location.href = new URL(`order.html?cartItemIds=${cartItemIds}&type=${type}`, location.href).href;
   }
   $('btn-order-self').onclick = () => goToOrder('self');
