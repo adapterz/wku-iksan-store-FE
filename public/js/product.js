@@ -442,6 +442,25 @@ function createReviewCard(review) {
     editBtn.addEventListener('click', () => window.openReviewEditor({ reviewId: review.reviewId }));
     actions.appendChild(editBtn);
     card.appendChild(actions);
+  } else {
+    // 다른 사람이 쓴 후기에만 신고 버튼을 둔다. BE는 본인 후기 신고를 막지 않으므로 FE에서 isMine으로 거른다.
+    // 위치·스타일은 내 후기의 "수정 · 삭제"와 같게 맞춰 후기 읽기를 방해하지 않게 한다.
+    const actions = document.createElement('div');
+    actions.className = 'review-card-actions';
+    const reportBtn = document.createElement('button');
+    reportBtn.type = 'button';
+    reportBtn.className = 'review-card-report-btn';
+    reportBtn.textContent = '신고';
+    reportBtn.addEventListener('click', () => window.openReviewReport({
+      reviewId: review.reviewId,
+      content: review.content,
+      onReported: () => {
+        reportBtn.disabled = true;
+        reportBtn.textContent = '신고함';
+      }
+    }));
+    actions.appendChild(reportBtn);
+    card.appendChild(actions);
   }
 
   return card;
@@ -539,6 +558,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (String(e.detail.productId) === String(productId)) {
       loadProductReviews(productId);
     }
+  });
+
+  // 후기 응답의 isMine(내 후기면 "수정 · 삭제", 아니면 "신고")은 조회한 계정 기준이다. 다른 탭에서 계정을
+  // 바꾸고 새로고침 없이 돌아오면 이전 계정 기준 버튼이 남아, 새 계정이 자기 후기를 신고할 수 있었다
+  // (BE는 본인 후기 신고를 막지 않는다). 계정이 실제로 바뀐 경우에만 목록을 다시 받는다 — account:ready는
+  // 탭 복귀 때마다 같은 계정으로도 발생하므로 userId를 비교한다. 첫 이벤트는 기준값만 기록한다.
+  let reviewViewerUserId;
+  document.addEventListener('account:ready', (e) => {
+    const userId = e.detail.user?.userId ?? null;
+    if (reviewViewerUserId !== undefined && userId !== reviewViewerUserId) {
+      loadProductReviews(productId);
+    }
+    reviewViewerUserId = userId;
   });
 
   // 뒤로가기 버튼은 component.js의 bindHeaderBackButton()이 공통으로 처리한다.
