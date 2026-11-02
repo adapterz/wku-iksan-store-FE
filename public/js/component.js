@@ -1219,8 +1219,14 @@ async function performWishlistToggle(productId) {
     // 화면에서 클릭한 계정과 실제 서버 계정이 다르면 이번 클릭은 실행하지 않는다.
     try { await window.accountGuard.ensureAction(owner); }
     catch (error) {
-        alert(error.message || '로그인 상태를 확인하지 못했습니다. 다시 시도해주세요.');
-        if (error.status === 401) navigateToLogin(window.location.href);
+        if (error.status === 401) {
+            // 비로그인 클릭도 아래 요청 401과 같은 토스트·지연으로 안내한 뒤 로그인으로 이동한다.
+            showUnauthorizedToast('로그인이 필요한 서비스입니다.');
+            const redirectTarget = window.location.href;
+            setTimeout(() => navigateToLogin(redirectTarget), UNAUTHORIZED_REDIRECT_DELAY_MS);
+        } else {
+            alert(error.message || '로그인 상태를 확인하지 못했습니다. 다시 시도해주세요.');
+        }
         throw error;
     }
     // 초기 목록 조회가 진행 중이라면 완료를 기다려, 늦게 도착한 조회 결과가

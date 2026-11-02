@@ -28,7 +28,7 @@ function element() {
 }
 function page(extraRequest = async () => ({ data: [] })) {
   let userId = 1, authFailure = null, authWait = null;
-  const elements = new Map(), timers = [], alerts = [], redirects = [], calls = [], storage = new Map();
+  const elements = new Map(), timers = [], alerts = [], toasts = [], redirects = [], calls = [], storage = new Map();
   const document = Object.assign(target(), { body: null, visibilityState: 'visible',
     getElementById: id => elements.get(id) || null,
     querySelector: selector => selector === 'main' ? elements.get('main') : null,
@@ -49,6 +49,7 @@ function page(extraRequest = async () => ({ data: [] })) {
   // api.js의 navigateToLogin과 같은 동작(replace 이동). api.js를 실행하는 테스트에서는 실제 구현으로 덮인다.
   const navigateToLogin = redirect => window.location.replace(`/login${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`);
   const ctx = vm.createContext({ window, document, requestJson, navigateToLogin, location: window.location,
+    showUnauthorizedToast: message => toasts.push(message), UNAUTHORIZED_REDIRECT_DELAY_MS: 800,
     console: { error() {}, log() {} }, alert: message => alerts.push(message),
     CustomEvent: class { constructor(type, options = {}) { this.type = type; this.detail = options.detail; } },
     setTimeout: fn => { timers.push(fn); return timers.length; }, clearTimeout() {}, AbortController, URLSearchParams,
@@ -57,7 +58,7 @@ function page(extraRequest = async () => ({ data: [] })) {
   });
   const run = name => vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/js', name), 'utf8'), ctx);
   run('component.js');
-  return { ctx, window, document, elements, timers, alerts, redirects, calls, storage, run,
+  return { ctx, window, document, elements, timers, alerts, toasts, redirects, calls, storage, run,
     add(id) { const el = element(); elements.set(id, el); return el; },
     user(id) { userId = id; }, authError(error) { authFailure = error; }, authDeferred(d) { authWait = d; },
     guard: window.accountGuard
@@ -289,6 +290,15 @@ test('previous account 401 cannot redirect the current wishlist owner', async ()
   const loading = loader.load(null, { showSkeleton: false });
   p.user(2); await p.guard.refresh(); old.reject({ status: 401 }); await loading;
   assert.equal(p.redirects.length, 0);
+});
+
+test('anonymous wishlist toggle shows the login toast before redirecting with replace', async () => {
+  const p = page(); p.user(null); await p.guard.refresh();
+  await assert.rejects(p.window.toggleSavedProduct(10));
+  assert.deepEqual(p.toasts, ['로그인이 필요한 서비스입니다.']); assert.deepEqual(p.alerts, []);
+  assert.deepEqual(p.redirects, []); p.timers.at(-1)();
+  assert.deepEqual(p.redirects, [`/login?redirect=${encodeURIComponent(p.window.location.href)}`]);
+  assert.equal(p.calls.some(x => x.url.startsWith('/api/wishlists')), false);
 });
 
 test('normal wishlist toggle and gift acknowledgement still submit once', async () => {
