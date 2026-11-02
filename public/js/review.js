@@ -12,6 +12,7 @@
     // 실제 저장 시점에 BE가 이 코드로 막으므로, 여기서 안내 문구로 바꿔준다.
     SUSPENDED_FROM_REVIEWS: '정지된 계정은 후기를 작성·수정할 수 없어요.',
     REPORT_ALREADY_EXISTS: '이미 신고한 후기예요.',
+    CANNOT_REPORT_OWN_REVIEW: '본인이 작성한 후기는 신고할 수 없어요.',
     REPORT_REASON_TOO_LONG: '신고 사유는 500자 이내로 입력해주세요.',
     TOO_MANY_REQUESTS: '요청이 너무 많아요. 잠시 후 다시 시도해주세요.'
   };
