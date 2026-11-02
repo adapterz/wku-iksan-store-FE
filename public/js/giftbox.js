@@ -86,7 +86,7 @@ document.addEventListener("header:ready", async () => {
       if (error.status === 403) {
         guard.invalidate();
         alert("접근 권한이 없습니다.");
-        location.href = "login.html";
+        navigateToLogin();
         return;
       }
       console.error("선물함 조회 실패:", error);

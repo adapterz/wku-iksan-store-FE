@@ -9,7 +9,7 @@ const vm = require('node:vm');
 function page({ settled, loggedIn }) {
   const listeners = {}, toasts = [], timers = [];
   const store = loggedIn ? { isLoggedIn: 'true' } : {};
-  const location = { href: '' };
+  const location = { href: '', replaced: null, replace(url) { this.replaced = url; } };
   const win = { addEventListener() {}, showToast: message => toasts.push(message), location };
   if (settled) win._authCheckSettled = true;
   const ctx = {
@@ -25,6 +25,8 @@ function page({ settled, loggedIn }) {
     console: { error() {} },
     setTimeout: (fn, ms) => { timers.push({ fn, ms }); },
     UNAUTHORIZED_REDIRECT_DELAY_MS: 800,
+    // api.js의 navigateToLogin과 같은 동작(replace 이동)
+    navigateToLogin: redirect => location.replace(`/login${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`),
     requestJson: async () => ({ data: [] })
   };
   vm.createContext(ctx);
@@ -64,7 +66,8 @@ test('확인 완료 + 비로그인이면 토스트 후 로그인 페이지로 �
   assert.deepEqual(p.toasts, ['로그인이 필요한 서비스입니다.']);
   assert.equal(p.timers[0].ms, 800);
   p.timers[0].fn();
-  assert.equal(p.location.href, 'login.html?redirect=cart.html');
+  assert.equal(p.location.replaced, '/login?redirect=cart.html');
+  assert.equal(p.location.href, '');
 });
 
 test('확인 완료 + 로그인 상태면 가로채지 않는다', () => {
@@ -94,7 +97,8 @@ for (const kind of ['wishlist', 'giftbox']) {
     assert.equal(p.click({}, kind), true);
     assert.deepEqual(p.toasts, ['로그인이 필요한 페이지입니다.']);
     p.timers[0].fn();
-    assert.equal(p.location.href, `login.html?redirect=${kind}.html`);
+    assert.equal(p.location.replaced, `/login?redirect=${kind}.html`);
+    assert.equal(p.location.href, '');
   });
 
   test(`${kind}: 확인 완료 + 로그인 상태면 가로채지 않는다`, () => {

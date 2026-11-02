@@ -1219,8 +1219,14 @@ async function performWishlistToggle(productId) {
     // 화면에서 클릭한 계정과 실제 서버 계정이 다르면 이번 클릭은 실행하지 않는다.
     try { await window.accountGuard.ensureAction(owner); }
     catch (error) {
-        alert(error.message || '로그인 상태를 확인하지 못했습니다. 다시 시도해주세요.');
-        if (error.status === 401) window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
+        if (error.status === 401) {
+            // 비로그인 클릭도 아래 요청 401과 같은 토스트·지연으로 안내한 뒤 로그인으로 이동한다.
+            showUnauthorizedToast('로그인이 필요한 서비스입니다.');
+            const redirectTarget = window.location.href;
+            setTimeout(() => navigateToLogin(redirectTarget), UNAUTHORIZED_REDIRECT_DELAY_MS);
+        } else {
+            alert(error.message || '로그인 상태를 확인하지 못했습니다. 다시 시도해주세요.');
+        }
         throw error;
     }
     // 초기 목록 조회가 진행 중이라면 완료를 기다려, 늦게 도착한 조회 결과가
@@ -1234,6 +1240,8 @@ async function performWishlistToggle(productId) {
     try {
         if (isWished) {
             // 이미 찜한 상품이면 해제 요청
+            // silent401: 전역 401 처리는 예외 없이 undefined를 반환해 찜 성공으로 오인되므로,
+            // 아래 catch에서 직접 로그인 이동을 처리한다.
             await requestJson(`/api/wishlists/${productId}`, { method: 'DELETE', silent401: true });
             if (!window.accountGuard.isCurrent(owner)) throw Object.assign(new Error('로그인 상태가 변경됐습니다.'), { code: 'STALE_ACCOUNT' });
             // 다른 상품 요청이 먼저 완료했을 수 있으므로 최신 캐시에 이번 변경만 반영한다.
@@ -1255,11 +1263,10 @@ async function performWishlistToggle(productId) {
         if (!window.accountGuard.isCurrent(owner)) throw error;
         if (error.status === 401 || error.code === 'UNAUTHORIZED') {
             window.accountGuard.invalidate();
-            // 인증 안됨 에러 처리 — alert 대신 다른 로그인 필요 안내와 동일하게 토스트 후 이동한다.
-            window.showToast('로그인이 필요한 페이지입니다.');
-            setTimeout(() => {
-                window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
-            }, UNAUTHORIZED_REDIRECT_DELAY_MS);
+            // api.js 전역 401 처리와 같은 토스트·지연으로 안내한 뒤 로그인으로 이동한다.
+            showUnauthorizedToast('로그인이 필요한 서비스입니다.');
+            const redirectTarget = window.location.href;
+            setTimeout(() => navigateToLogin(redirectTarget), UNAUTHORIZED_REDIRECT_DELAY_MS);
             throw error;
         }
         console.error('찜 토글 에러:', error.status, error.code, error);
@@ -1465,9 +1472,7 @@ document.addEventListener('click', event => {
 
     event.preventDefault();
     window.showToast('로그인이 필요한 서비스입니다.');
-    setTimeout(() => {
-        window.location.href = `login.html?redirect=${encodeURIComponent('cart.html')}`;
-    }, UNAUTHORIZED_REDIRECT_DELAY_MS);
+    setTimeout(() => navigateToLogin('cart.html'), UNAUTHORIZED_REDIRECT_DELAY_MS);
 });
 
 // 하단 네비게이션의 찜(위시리스트) 탭과 헤더의 선물함 아이콘도 위 장바구니 아이콘과 같은 방식으로,
@@ -1481,9 +1486,7 @@ document.addEventListener('click', event => {
 
     event.preventDefault();
     window.showToast('로그인이 필요한 페이지입니다.');
-    setTimeout(() => {
-        window.location.href = `login.html?redirect=${encodeURIComponent(link.getAttribute('href'))}`;
-    }, UNAUTHORIZED_REDIRECT_DELAY_MS);
+    setTimeout(() => navigateToLogin(link.getAttribute('href')), UNAUTHORIZED_REDIRECT_DELAY_MS);
 });
 
 // 정보 아이콘 옆 안내 툴팁을 여닫는 공용 유틸리티.

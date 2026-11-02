@@ -51,7 +51,7 @@ document.addEventListener("header:ready", async () => {
         window.location.replace(`login.html?redirect=${encodeURIComponent(window.location.href)}`);
       } else if (error.status === 403) {
         alert("접근 권한이 없습니다.");
-        location.href = "login.html";
+        navigateToLogin();
       } else {
         alert("주문 정보를 불러올 수 없습니다.");
         location.href = "index.html";
