@@ -131,6 +131,10 @@ function getSearchOverlayHTML() {
             <button type="button" class="btn-clear-recent-searches">전체삭제</button>
         </div>
         <div class="recent-keywords-list"></div>
+        <div class="popular-keywords-header">
+            <h4 class="popular-keywords-title">인기 검색어</h4>
+        </div>
+        <div class="popular-keywords-list"></div>
     </div>
 </div>`;
 }
@@ -427,6 +431,24 @@ function removeRecentSearch(keyword) {
 
 function clearRecentSearches() {
     saveRecentSearches([]);
+}
+
+// ===== 인기 검색어 (GET /api/products/popular-keywords) =====
+// BE가 이미 서버 쪽에서 캐시(TTL)해 집계하므로, FE는 페이지 생애주기 동안만 중복 요청을 막는다.
+// 성공 응답만 캐시하고 실패(엔드포인트 미배포, 네트워크 오류 등)는 캐시하지 않아 다음 오버레이
+// 오픈 때 다시 시도한다.
+let popularKeywordsCache = null;
+
+async function loadPopularKeywords() {
+    if (popularKeywordsCache) return popularKeywordsCache;
+    try {
+        const result = await requestJson('/api/products/popular-keywords');
+        popularKeywordsCache = Array.isArray(result?.data) ? result.data : [];
+    } catch (error) {
+        console.warn('인기 검색어 조회 실패:', error);
+        return [];
+    }
+    return popularKeywordsCache;
 }
 
 // 검색어를 받아 검색 결과 페이지로 이동하는 공통 유틸리티 (빈 값은 무시)
@@ -962,6 +984,39 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 인기 검색어 렌더링 (오버레이를 열 때마다 호출하지만, loadPopularKeywords가 페이지당 한 번만 요청한다)
+    async function renderPopularKeywords() {
+        if (!searchOverlay) return;
+        const popularList = searchOverlay.querySelector('.popular-keywords-list');
+        if (!popularList) return;
+
+        const keywords = await loadPopularKeywords();
+        popularList.innerHTML = '';
+
+        // 최근 검색어와 달리 제목은 항상 노출하고(사용자 데이터가 아니라 고정 섹션 타이틀), 데이터가
+        // 없을 때는(집계 결과 없음, API 미배포 등) 목록만 비워둔다.
+        if (keywords.length === 0) return;
+
+        keywords.forEach(({ rank, keyword }) => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'popular-keyword-item';
+
+            const rankEl = document.createElement('span');
+            rankEl.className = 'popular-keyword-rank';
+            rankEl.textContent = rank;
+
+            const textEl = document.createElement('span');
+            textEl.className = 'popular-keyword-text';
+            textEl.textContent = keyword;
+
+            item.appendChild(rankEl);
+            item.appendChild(textEl);
+            item.addEventListener('click', () => navigateToSearch(keyword));
+            popularList.appendChild(item);
+        });
+    }
+
     if (searchOverlay) {
         const searchInput = searchOverlay.querySelector('.search-overlay-input');
         const searchIcon = searchOverlay.querySelector('.search-overlay-input-icon');
@@ -982,6 +1037,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 searchOverlay.classList.add('open');
                 renderRecentSearches();
+                renderPopularKeywords();
                 if (searchInput) {
                     setTimeout(() => searchInput.focus(), 50);
                 }
@@ -1037,6 +1093,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (searchOverlay) {
                 searchOverlay.classList.add('open');
                 renderRecentSearches();
+                renderPopularKeywords();
                 const searchInput = searchOverlay.querySelector('.search-overlay-input');
                 if (searchInput) {
                     setTimeout(() => searchInput.focus(), 50);
