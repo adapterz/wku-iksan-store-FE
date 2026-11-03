@@ -131,6 +131,10 @@ function getSearchOverlayHTML() {
             <button type="button" class="btn-clear-recent-searches">전체삭제</button>
         </div>
         <div class="recent-keywords-list"></div>
+        <div class="popular-keywords-header">
+            <h4 class="popular-keywords-title">인기 검색어</h4>
+        </div>
+        <div class="popular-keywords-list"></div>
     </div>
 </div>`;
 }
@@ -427,6 +431,32 @@ function removeRecentSearch(keyword) {
 
 function clearRecentSearches() {
     saveRecentSearches([]);
+}
+
+// ===== 인기 검색어 (GET /api/products/popular-keywords) =====
+// BE가 이미 서버 쪽에서 캐시(TTL)해 집계하므로, FE는 페이지 생애주기 동안만 중복 요청을 막는다.
+// 성공 응답(빈 배열 포함)만 캐시하고 실패(엔드포인트 미배포, 네트워크 오류 등)는 캐시하지 않아
+// 다음 오버레이 오픈 때 다시 시도한다. 응답이 오기 전에 오버레이를 다시 열어 동시에 호출돼도
+// 진행 중인 요청을 공유해서 한 번만 나가도록 한다(아래 loadBannerProducts의 productListPromise와
+// 같은 패턴). 반환값이 null이면 조회 실패, 빈 배열이면 집계 결과가 실제로 없다는 뜻이라 호출부가
+// 둘을 구분해서 보여줄 수 있다.
+let popularKeywordsCache = null;
+let popularKeywordsPromise = null;
+
+async function loadPopularKeywords() {
+    if (popularKeywordsCache) return popularKeywordsCache;
+    if (!popularKeywordsPromise) {
+        popularKeywordsPromise = (async () => {
+            try {
+                const result = await requestJson('/api/products/popular-keywords');
+                popularKeywordsCache = Array.isArray(result?.data) ? result.data : [];
+            } catch (error) {
+                console.warn('인기 검색어 조회 실패:', error);
+            }
+        })().finally(() => { popularKeywordsPromise = null; });
+    }
+    await popularKeywordsPromise;
+    return popularKeywordsCache;
 }
 
 // 검색어를 받아 검색 결과 페이지로 이동하는 공통 유틸리티 (빈 값은 무시)
@@ -962,6 +992,44 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 인기 검색어 렌더링 (오버레이를 열 때마다 호출하지만, loadPopularKeywords가 페이지당 한 번만 요청한다)
+    async function renderPopularKeywords() {
+        if (!searchOverlay) return;
+        const popularList = searchOverlay.querySelector('.popular-keywords-list');
+        if (!popularList) return;
+
+        const keywords = await loadPopularKeywords();
+        popularList.innerHTML = '';
+
+        // 최근 검색어와 달리 제목은 항상 노출한다(사용자 데이터가 아니라 고정 섹션 타이틀).
+        // 조회 실패(null)는 지금처럼 조용히 비워 두고, 집계 결과가 실제로 없을 때(빈 배열)만
+        // 안내 문구를 보여줘서 두 상황을 구분한다.
+        if (keywords === null) return;
+        if (keywords.length === 0) {
+            popularList.innerHTML = '<p class="recent-searches-empty">아직 인기 검색어가 없어요.</p>';
+            return;
+        }
+
+        keywords.forEach(({ rank, keyword }) => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'popular-keyword-item';
+
+            const rankEl = document.createElement('span');
+            rankEl.className = 'popular-keyword-rank';
+            rankEl.textContent = rank;
+
+            const textEl = document.createElement('span');
+            textEl.className = 'popular-keyword-text';
+            textEl.textContent = keyword;
+
+            item.appendChild(rankEl);
+            item.appendChild(textEl);
+            item.addEventListener('click', () => navigateToSearch(keyword));
+            popularList.appendChild(item);
+        });
+    }
+
     if (searchOverlay) {
         const searchInput = searchOverlay.querySelector('.search-overlay-input');
         const searchIcon = searchOverlay.querySelector('.search-overlay-input-icon');
@@ -982,6 +1050,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 searchOverlay.classList.add('open');
                 renderRecentSearches();
+                renderPopularKeywords();
                 if (searchInput) {
                     setTimeout(() => searchInput.focus(), 50);
                 }
@@ -1037,6 +1106,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (searchOverlay) {
                 searchOverlay.classList.add('open');
                 renderRecentSearches();
+                renderPopularKeywords();
                 const searchInput = searchOverlay.querySelector('.search-overlay-input');
                 if (searchInput) {
                     setTimeout(() => searchInput.focus(), 50);
