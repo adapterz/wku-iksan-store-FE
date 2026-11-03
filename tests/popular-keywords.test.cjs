@@ -48,10 +48,11 @@ test('loadPopularKeywords tolerates a malformed response (missing data field)', 
   assert.equal((await p.context.loadPopularKeywords()).length, 0);
 });
 
-test('loadPopularKeywords swallows request failures and retries on the next call', async () => {
+test('loadPopularKeywords returns null (not an empty array) on request failure, and retries on the next call', async () => {
+  // null은 "조회 실패", []는 "집계 결과 없음"으로 호출부가 구분해야 하므로 둘을 섞으면 안 된다.
   const p = page({ throwError: true });
-  assert.equal((await p.context.loadPopularKeywords()).length, 0);
-  assert.equal((await p.context.loadPopularKeywords()).length, 0);
+  assert.equal(await p.context.loadPopularKeywords(), null);
+  assert.equal(await p.context.loadPopularKeywords(), null);
   // 실패 응답은 캐시하지 않으므로 다음 호출에서 다시 요청한다.
   assert.equal(p.calls.length, 2);
 });
