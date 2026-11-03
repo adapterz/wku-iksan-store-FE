@@ -436,19 +436,25 @@ function clearRecentSearches() {
 // ===== 인기 검색어 (GET /api/products/popular-keywords) =====
 // BE가 이미 서버 쪽에서 캐시(TTL)해 집계하므로, FE는 페이지 생애주기 동안만 중복 요청을 막는다.
 // 성공 응답만 캐시하고 실패(엔드포인트 미배포, 네트워크 오류 등)는 캐시하지 않아 다음 오버레이
-// 오픈 때 다시 시도한다.
+// 오픈 때 다시 시도한다. 응답이 오기 전에 오버레이를 다시 열어 동시에 호출돼도 진행 중인 요청을
+// 공유해서 한 번만 나가도록 한다(아래 loadBannerProducts의 productListPromise와 같은 패턴).
 let popularKeywordsCache = null;
+let popularKeywordsPromise = null;
 
 async function loadPopularKeywords() {
     if (popularKeywordsCache) return popularKeywordsCache;
-    try {
-        const result = await requestJson('/api/products/popular-keywords');
-        popularKeywordsCache = Array.isArray(result?.data) ? result.data : [];
-    } catch (error) {
-        console.warn('인기 검색어 조회 실패:', error);
-        return [];
+    if (!popularKeywordsPromise) {
+        popularKeywordsPromise = (async () => {
+            try {
+                const result = await requestJson('/api/products/popular-keywords');
+                popularKeywordsCache = Array.isArray(result?.data) ? result.data : [];
+            } catch (error) {
+                console.warn('인기 검색어 조회 실패:', error);
+            }
+        })().finally(() => { popularKeywordsPromise = null; });
     }
-    return popularKeywordsCache;
+    await popularKeywordsPromise;
+    return popularKeywordsCache || [];
 }
 
 // 검색어를 받아 검색 결과 페이지로 이동하는 공통 유틸리티 (빈 값은 무시)

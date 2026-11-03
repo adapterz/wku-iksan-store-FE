@@ -55,3 +55,17 @@ test('loadPopularKeywords swallows request failures and retries on the next call
   // 실패 응답은 캐시하지 않으므로 다음 호출에서 다시 요청한다.
   assert.equal(p.calls.length, 2);
 });
+
+test('loadPopularKeywords started twice before the first resolves shares one request', async () => {
+  // 응답이 오기 전에 오버레이를 닫았다 다시 열어 동시에 호출되는 상황을 재현한다.
+  const data = [{ rank: 1, keyword: '나이키' }];
+  const p = page({ response: { data, meta: { computedAt: '2026-11-02T00:00:00.000Z' } } });
+
+  const [first, second] = await Promise.all([
+    p.context.loadPopularKeywords(),
+    p.context.loadPopularKeywords(),
+  ]);
+  assert.deepEqual(first, data);
+  assert.deepEqual(second, data);
+  assert.equal(p.calls.length, 1);
+});
