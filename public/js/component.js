@@ -349,7 +349,7 @@ async function checkSanctionWarning() {
         if (!sanctionIds.length) return;
 
         sanctionToastInterrupted = false;
-        window.showToast('계정에 경고가 등록되었어요. 마이페이지의 패널티 정책을 확인해주세요.', SANCTION_WARNING_TOAST_MS);
+        window.showToast('경고가 등록되었어요. 패널티 정책을 확인해주세요.', SANCTION_WARNING_TOAST_MS);
         await new Promise(resolve => setTimeout(resolve, SANCTION_WARNING_TOAST_MS));
         // 표시 중 한 번이라도 탭을 벗어났거나(그 사이 돌아왔어도) 계정이 바뀌었으면 끝까지 봤다고 볼 수
         // 없으므로 확인 처리하지 않는다. 미확인으로 남아 다시 안내된다.
