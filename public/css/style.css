@@ -3983,6 +3983,105 @@ body.page-complete {
     margin-top: 10px;
 }
 
+/* 패널티 정책 화면의 내 경고·제재 내역 */
+.my-sanctions {
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* 불러오는 중·내역 없음·조회 실패 안내 */
+.policy-container .my-sanctions-message {
+    margin-top: 10px;
+    padding: 16px 12px;
+    background-color: #F5F5F5;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--text-sub);
+    text-align: center;
+}
+
+.my-sanctions-message[hidden],
+.my-sanctions-retry[hidden] {
+    display: none;
+}
+
+.my-sanctions-list {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.my-sanctions-item {
+    padding: 12px;
+    background-color: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+.my-sanctions-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.my-sanctions-badge {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.my-sanctions-badge.warning {
+    background-color: #FFF4D6;
+    color: #8A6100;
+}
+
+.my-sanctions-badge.suspension {
+    background-color: #FDECEA;
+    color: #B64535;
+}
+
+.my-sanctions-badge.ended {
+    background-color: #EEEEEE;
+    color: var(--text-sub);
+}
+
+.my-sanctions-date {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.policy-container .my-sanctions-reason {
+    margin-top: 8px;
+    font-size: 13px;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.policy-container .my-sanctions-period {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.my-sanctions-retry {
+    display: block;
+    margin: 10px auto 0;
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background-color: #FFFFFF;
+    color: var(--text-sub);
+    font-size: 12px;
+    font-weight: 600;
+}
+
 .policy-container table {
     width: 100%;
     border-collapse: collapse;
