@@ -168,6 +168,12 @@
             <div style="font-size: 16px; font-weight: 700; flex: 1; padding-left: 10px;">패널티 정책</div>
         </div>
         <div class="search-overlay-body policy-container">
+            <section class="my-sanctions" aria-labelledby="my-sanctions-title">
+                <h2 id="my-sanctions-title">내 경고·제재 내역</h2>
+                <p class="my-sanctions-message" id="my-sanctions-message" role="status"></p>
+                <ul class="my-sanctions-list" id="my-sanctions-list"></ul>
+                <button type="button" class="my-sanctions-retry" id="my-sanctions-retry" hidden>다시 시도</button>
+            </section>
             <h2>패널티 정책</h2>
             <p><strong>시행일자: 2026. 1. 1.</strong></p>
             <p>회사는 건전한 거래 질서 유지와 이용자 보호를 위해 다음과 같은 패널티 정책을 운영합니다.</p>
@@ -276,6 +282,7 @@
     <script src="js/api.js"></script>
     <script src="js/component.js" defer></script>
     <script src="js/mypage.js" defer></script>
+    <script src="js/my-sanctions.js" defer></script>
 </body>
 </html>
 
