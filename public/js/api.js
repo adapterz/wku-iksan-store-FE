@@ -25,8 +25,9 @@ function showToast(message, duration = 800) {
     toastEl.setAttribute('role', 'alert');
     toastEl.setAttribute('aria-live', 'assertive');
     toastEl.style.cssText = [
+      // left:50%면 쓸 수 있는 폭이 화면 절반으로 줄어 긴 문구가 여러 줄로 좁아지므로 내용 폭을 직접 지정한다.
       'position:fixed', 'left:50%', 'bottom:32px', 'transform:translateX(-50%)',
-      'max-width:calc(100vw - 32px)', 'padding:12px 20px', 'border-radius:8px',
+      'width:max-content', 'max-width:calc(100vw - 32px)', 'padding:12px 20px', 'border-radius:8px',
       'background:rgba(0,0,0,0.85)', 'color:#fff', 'font-size:14px', 'line-height:1.5',
       'text-align:center', 'word-break:keep-all', 'z-index:9999',
       'opacity:0', 'transition:opacity 0.2s ease', 'pointer-events:none'
