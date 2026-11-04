@@ -12,10 +12,11 @@ const flush = async () => { for (let i = 0; i < 15; i++) await Promise.resolve()
 function page({ sanctionIds = [], notify = async () => ({ data: {} }) } = {}) {
   const listeners = {}, toasts = [], timers = [], calls = [];
   const state = { userId: 1, generation: 0, sanctionIds };
+  const toastEl = { textContent: '' };
   const document = {
     body: null, visibilityState: 'visible',
     addEventListener: (type, fn) => { (listeners[type] = listeners[type] || []).push(fn); },
-    getElementById: () => null, querySelector: () => null, querySelectorAll: () => []
+    getElementById: id => (id === 'global-toast' ? toastEl : null), querySelector: () => null, querySelectorAll: () => []
   };
   const requestJson = async (url, options = {}) => {
     calls.push({ url, options });
@@ -24,7 +25,7 @@ function page({ sanctionIds = [], notify = async () => ({ data: {} }) } = {}) {
     return { data: [] };
   };
   const window = { addEventListener() {}, location: { pathname: '/', search: '', href: '' },
-    showToast: (message, duration) => toasts.push({ message, duration }) };
+    showToast: (message, duration) => { toastEl.textContent = message; toasts.push({ message, duration }); } };
   const ctx = vm.createContext({ window, document, requestJson, location: window.location, console: { error() {} },
     setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; }, clearTimeout() {},
     CustomEvent: class { constructor(type, options = {}) { this.type = type; this.detail = options.detail; } },
@@ -48,14 +49,14 @@ function page({ sanctionIds = [], notify = async () => ({ data: {} }) } = {}) {
   const finishToast = async () => { timers.splice(0).forEach(timer => timer.fn()); await flush(); };
   const notifyCalls = () => calls.filter(call => call.url === NOTIFY);
   const lookups = () => calls.filter(call => call.url === UNNOTIFIED);
-  return { document, state, toasts, timers, calls, ready, finishToast, setVisibility, notifyCalls, lookups };
+  return { document, state, toasts, timers, calls, toastEl, ready, finishToast, setVisibility, notifyCalls, lookups };
 }
 
 test('미안내 경고가 있으면 3~4초 토스트를 띄우고 표시가 끝난 뒤 그 ID로 확인 처리한다', async () => {
   const p = page({ sanctionIds: [11, 12] });
   await p.ready();
   assert.equal(p.toasts.length, 1);
-  assert.match(p.toasts[0].message, /경고/);
+  assert.match(p.toasts[0].message, /경고.*마이페이지.*패널티 정책/);
   assert.ok(p.toasts[0].duration >= 3000 && p.toasts[0].duration <= 4000);
   assert.equal(p.timers[0].ms, p.toasts[0].duration);
   // 표시 시간이 끝나기 전에는 확인 처리하지 않는다(그 전에 떠나면 다음 화면에서 다시 안내).
@@ -192,6 +193,18 @@ test('확인 처리가 실패해도 같은 화면에서 탭을 오갈 때 다시
   assert.equal(p.notifyCalls().length, 1);
   await p.ready();
   assert.equal(p.toasts.length, 1);
+});
+
+test('표시 중 다른 토스트가 덮어쓰면 확인 처리하지 않아 다시 안내할 수 있다', async () => {
+  const p = page({ sanctionIds: [11] });
+  await p.ready();
+  p.toastEl.textContent = '장바구니에 담았습니다.';
+  await p.finishToast();
+  assert.equal(p.notifyCalls().length, 0);
+  await p.ready();
+  assert.equal(p.toasts.length, 2);
+  await p.finishToast();
+  assert.equal(p.notifyCalls().length, 1);
 });
 
 test('이후 새로 받은 경고는 같은 화면에서도 안내한다', async () => {
