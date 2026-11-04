@@ -317,6 +317,62 @@ document.addEventListener('account:ready', (e) => {
     if (e.detail.user) checkGiftArrival();
 });
 
+// 경고를 받은 사용자에게 토스트로 1회 안내한다(FE #97, BE #146). 확인 처리는 토스트가 표시 시간을
+// 다 채운 뒤에 보낸다 — 바로 보내면 토스트를 보기 전에 화면을 떠난 사용자는 다시 안내받지 못한다.
+// 숨겨진 탭은 토스트를 볼 수 없으므로 건너뛰고, 탭으로 돌아올 때 발생하는 account:ready에서 안내한다.
+const SANCTION_WARNING_TOAST_MS = 3500;
+const announcedSanctionIds = new Set();
+let sanctionWarningRunning = false;
+let sanctionWarningRecheck = false;
+let sanctionToastInterrupted = false;
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') sanctionToastInterrupted = true;
+});
+
+async function checkSanctionWarning() {
+    // account:ready는 탭 복귀·계정 변경 때 발생한다. 조회·표시 중이면 겹쳐 시작하지 않고, 끝난 뒤
+    // 현재 계정 기준으로 한 번 더 확인한다. 그래야 진행 중인 안내가 중단된 경우에도 놓치지 않는다.
+    if (sanctionWarningRunning) {
+        sanctionWarningRecheck = true;
+        return;
+    }
+    sanctionWarningRunning = true;
+    sanctionWarningRecheck = false;
+    const owner = window.accountGuard.snapshot();
+    try {
+        const result = await requestJson('/api/users/me/sanctions/unnotified', { silent401: true });
+        if (!window.accountGuard.isCurrent(owner) || document.visibilityState === 'hidden') return;
+        // 확인 처리에 실패해도 이 화면에서 탭을 오갈 때마다 다시 뜨지 않게 이미 안내한 ID는 제외한다.
+        // 서버에는 미확인으로 남으므로 다음 화면에서 다시 안내된다.
+        const sanctionIds = (result?.data?.sanctionIds || []).filter(id => !announcedSanctionIds.has(id));
+        if (!sanctionIds.length) return;
+
+        sanctionToastInterrupted = false;
+        window.showToast('경고가 등록되었어요. 패널티 정책을 확인해주세요.', SANCTION_WARNING_TOAST_MS);
+        await new Promise(resolve => setTimeout(resolve, SANCTION_WARNING_TOAST_MS));
+        // 표시 중 한 번이라도 탭을 벗어났거나(그 사이 돌아왔어도) 계정이 바뀌었으면 끝까지 봤다고 볼 수
+        // 없으므로 확인 처리하지 않는다. 미확인으로 남아 다시 안내된다.
+        if (sanctionToastInterrupted || (window.accountGuard.currentUser()?.userId ?? null) !== owner.userId) return;
+
+        sanctionIds.forEach(id => announcedSanctionIds.add(id));
+        await requestJson('/api/users/me/sanctions/notify', {
+            method: 'PATCH',
+            body: { sanctionIds },
+            silent401: true
+        });
+    } catch (error) {
+        console.error('경고 안내 처리 실패:', error);
+    } finally {
+        sanctionWarningRunning = false;
+        if (sanctionWarningRecheck && window.accountGuard.currentUser()) checkSanctionWarning();
+    }
+}
+
+document.addEventListener('account:ready', (e) => {
+    if (e.detail.user) checkSanctionWarning();
+});
+
 // 확인 처리 API 호출. pendingGiftArrivalIds(모달에 실제로 안내됐던 ID)만 넘긴다.
 // 반환값을 boolean이 아니라 3가지 상태로 구분한다(PR #75 리뷰 반영).
 // - 'success': 실제로 서버에 반영됨

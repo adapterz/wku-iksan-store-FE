@@ -311,9 +311,7 @@
     // 있으므로, 서버 확인 결과(accountGuard)로 판단한다.
     if (window._authCheckSettled && !window.accountGuard.currentUser()) {
       window.showToast('로그인이 필요한 서비스입니다.');
-      setTimeout(() => {
-        window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`;
-      }, UNAUTHORIZED_REDIRECT_DELAY_MS);
+      setTimeout(() => navigateToLogin(window.location.href), UNAUTHORIZED_REDIRECT_DELAY_MS);
       return;
     }
     // 신고 창을 연 계정. 창이 열린 사이 다른 탭에서 계정이 바뀌면 아래 account:ready에서 창을 닫는다.
