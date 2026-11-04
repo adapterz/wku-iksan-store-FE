@@ -40,11 +40,15 @@ function page({ sanctionIds = [], notify = async () => ({ data: {} }) } = {}) {
     (listeners['account:ready'] || []).forEach(fn => fn({ detail: { user } }));
     await flush();
   };
+  const setVisibility = value => {
+    document.visibilityState = value;
+    (listeners.visibilitychange || []).forEach(fn => fn());
+  };
   // 토스트 표시 시간이 끝나는 시점을 흉내낸다.
   const finishToast = async () => { timers.splice(0).forEach(timer => timer.fn()); await flush(); };
   const notifyCalls = () => calls.filter(call => call.url === NOTIFY);
   const lookups = () => calls.filter(call => call.url === UNNOTIFIED);
-  return { document, state, toasts, timers, calls, ready, finishToast, notifyCalls, lookups };
+  return { document, state, toasts, timers, calls, ready, finishToast, setVisibility, notifyCalls, lookups };
 }
 
 test('미안내 경고가 있으면 3~4초 토스트를 띄우고 표시가 끝난 뒤 그 ID로 확인 처리한다', async () => {
@@ -86,11 +90,11 @@ test('토스트 표시 중 account:ready가 다시 발생해도 중복으로 안
 
 test('숨겨진 탭에서는 안내하지 않고, 탭으로 돌아오면 안내한다', async () => {
   const p = page({ sanctionIds: [11] });
-  p.document.visibilityState = 'hidden';
+  p.setVisibility('hidden');
   await p.ready();
   assert.equal(p.toasts.length, 0);
   assert.equal(p.notifyCalls().length, 0);
-  p.document.visibilityState = 'visible';
+  p.setVisibility('visible');
   await p.ready();
   assert.equal(p.toasts.length, 1);
 });
@@ -98,12 +102,71 @@ test('숨겨진 탭에서는 안내하지 않고, 탭으로 돌아오면 안내�
 test('토스트 표시 중 탭을 벗어나면 확인 처리하지 않아 다시 안내할 수 있다', async () => {
   const p = page({ sanctionIds: [11] });
   await p.ready();
-  p.document.visibilityState = 'hidden';
+  p.setVisibility('hidden');
   await p.finishToast();
   assert.equal(p.notifyCalls().length, 0);
-  p.document.visibilityState = 'visible';
+  p.setVisibility('visible');
   await p.ready();
   assert.equal(p.toasts.length, 2);
+});
+
+test('토스트 표시 중 탭을 벗어났다가 끝나기 전에 돌아오면 다시 안내한 뒤 확인 처리한다', async () => {
+  const p = page({ sanctionIds: [11] });
+  await p.ready();
+  p.setVisibility('hidden');
+  p.setVisibility('visible');
+  await p.ready(); // 탭 복귀로 발생하는 account:ready
+  await p.finishToast();
+  assert.equal(p.notifyCalls().length, 0);
+  assert.equal(p.toasts.length, 2);
+  await p.finishToast();
+  assert.equal(p.notifyCalls().length, 1);
+  assert.equal(p.toasts.length, 2);
+});
+
+test('조회 중 탭으로 돌아와도 이어서 다시 조회해 안내한다', async () => {
+  const p = page({ sanctionIds: [11] });
+  const first = p.ready();
+  p.state.generation = 1; // 탭 복귀로 이전 조회가 무효화됨
+  await p.ready();
+  await first;
+  assert.equal(p.lookups().length, 2);
+  assert.equal(p.toasts.length, 1);
+});
+
+test('토스트 표시 중 계정이 바뀌면 끝난 뒤 새 계정의 경고를 안내한다', async () => {
+  const p = page({ sanctionIds: [11] });
+  await p.ready();
+  p.state.userId = 2;
+  p.state.sanctionIds = [21];
+  await p.ready({ userId: 2 });
+  await p.finishToast();
+  assert.equal(p.notifyCalls().length, 0); // 이전 계정의 경고는 확인 처리하지 않음
+  assert.equal(p.lookups().length, 2);
+  assert.equal(p.toasts.length, 2);
+  await p.finishToast();
+  assert.deepEqual([...p.notifyCalls()[0].options.body.sanctionIds], [21]);
+});
+
+test('토스트 표시 중 로그아웃되면 다시 조회하지 않는다', async () => {
+  const p = page({ sanctionIds: [11] });
+  await p.ready();
+  await p.ready(); // 재확인 예약 상태에서 로그아웃
+  p.state.userId = null;
+  await p.ready(null);
+  await p.finishToast();
+  assert.equal(p.lookups().length, 1);
+  assert.equal(p.notifyCalls().length, 0);
+});
+
+test('같은 계정으로 표시 중 탭 복귀 없이 재확인되면 중복 안내 없이 끝난다', async () => {
+  const p = page({ sanctionIds: [11] });
+  await p.ready();
+  await p.ready();
+  await p.finishToast();
+  assert.equal(p.notifyCalls().length, 1);
+  assert.equal(p.toasts.length, 1);
+  assert.equal(p.timers.length, 0);
 });
 
 test('토스트 표시 중 계정이 바뀌면 이전 계정의 경고를 확인 처리하지 않는다', async () => {

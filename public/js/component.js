@@ -323,14 +323,23 @@ document.addEventListener('account:ready', (e) => {
 const SANCTION_WARNING_TOAST_MS = 3500;
 const announcedSanctionIds = new Set();
 let sanctionWarningRunning = false;
+let sanctionWarningRecheck = false;
+let sanctionToastInterrupted = false;
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') sanctionToastInterrupted = true;
+});
 
 async function checkSanctionWarning() {
-    // account:ready는 탭 복귀 때마다 발생하므로, 조회·표시 중이면 다시 시작하지 않는다.
-    if (sanctionWarningRunning) return;
+    // account:ready는 탭 복귀·계정 변경 때 발생한다. 조회·표시 중이면 겹쳐 시작하지 않고, 끝난 뒤
+    // 현재 계정 기준으로 한 번 더 확인한다. 그래야 진행 중인 안내가 중단된 경우에도 놓치지 않는다.
+    if (sanctionWarningRunning) {
+        sanctionWarningRecheck = true;
+        return;
+    }
     sanctionWarningRunning = true;
+    sanctionWarningRecheck = false;
     const owner = window.accountGuard.snapshot();
-    const isSameViewer = () => document.visibilityState !== 'hidden'
-        && (window.accountGuard.currentUser()?.userId ?? null) === owner.userId;
     try {
         const result = await requestJson('/api/users/me/sanctions/unnotified', { silent401: true });
         if (!window.accountGuard.isCurrent(owner) || document.visibilityState === 'hidden') return;
@@ -339,10 +348,12 @@ async function checkSanctionWarning() {
         const sanctionIds = (result?.data?.sanctionIds || []).filter(id => !announcedSanctionIds.has(id));
         if (!sanctionIds.length) return;
 
+        sanctionToastInterrupted = false;
         window.showToast('계정에 경고가 등록되었어요. 마이페이지의 패널티 정책을 확인해주세요.', SANCTION_WARNING_TOAST_MS);
         await new Promise(resolve => setTimeout(resolve, SANCTION_WARNING_TOAST_MS));
-        // 표시 중 탭을 벗어났거나 계정이 바뀌었으면 확인 처리하지 않아 다음에 다시 안내한다.
-        if (!isSameViewer()) return;
+        // 표시 중 한 번이라도 탭을 벗어났거나(그 사이 돌아왔어도) 계정이 바뀌었으면 끝까지 봤다고 볼 수
+        // 없으므로 확인 처리하지 않는다. 미확인으로 남아 다시 안내된다.
+        if (sanctionToastInterrupted || (window.accountGuard.currentUser()?.userId ?? null) !== owner.userId) return;
 
         sanctionIds.forEach(id => announcedSanctionIds.add(id));
         await requestJson('/api/users/me/sanctions/notify', {
@@ -354,6 +365,7 @@ async function checkSanctionWarning() {
         console.error('경고 안내 처리 실패:', error);
     } finally {
         sanctionWarningRunning = false;
+        if (sanctionWarningRecheck && window.accountGuard.currentUser()) checkSanctionWarning();
     }
 }
 
