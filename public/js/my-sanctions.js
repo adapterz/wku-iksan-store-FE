@@ -13,51 +13,57 @@ document.addEventListener('DOMContentLoaded', () => {
   let shownUserId; // 지금 화면의 내역을 조회한 계정. 아직 조회한 적 없으면 undefined.
 
   const currentUserId = () => window.accountGuard.currentUser()?.userId ?? null;
-  const formatDay = value => new Date(value).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const formatDay = value => {
+    const date = new Date(value);
+    return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+  };
 
   // BE는 기간이 끝난 정지의 status를 active로 유지하고 종료 시각으로 판단한다(sanctionModel.getActiveSuspension).
   // status만 보면 끝난 정지가 "정지 중"으로 보이므로 종료 시각도 함께 비교한다.
-  function stateLabel(sanction) {
-    if (sanction.status === 'lifted') return { text: '해제됨', active: false };
-    if (sanction.type === 'warning') return { text: '적용 중', active: true };
+  function badgeOf(sanction) {
+    const name = sanction.type === 'warning' ? '경고' : '정지';
+    if (sanction.status === 'lifted') return { text: `${name}·해제됨`, tone: 'ended' };
+    if (sanction.type === 'warning') return { text: name, tone: 'warning' };
     return new Date(sanction.endsAt).getTime() > Date.now()
-      ? { text: '정지 중', active: true }
-      : { text: '정지 종료', active: false };
+      ? { text: name, tone: 'suspension' }
+      : { text: '정지 종료', tone: 'ended' };
   }
 
   // 사유는 관리자가 입력한 글이라 textContent로만 넣는다.
   function createItem(sanction) {
-    const state = stateLabel(sanction);
+    const state = badgeOf(sanction);
     const item = document.createElement('li');
     item.className = 'my-sanctions-item';
 
     const head = document.createElement('div');
     head.className = 'my-sanctions-head';
-    const type = document.createElement('strong');
-    type.textContent = sanction.type === 'warning' ? '경고' : '이용 정지';
     const badge = document.createElement('span');
-    badge.className = `my-sanctions-badge${state.active ? ' active' : ''}`;
+    badge.className = `my-sanctions-badge ${state.tone}`;
     badge.textContent = state.text;
-    head.append(type, badge);
+    const date = document.createElement('span');
+    date.className = 'my-sanctions-date';
+    date.textContent = formatDay(sanction.createdAt);
+    head.append(badge, date);
 
     const reason = document.createElement('p');
     reason.className = 'my-sanctions-reason';
     reason.textContent = sanction.reason;
 
     // 해제된 정지에 기간이 보이면 아직 정지 중으로 읽힐 수 있어 해제된 건은 기간을 표시하지 않는다.
-    const showPeriod = sanction.type !== 'warning' && sanction.status !== 'lifted' && sanction.endsAt;
-    const meta = document.createElement('p');
-    meta.className = 'my-sanctions-meta';
-    meta.textContent = `등록일 ${formatDay(sanction.createdAt)}${showPeriod ? ` · 종료일 ${formatDay(sanction.endsAt)}` : ''}`;
-
-    item.append(head, reason, meta);
+    item.append(head, reason);
+    if (sanction.type !== 'warning' && sanction.status !== 'lifted' && sanction.endsAt) {
+      const period = document.createElement('p');
+      period.className = 'my-sanctions-period';
+      period.textContent = `기간: ${formatDay(sanction.endsAt)}까지`;
+      item.append(period);
+    }
     return item;
   }
 
   function showMessage(text, { retry = false } = {}) {
     listEl.replaceChildren();
     messageEl.textContent = text;
-    messageEl.hidden = false;
+    messageEl.hidden = !text;
     retryBtn.hidden = !retry;
   }
 
@@ -74,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!result) return; // 401: 공통 처리가 로그인 이동을 맡는다
       const sanctions = Array.isArray(result.data) ? result.data : [];
       if (!sanctions.length) {
-        showMessage('경고·제재 내역이 없어요.');
+        showMessage('받은 경고나 제재가 없어요.');
         return;
       }
       listEl.replaceChildren(...sanctions.map(createItem));

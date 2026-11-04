@@ -3990,10 +3990,15 @@ body.page-complete {
     border-bottom: 1px solid var(--border-color);
 }
 
+/* 불러오는 중·내역 없음·조회 실패 안내 */
 .policy-container .my-sanctions-message {
     margin-top: 10px;
+    padding: 16px 12px;
+    background-color: #F5F5F5;
+    border-radius: var(--radius-sm);
     font-size: 13px;
     color: var(--text-sub);
+    text-align: center;
 }
 
 .my-sanctions-message[hidden],
@@ -4012,7 +4017,8 @@ body.page-complete {
 
 .my-sanctions-item {
     padding: 12px;
-    background-color: #FAFAFA;
+    background-color: #FFFFFF;
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
 }
 
@@ -4021,43 +4027,52 @@ body.page-complete {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    font-size: 13px;
-}
-
-.my-sanctions-head strong {
-    font-weight: 700;
 }
 
 .my-sanctions-badge {
     flex-shrink: 0;
     padding: 2px 8px;
-    border-radius: 999px;
-    background-color: #EEEEEE;
-    color: var(--text-sub);
+    border-radius: 4px;
     font-size: 11px;
     font-weight: 700;
 }
 
-.my-sanctions-badge.active {
+.my-sanctions-badge.warning {
+    background-color: #FFF4D6;
+    color: #8A6100;
+}
+
+.my-sanctions-badge.suspension {
     background-color: #FDECEA;
     color: #B64535;
 }
 
+.my-sanctions-badge.ended {
+    background-color: #EEEEEE;
+    color: var(--text-sub);
+}
+
+.my-sanctions-date {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
 .policy-container .my-sanctions-reason {
-    margin-top: 6px;
+    margin-top: 8px;
     font-size: 13px;
     white-space: pre-line;
     overflow-wrap: anywhere;
 }
 
-.policy-container .my-sanctions-meta {
+.policy-container .my-sanctions-period {
     margin-top: 6px;
     font-size: 11px;
     color: var(--text-muted);
 }
 
 .my-sanctions-retry {
-    margin-top: 10px;
+    display: block;
+    margin: 10px auto 0;
     padding: 8px 14px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);

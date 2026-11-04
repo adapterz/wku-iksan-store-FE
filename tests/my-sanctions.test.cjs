@@ -48,11 +48,11 @@ function page({ respond = async () => ({ data: [], meta: { totalCount: 0 } }), h
 }
 
 const rendered = item => ({
-  type: item.children[0].children[0].textContent,
-  badge: item.children[0].children[1].textContent,
-  active: item.children[0].children[1].className.includes('active'),
+  badge: item.children[0].children[0].textContent,
+  tone: item.children[0].children[0].className.split(' ')[1],
+  date: item.children[0].children[1].textContent,
   reason: item.children[1].textContent,
-  meta: item.children[2].textContent
+  period: item.children[2]?.textContent
 });
 
 test('마이페이지에 내역 영역과 스크립트가 있고, 내역이 정책 본문보다 먼저 나온다', () => {
@@ -66,10 +66,11 @@ test('최대 개수로 조회하고 경고 내용을 표시한다', async () => 
   await p.open();
   assert.match(p.calls[0].url, /^\/api\/users\/me\/sanctions\?limit=50$/);
   const item = rendered(p.list.children[0]);
-  assert.equal(item.type, '경고');
-  assert.equal(item.badge, '적용 중');
+  assert.equal(item.badge, '경고');
+  assert.equal(item.tone, 'warning');
   assert.equal(item.reason, '욕설');
-  assert.doesNotMatch(item.meta, /종료일/);
+  assert.match(item.date, /^\d{4}\.\d{2}\.\d{2}$/);
+  assert.equal(item.period, undefined);
   assert.equal(p.message.hidden, true);
 });
 
@@ -80,12 +81,12 @@ test('정지는 종료 시각으로 진행 중과 종료를 구분한다 (BE는 
   ], meta: { totalCount: 2 } }) });
   await p.open();
   const [running, ended] = p.list.children.map(rendered);
-  assert.equal(running.badge, '정지 중');
-  assert.equal(running.active, true);
-  assert.match(running.meta, /종료일/);
+  assert.equal(running.badge, '정지');
+  assert.equal(running.tone, 'suspension');
+  assert.match(running.period, /^기간: \d{4}\.\d{2}\.\d{2}까지$/);
   assert.equal(ended.badge, '정지 종료');
-  assert.equal(ended.active, false);
-  assert.match(ended.meta, /종료일/);
+  assert.equal(ended.tone, 'ended');
+  assert.match(ended.period, /^기간: /);
 });
 
 test('해제된 건은 해제됨으로 표시하고 정지 기간을 숨긴다', async () => {
@@ -95,10 +96,11 @@ test('해제된 건은 해제됨으로 표시하고 정지 기간을 숨긴다',
   ], meta: { totalCount: 2 } }) });
   await p.open();
   const [suspension, warning] = p.list.children.map(rendered);
-  assert.equal(suspension.badge, '해제됨');
-  assert.equal(suspension.active, false);
-  assert.doesNotMatch(suspension.meta, /종료일/);
-  assert.equal(warning.badge, '해제됨');
+  assert.equal(suspension.badge, '정지·해제됨');
+  assert.equal(suspension.tone, 'ended');
+  assert.equal(suspension.period, undefined);
+  assert.equal(warning.badge, '경고·해제됨');
+  assert.equal(warning.tone, 'ended');
 });
 
 test('사유의 HTML은 글자로만 넣는다', async () => {
@@ -113,7 +115,8 @@ test('내역이 없으면 빈 상태를 안내한다', async () => {
   const p = page();
   await p.open();
   assert.equal(p.list.children.length, 0);
-  assert.equal(p.message.textContent, '경고·제재 내역이 없어요.');
+  assert.equal(p.message.textContent, '받은 경고나 제재가 없어요.');
+  assert.equal(p.message.hidden, false);
   assert.equal(p.retry.hidden, true);
 });
 
