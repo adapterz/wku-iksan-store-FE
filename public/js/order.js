@@ -374,6 +374,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     'CART_ITEM_NOT_FOUND', 'CART_CHANGED'
   ]);
 
+  // BE가 이 코드들에는 사람이 읽을 message를 보내지 않아 error.message가 항상
+  // api.js의 범용 문구('API 요청에 실패했습니다.')로 고정되므로, 자주 보는 코드는
+  // cart.js처럼 전용 문구로 직접 매핑한다. 매핑에 없는 코드는 error.message 대신
+  // 아래 handleOrderSubmitError의 공용 fallback 문구를 쓴다.
+  const ORDER_ERROR_LABELS = {
+    PRODUCT_UNAVAILABLE: '판매하지 않는 상품이 있어요. 선택을 변경해주세요.',
+    PRODUCT_NOT_FOUND: '상품 정보가 변경됐어요. 새로고침 후 다시 확인해주세요.',
+    ORDER_QUANTITY_EXCEEDED: '주문 가능한 수량을 초과했어요. 수량을 확인해주세요.',
+    // 받는 사람 검색 단계(아래 "자기 자신에게는..." alert)와 같은 문구로 맞춘다.
+    CANNOT_GIFT_TO_SELF: "자기 자신에게는 선물할 수 없습니다. '나에게 선물하기'를 이용해주세요.",
+    RECEIVER_NOT_FOUND: '받는 분 계정을 찾을 수 없어요. 이메일을 다시 확인해주세요.',
+    CART_CHANGED: '다른 화면에서 장바구니가 변경됐어요. 수량을 다시 확인해주세요.',
+    CART_ITEM_NOT_FOUND: '장바구니 항목이 변경됐어요. 다시 확인해주세요.'
+  };
+
   // 주문 제출(최초 클릭)과 재확인(재시도 버튼) 양쪽에서 같은 규칙으로 오류를 처리한다:
   // 결과가 명확한 실패(값 오류·가격/구성 변경 등)만 보관된 키를 지우고, 그 외(네트워크·CART_BUSY 등
   // 불명확한 경우)는 키를 그대로 남겨 "주문 결과 다시 확인" 버튼으로 재확인할 수 있게 한다.
@@ -397,7 +412,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     if (ORDER_DEFINITE_FAILURE_CODES.has(error.code)) {
       clearPendingOrder();
-      alert(error.message || '주문에 실패했습니다. 다시 시도해 주세요.');
+      alert(ORDER_ERROR_LABELS[error.code] || '주문에 실패했습니다. 다시 시도해 주세요.');
       return;
     }
     // 결과 불명확(네트워크 단절, CART_BUSY, 5xx 등) — 보관된 키를 유지하고 재확인 UI를 노출한다.

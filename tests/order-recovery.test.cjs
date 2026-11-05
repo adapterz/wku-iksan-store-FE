@@ -125,6 +125,16 @@ test('recovery rejection reloads normal form instead of enabling uninitialized p
   const p = await orderPage({ storage, post: async () => { throw Object.assign(Error('unavailable'), { code: 'PRODUCT_UNAVAILABLE' }); } });
   await p.click('btn-retry-pending-order'); assert.equal(p.reloads(), 1); assert.equal(pendingKeys(storage).length, 0);
   assert.equal(p.nodes.get('btn-submit-order').disabled, true);
+  // error.message('unavailable')가 아니라 코드별 전용 문구가 노출돼야 한다.
+  assert.equal(p.alerts.at(-1), '판매하지 않는 상품이 있어요. 선택을 변경해주세요.');
+});
+// BE가 message 없이 코드만 보내는 실제 환경(api.js가 'API 요청에 실패했습니다.'로 채움)을 흉내낸다.
+// ORDER_ERROR_LABELS에 없는 코드는 이 범용 문구 대신 주문 전용 fallback으로 표시돼야 한다.
+test('definite failure code without a specific label falls back to the order-specific message, not the generic one', async () => {
+  const storage = new Map([['direct-order-pending:1', JSON.stringify(pending)]]);
+  const p = await orderPage({ storage, post: async () => { throw Object.assign(Error('API 요청에 실패했습니다.'), { code: 'INVALID_QUANTITY' }); } });
+  await p.click('btn-retry-pending-order');
+  assert.equal(p.alerts.at(-1), '주문에 실패했습니다. 다시 시도해 주세요.');
 });
 test('repeated clicks while retry is in flight only submit once', async () => {
   let finish; const storage = new Map([['direct-order-pending:1', JSON.stringify(pending)]]);
