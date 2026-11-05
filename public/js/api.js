@@ -129,7 +129,10 @@ async function requestJson(path, options = {}) {
   if (!response.ok) {
     // silent401: 로그인 여부만 조용히 확인하는 배경 호출(예: 전역 네비게이션 상태 갱신)은
     // 인증이 필수인 페이지가 아니므로 전역 리다이렉트를 건너뛰고 호출부에서 직접 처리하게 한다.
-    if (response.status === 401 && !silent401 && !isLoginRequest) {
+    // INVALID_PASSWORD: 이메일/비밀번호 변경, 회원 탈퇴에서 현재 비밀번호 재확인 실패도 BE 스펙상
+    // 401로 내려오므로(세션 만료가 아님), 전역 리다이렉트에서 제외하고 각 화면이 직접 처리하게 한다.
+    const isInvalidPassword = result && result.code === 'INVALID_PASSWORD';
+    if (response.status === 401 && !silent401 && !isLoginRequest && !isInvalidPassword) {
       showUnauthorizedToast('로그인이 필요한 서비스입니다.');
       // href(push)로 이동하면 현재 페이지가 히스토리에 그대로 남아, 로그인 후 돌아왔다가
       // 다시 뒤로가기를 누를 때 이 미인증 방문 기록을 다시 거치게 된다. navigateToLogin은
