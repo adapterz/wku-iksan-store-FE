@@ -1,3 +1,26 @@
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function formatDate(iso) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const INQUIRY_ERROR_MESSAGES = {
+    REQUIRED_INQUIRY_CONTENT: '문의 내용을 입력해주세요.',
+    INVALID_INQUIRY_CONTENT: '문의 내용을 입력해주세요.',
+    INQUIRY_CONTENT_TOO_LONG: '문의 내용은 1,000자 이내로 입력해주세요.',
+    TOO_MANY_REQUESTS: '요청이 너무 많아요. 잠시 후 다시 시도해주세요.'
+};
+
+function inquiryErrorMessage(error) {
+    return (error && INQUIRY_ERROR_MESSAGES[error.code]) || (error && error.message) || '요청을 처리하지 못했어요.';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     // 인증 확인 및 사용자 정보 로드. 성공 시 true, 실패(리다이렉트 처리됨) 시 false를 반환한다.
     // 렌더링 차단을 보장하기 위해 이 함수가 true를 반환하기 전까지 화면 표시/데이터 조회 로직은 실행되지 않아야 한다.
@@ -203,5 +226,101 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
     });
+
+    // 문의하기 Overlay Logic
+    const contactOverlay = document.getElementById('contact-overlay');
+    const btnContact = document.getElementById('btn-contact');
+    const btnCloseContact = document.getElementById('btn-close-contact');
+    const contactContent = document.getElementById('contact-content');
+    const contactCount = document.getElementById('contact-content-count');
+    const contactError = document.getElementById('contact-form-error');
+    const contactSubmitBtn = document.getElementById('contact-submit');
+    const contactHistoryList = document.getElementById('contact-history-list');
+    let contactBusy = false;
+
+    function updateContactSubmitState() {
+        const length = [...contactContent.value.trim()].length;
+        contactCount.textContent = length.toLocaleString();
+        contactSubmitBtn.disabled = contactBusy || length < 1 || length > 1000;
+    }
+
+    function renderContactHistory(items) {
+        if (!items.length) {
+            contactHistoryList.innerHTML = '<p class="contact-history-empty">아직 등록한 문의가 없습니다.</p>';
+            return;
+        }
+        contactHistoryList.innerHTML = items.map(item => {
+            const answered = item.status === 'answered';
+            const reply = answered
+                ? `<div class="contact-history-reply">
+                    <p class="contact-history-reply-label">답변</p>
+                    <p class="contact-history-reply-content">${escapeHtml(item.adminReply || '')}</p>
+                   </div>`
+                : '';
+            return `
+                <div class="contact-history-item">
+                    <div class="contact-history-meta">
+                        <span class="contact-status-badge${answered ? ' answered' : ''}">${answered ? '답변완료' : '답변대기'}</span>
+                        <span class="contact-history-date">${formatDate(item.createdAt)}</span>
+                    </div>
+                    <p class="contact-history-content">${escapeHtml(item.content)}</p>
+                    ${reply}
+                </div>`;
+        }).join('');
+    }
+
+    async function loadContactHistory() {
+        contactHistoryList.innerHTML = '<p class="contact-history-empty">불러오는 중...</p>';
+        try {
+            const result = await requestJson('/api/inquiries/me?limit=20');
+            if (!result) return;
+            renderContactHistory(result.data || []);
+        } catch (error) {
+            console.error('문의 내역 조회 실패:', error);
+            contactHistoryList.innerHTML = '<p class="contact-history-empty">문의 내역을 불러오지 못했습니다.</p>';
+        }
+    }
+
+    function setContactBusy(value) {
+        contactBusy = value;
+        updateContactSubmitState();
+    }
+
+    async function submitContact() {
+        if (contactBusy || contactSubmitBtn.disabled) return;
+        const content = contactContent.value.trim();
+        setContactBusy(true);
+        contactError.textContent = '';
+        try {
+            const result = await requestJson('/api/inquiries', { method: 'POST', body: { content } });
+            if (!result) return;
+            contactContent.value = '';
+            updateContactSubmitState();
+            window.showToast('문의가 등록되었어요.');
+            loadContactHistory();
+        } catch (error) {
+            contactError.textContent = inquiryErrorMessage(error);
+        } finally {
+            setContactBusy(false);
+        }
+    }
+
+    if (contactOverlay && btnContact && btnCloseContact) {
+        btnContact.addEventListener('click', (e) => {
+            e.preventDefault();
+            contactError.textContent = '';
+            contactOverlay.classList.add('open');
+            updateContactSubmitState();
+            loadContactHistory();
+        });
+
+        btnCloseContact.addEventListener('click', (e) => {
+            e.preventDefault();
+            contactOverlay.classList.remove('open');
+        });
+
+        contactContent.addEventListener('input', updateContactSubmitState);
+        contactSubmitBtn.addEventListener('click', submitContact);
+    }
 
 });
