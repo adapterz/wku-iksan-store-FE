@@ -4096,6 +4096,26 @@ body.page-complete {
     word-break: break-word;
 }
 
+.contact-history-more-btn {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    padding: 12px;
+    background-color: #F5F5F5;
+    color: var(--text-main, #191919);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.contact-history-more-btn:disabled {
+    opacity: 0.5;
+}
+
+.contact-history-more-btn[hidden] {
+    display: none;
+}
+
 /* Auth Form Optimizations */
 .auth-header {
     border-bottom: none !important;

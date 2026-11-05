@@ -236,7 +236,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const contactError = document.getElementById('contact-form-error');
     const contactSubmitBtn = document.getElementById('contact-submit');
     const contactHistoryList = document.getElementById('contact-history-list');
+    const contactHistoryMoreBtn = document.getElementById('contact-history-more');
+    const CONTACT_HISTORY_PAGE_SIZE = 20;
     let contactBusy = false;
+    let contactHistoryPage = 1;
+    let contactHistoryTotalPages = 1;
+    let contactHistoryMoreBusy = false;
 
     function updateContactSubmitState() {
         const length = [...contactContent.value.trim()].length;
@@ -244,40 +249,72 @@ document.addEventListener('DOMContentLoaded', async () => {
         contactSubmitBtn.disabled = contactBusy || length < 1 || length > 1000;
     }
 
+    function renderContactHistoryItem(item) {
+        const answered = item.status === 'answered';
+        const reply = answered
+            ? `<div class="contact-history-reply">
+                <p class="contact-history-reply-label">답변</p>
+                <p class="contact-history-reply-content">${escapeHtml(item.adminReply || '')}</p>
+               </div>`
+            : '';
+        return `
+            <div class="contact-history-item">
+                <div class="contact-history-meta">
+                    <span class="contact-status-badge${answered ? ' answered' : ''}">${answered ? '답변완료' : '답변대기'}</span>
+                    <span class="contact-history-date">${formatDate(item.createdAt)}</span>
+                </div>
+                <p class="contact-history-content">${escapeHtml(item.content)}</p>
+                ${reply}
+            </div>`;
+    }
+
     function renderContactHistory(items) {
         if (!items.length) {
             contactHistoryList.innerHTML = '<p class="contact-history-empty">아직 등록한 문의가 없습니다.</p>';
             return;
         }
-        contactHistoryList.innerHTML = items.map(item => {
-            const answered = item.status === 'answered';
-            const reply = answered
-                ? `<div class="contact-history-reply">
-                    <p class="contact-history-reply-label">답변</p>
-                    <p class="contact-history-reply-content">${escapeHtml(item.adminReply || '')}</p>
-                   </div>`
-                : '';
-            return `
-                <div class="contact-history-item">
-                    <div class="contact-history-meta">
-                        <span class="contact-status-badge${answered ? ' answered' : ''}">${answered ? '답변완료' : '답변대기'}</span>
-                        <span class="contact-history-date">${formatDate(item.createdAt)}</span>
-                    </div>
-                    <p class="contact-history-content">${escapeHtml(item.content)}</p>
-                    ${reply}
-                </div>`;
-        }).join('');
+        contactHistoryList.innerHTML = items.map(renderContactHistoryItem).join('');
+    }
+
+    function appendContactHistory(items) {
+        contactHistoryList.insertAdjacentHTML('beforeend', items.map(renderContactHistoryItem).join(''));
     }
 
     async function loadContactHistory() {
+        contactHistoryPage = 1;
+        contactHistoryTotalPages = 1;
+        contactHistoryMoreBtn.hidden = true;
         contactHistoryList.innerHTML = '<p class="contact-history-empty">불러오는 중...</p>';
         try {
-            const result = await requestJson('/api/inquiries/me?limit=20');
+            const result = await requestJson(`/api/inquiries/me?page=1&limit=${CONTACT_HISTORY_PAGE_SIZE}`);
             if (!result) return;
             renderContactHistory(result.data || []);
+            contactHistoryTotalPages = (result.meta && result.meta.totalPages) || 1;
+            contactHistoryMoreBtn.hidden = contactHistoryPage >= contactHistoryTotalPages;
         } catch (error) {
             console.error('문의 내역 조회 실패:', error);
             contactHistoryList.innerHTML = '<p class="contact-history-empty">문의 내역을 불러오지 못했습니다.</p>';
+        }
+    }
+
+    async function loadMoreContactHistory() {
+        if (contactHistoryMoreBusy || contactHistoryPage >= contactHistoryTotalPages) return;
+        contactHistoryMoreBusy = true;
+        contactHistoryMoreBtn.disabled = true;
+        const nextPage = contactHistoryPage + 1;
+        try {
+            const result = await requestJson(`/api/inquiries/me?page=${nextPage}&limit=${CONTACT_HISTORY_PAGE_SIZE}`);
+            if (!result) return;
+            appendContactHistory(result.data || []);
+            contactHistoryPage = nextPage;
+            contactHistoryTotalPages = (result.meta && result.meta.totalPages) || contactHistoryPage;
+            contactHistoryMoreBtn.hidden = contactHistoryPage >= contactHistoryTotalPages;
+        } catch (error) {
+            console.error('문의 내역 더보기 실패:', error);
+            window.showToast('문의 내역을 더 불러오지 못했어요.');
+        } finally {
+            contactHistoryMoreBusy = false;
+            contactHistoryMoreBtn.disabled = false;
         }
     }
 
@@ -321,6 +358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         contactContent.addEventListener('input', updateContactSubmitState);
         contactSubmitBtn.addEventListener('click', submitContact);
+        if (contactHistoryMoreBtn) contactHistoryMoreBtn.addEventListener('click', loadMoreContactHistory);
     }
 
 });
