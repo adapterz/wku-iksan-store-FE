@@ -104,8 +104,9 @@
         <p class="cs-desc">점심시간 평일 13:00 - 14:00</p>
 
         <div class="cs-buttons">
+            <a href="#" id="btn-contact" class="cs-btn black-btn">문의하기</a>
             <a href="#" id="btn-policy-terms" class="cs-btn">이용 정책</a>
-            <a href="#" id="btn-policy-penalty" class="cs-btn black-btn">패널티 정책</a>
+            <a href="#" id="btn-policy-penalty" class="cs-btn">패널티 정책</a>
             <a href="#" id="btn-policy-privacy" class="cs-btn">개인정보처리방침</a>
         </div>
     </section>
@@ -274,6 +275,31 @@
            
             <p><strong>제9조 (고지의 의무)</strong><br>
             본 방침은 시행일로부터 적용되며, 법령 및 방침에 따른 변경내용의 추가, 삭제 및 정정이 있는 경우 개정 최소 7일 전부터 공지사항을 통하여 고지할 것입니다.</p>
+        </div>
+    </div>
+
+    <!-- 문의하기 Overlay -->
+    <div id="contact-overlay" class="search-overlay">
+        <div class="search-overlay-header">
+            <button id="btn-close-contact" class="btn-search-back" aria-label="뒤로가기">
+                <i class="fa-solid fa-arrow-left"></i>
+            </button>
+            <div style="font-size: 16px; font-weight: 700; flex: 1; padding-left: 10px;">문의하기</div>
+        </div>
+        <div class="search-overlay-body contact-container">
+            <p class="contact-guide">궁금한 점이나 불편한 점을 남겨주시면 확인 후 답변드릴게요.</p>
+            <textarea id="contact-content" class="review-content-input" maxlength="1000" placeholder="문의 내용을 입력해주세요."></textarea>
+            <div class="review-content-counter"><span id="contact-content-count">0</span> / 1,000</div>
+            <p class="review-form-error" id="contact-form-error" role="alert"></p>
+            <button type="button" id="contact-submit" class="review-save-btn" disabled>문의 등록하기</button>
+
+            <div class="contact-divider"></div>
+
+            <h4 class="contact-history-title">문의 내역</h4>
+            <div id="contact-history-list">
+                <!-- JS가 채움 -->
+            </div>
+            <button type="button" id="contact-history-more" class="contact-history-more-btn" hidden>더보기</button>
         </div>
     </div>
 
