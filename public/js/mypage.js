@@ -17,8 +17,11 @@ const INQUIRY_ERROR_MESSAGES = {
     TOO_MANY_REQUESTS: '요청이 너무 많아요. 잠시 후 다시 시도해주세요.'
 };
 
+// 알 수 없는 오류는 BE 메시지(개발자용 문구일 수 있음)를 그대로 보여주지 않는다.
+// 다만 네트워크 오류 안내(api.js)는 사용자에게 바로 유용하므로 그대로 둔다.
 function inquiryErrorMessage(error) {
-    return (error && INQUIRY_ERROR_MESSAGES[error.code]) || (error && error.message) || '요청을 처리하지 못했어요.';
+    if (error && error.code === 'NETWORK_ERROR') return error.message;
+    return (error && INQUIRY_ERROR_MESSAGES[error.code]) || '문의를 등록하지 못했어요. 잠시 후 다시 시도해주세요.';
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -242,6 +245,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     let contactHistoryPage = 1;
     let contactHistoryTotalPages = 1;
     let contactHistoryMoreBusy = false;
+    // 내역을 불러온 계정. loadContactHistory가 호출될 때마다 그 시점의 현재 계정으로 갱신한다.
+    // 화면을 연 적이 없으면 undefined — account:ready가 비교 없이 늘 지나치게 한다(my-sanctions.js와 동일).
+    let contactOwnerId;
+    // 늦게 도착한 응답이 최신 상태를 덮어쓰지 않도록 조회(최초 조회)마다 올린다. 더보기는 이
+    // 번호를 읽기만 하고, 그 사이 새로 조회(재조회)가 일어났으면 늦게 온 더보기 응답을 버린다
+    // (giftbox.js의 loadSequence와 동일한 방식).
+    let contactHistorySequence = 0;
+
+    const currentContactUserId = () => window.accountGuard.currentUser()?.userId ?? null;
 
     function updateContactSubmitState() {
         const length = [...contactContent.value.trim()].length;
@@ -281,17 +293,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function loadContactHistory() {
+        const sequence = ++contactHistorySequence;
+        const requestUserId = currentContactUserId();
+        contactOwnerId = requestUserId;
+        // 응답이 늦게 와도 그 사이 새로 조회(계정 전환 등)가 없었는지 확인한다.
+        const isStale = () => sequence !== contactHistorySequence || currentContactUserId() !== requestUserId;
+
         contactHistoryPage = 1;
         contactHistoryTotalPages = 1;
         contactHistoryMoreBtn.hidden = true;
         contactHistoryList.innerHTML = '<p class="contact-history-empty">불러오는 중...</p>';
         try {
             const result = await requestJson(`/api/inquiries/me?page=1&limit=${CONTACT_HISTORY_PAGE_SIZE}`);
-            if (!result) return;
+            if (isStale() || !result) return;
             renderContactHistory(result.data || []);
             contactHistoryTotalPages = (result.meta && result.meta.totalPages) || 1;
             contactHistoryMoreBtn.hidden = contactHistoryPage >= contactHistoryTotalPages;
         } catch (error) {
+            if (isStale()) return;
             console.error('문의 내역 조회 실패:', error);
             contactHistoryList.innerHTML = '<p class="contact-history-empty">문의 내역을 불러오지 못했습니다.</p>';
         }
@@ -299,20 +318,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function loadMoreContactHistory() {
         if (contactHistoryMoreBusy || contactHistoryPage >= contactHistoryTotalPages) return;
+        const sequence = contactHistorySequence;
+        const requestUserId = contactOwnerId;
+        const isStale = () => sequence !== contactHistorySequence || currentContactUserId() !== requestUserId;
+
         contactHistoryMoreBusy = true;
         contactHistoryMoreBtn.disabled = true;
         const nextPage = contactHistoryPage + 1;
         try {
             const result = await requestJson(`/api/inquiries/me?page=${nextPage}&limit=${CONTACT_HISTORY_PAGE_SIZE}`);
-            if (!result) return;
+            if (isStale() || !result) return;
             appendContactHistory(result.data || []);
             contactHistoryPage = nextPage;
             contactHistoryTotalPages = (result.meta && result.meta.totalPages) || contactHistoryPage;
             contactHistoryMoreBtn.hidden = contactHistoryPage >= contactHistoryTotalPages;
         } catch (error) {
+            if (isStale()) return;
             console.error('문의 내역 더보기 실패:', error);
             window.showToast('문의 내역을 더 불러오지 못했어요.');
         } finally {
+            // busy 플래그는 이 더보기 버튼 자체의 상호작용 잠금일 뿐이라, 응답이 낡았어도
+            // (isStale) 다음 클릭을 막지 않도록 항상 풀어준다. hidden 여부는 이미 위에서
+            // 최신 상태에 맞게만 갱신됐으므로 버튼 노출 자체는 영향받지 않는다.
             contactHistoryMoreBusy = false;
             contactHistoryMoreBtn.disabled = false;
         }
@@ -359,6 +386,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         contactContent.addEventListener('input', updateContactSubmitState);
         contactSubmitBtn.addEventListener('click', submitContact);
         if (contactHistoryMoreBtn) contactHistoryMoreBtn.addEventListener('click', loadMoreContactHistory);
+
+        // 화면을 열어 둔 사이 계정이 바뀌면 이전 계정의 문의 내역과 쓰던 글을 남기지 않는다.
+        // account:ready는 탭 복귀 때마다 같은 계정으로도 발생하므로 실제로 바뀐 경우만
+        // 처리한다(my-sanctions.js와 동일 패턴).
+        document.addEventListener('account:ready', (event) => {
+            const userId = event.detail.user?.userId ?? null;
+            if (contactOwnerId === undefined || userId === contactOwnerId) return;
+
+            contactHistorySequence++;
+            contactContent.value = '';
+            contactError.textContent = '';
+            updateContactSubmitState();
+            contactHistoryList.innerHTML = '';
+            contactHistoryMoreBtn.hidden = true;
+            contactOwnerId = undefined;
+
+            if (userId !== null && contactOverlay.classList.contains('open')) loadContactHistory();
+        });
     }
 
 });
