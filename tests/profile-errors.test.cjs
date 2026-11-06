@@ -129,10 +129,14 @@ test('unknown server code retains generic fallback instead of exposing arbitrary
 });
 
 test('wrong password still uses the existing field-specific guidance', async () => {
-  const h = await setup({ status: 403, code: 'INVALID_PASSWORD' });
+  // BE 스펙상 INVALID_PASSWORD는 401로 내려오지만 세션 만료가 아니므로
+  // 전역 로그인 리다이렉트로 가로채지지 않고 이 화면이 직접 처리해야 한다.
+  const h = await setup({ status: 401, code: 'INVALID_PASSWORD' });
   await h.submit('password');
   assert.equal(h.forms.password.currentPassword.inline.textContent, '비밀번호가 일치하지 않습니다.');
   assert.equal(h.forms.password.error.hidden, true);
+  assert.equal(h.timers.length, 0); // 강제 로그아웃 타이머가 걸리지 않아야 한다
+  assert.equal(h.redirects.length, 0);
 });
 
 test('network failure retains network guidance', async () => {

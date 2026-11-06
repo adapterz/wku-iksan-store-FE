@@ -125,6 +125,58 @@ test('recovery rejection reloads normal form instead of enabling uninitialized p
   const p = await orderPage({ storage, post: async () => { throw Object.assign(Error('unavailable'), { code: 'PRODUCT_UNAVAILABLE' }); } });
   await p.click('btn-retry-pending-order'); assert.equal(p.reloads(), 1); assert.equal(pendingKeys(storage).length, 0);
   assert.equal(p.nodes.get('btn-submit-order').disabled, true);
+  // error.message('unavailable')가 아니라 코드별 전용 문구가 노출돼야 한다.
+  assert.equal(p.alerts.at(-1), '판매하지 않는 상품이 있어요. 선택을 변경해주세요.');
+});
+// BE가 message 없이 코드만 보내는 실제 환경(api.js가 'API 요청에 실패했습니다.'로 채움)을 흉내낸다.
+// ORDER_ERROR_LABELS에 없는 코드는 이 범용 문구 대신 주문 전용 fallback으로 표시돼야 한다.
+test('definite failure code without a specific label falls back to the order-specific message, not the generic one', async () => {
+  const storage = new Map([['direct-order-pending:1', JSON.stringify(pending)]]);
+  const p = await orderPage({ storage, post: async () => { throw Object.assign(Error('API 요청에 실패했습니다.'), { code: 'INVALID_QUANTITY' }); } });
+  await p.click('btn-retry-pending-order');
+  assert.equal(p.alerts.at(-1), '주문에 실패했습니다. 다시 시도해 주세요.');
+});
+
+// 위 테스트들은 requestJson 자체를 손으로 흉내낸 것이라, "BE가 message 없이 code만 보낼 때
+// 실제 api.js가 어떤 에러를 만드는지"는 검증하지 못한다(이번 버그가 처음 안 잡혔던 경로와 동일).
+// 여기서는 실제 api.js + order.js를 함께 올려 fetch 응답(code만, message 없음)부터 alert까지 end-to-end로 확인한다.
+async function orderPageWithRealApi(options = {}) {
+  const d = dom('order.html'), storage = options.storage || new Map(), alerts = [];
+  const location = { search: options.search || '?productId=1&type=gift&quantity=2', href: '', reload() {}, replace(url) { this.href = url; } };
+  const history = { state: null, replaceState(state) { this.state = state; }, pushState(state) { this.state = state; }, back() {}, go() {} };
+  const context = {
+    document: d.document, location, URLSearchParams, console: { error() {} },
+    alert: msg => alerts.push(msg), crypto: require('node:crypto'), setTimeout, clearTimeout,
+    sessionStorage: { getItem: k => storage.get(k) || null, removeItem: k => storage.delete(k), setItem(k, v) { storage.set(k, v); } },
+    window: { location, addEventListener() {}, registerBfcacheRevalidation: async f => f() },
+    history,
+    fetch: async (url, config = {}) => {
+      const method = (config.method || 'GET').toUpperCase();
+      if (url === '/api/auth/me') return { ok: true, status: 200, json: async () => ({ data: { userId: 1, nickname: 'user1' } }) };
+      if (url === '/api/order-groups/direct' && method === 'POST') {
+        // 실제 BE는 이 코드들에 사람이 읽을 message를 보내지 않는다 — code만 내려온다.
+        return { ok: false, status: options.status, json: async () => ({ code: options.code }) };
+      }
+      throw new Error(`unexpected fetch: ${method} ${url}`);
+    }
+  };
+  vm.createContext(context);
+  vm.runInContext(read('js/api.js'), context, { filename: 'api.js' });
+  vm.runInContext(read('js/order.js'), context, { filename: 'order.js' });
+  await d.events.DOMContentLoaded();
+  return { ...d, alerts, click: id => d.nodes.get(id).events.click() };
+}
+test('real api.js: BE sends code without message, order.js still shows the code-specific label instead of the generic API fallback', async () => {
+  const storage = new Map([['direct-order-pending:1', JSON.stringify(pending)]]);
+  const p = await orderPageWithRealApi({ storage, status: 409, code: 'PRODUCT_UNAVAILABLE' });
+  await p.click('btn-retry-pending-order');
+  assert.equal(p.alerts.at(-1), '판매하지 않는 상품이 있어요. 선택을 변경해주세요.');
+});
+test('real api.js: unmapped definite-failure code falls back to the order-specific message, not the generic API one', async () => {
+  const storage = new Map([['direct-order-pending:1', JSON.stringify(pending)]]);
+  const p = await orderPageWithRealApi({ storage, status: 400, code: 'INVALID_QUANTITY' });
+  await p.click('btn-retry-pending-order');
+  assert.equal(p.alerts.at(-1), '주문에 실패했습니다. 다시 시도해 주세요.');
 });
 test('repeated clicks while retry is in flight only submit once', async () => {
   let finish; const storage = new Map([['direct-order-pending:1', JSON.stringify(pending)]]);
