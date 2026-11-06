@@ -139,7 +139,11 @@ document.addEventListener("header:ready", async () => {
       loadGifts(currentStatus);
     } catch (error) {
       button.disabled = false;
-      alert(CANCEL_ERROR_MESSAGES[error.code] || '교환권을 취소하지 못했어요. 다시 시도해주세요.');
+      // 요청 전 계정 확인(ensureAction)에서 난 오류 — 계정이 바뀌었거나 로그아웃된 경우 그 안내를 그대로 보여준다.
+      const accountChanged = error.code === 'STALE_ACCOUNT' || (error.status === 401 && !error.code);
+      alert(CANCEL_ERROR_MESSAGES[error.code]
+        || (accountChanged && error.message)
+        || '교환권을 취소하지 못했어요. 다시 시도해주세요.');
       if (RELOAD_AFTER_CANCEL_ERROR.has(error.code)) loadGifts(currentStatus);
     }
   };

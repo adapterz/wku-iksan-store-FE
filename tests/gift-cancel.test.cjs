@@ -231,3 +231,16 @@ test('사용 화면: 다른 곳에서 먼저 취소돼 사용이 409 GIFT_CANCEL
   assert.match(p.card().innerHTML, /취소된 교환권이라 사용할 수 없습니다/);
   assert.equal(p.alerts.length, 0);
 });
+
+test('계정 확인에서 계정이 바뀐 것으로 나오면 그 안내를 보여주고 요청하지 않는다', async () => {
+  const p = giftbox({ lists: { unused: [received] } });
+  p.window.accountGuard.ensureAction = async () => {
+    throw Object.assign(new Error('로그인 상태가 변경됐어요. 새로 불러온 화면에서 다시 시도해주세요.'), { code: 'STALE_ACCOUNT' });
+  };
+  await p.start();
+  const btn = p.cards()[0].querySelector('.btn-gift-cancel');
+  await click(btn);
+  assert.deepEqual(p.alerts, ['로그인 상태가 변경됐어요. 새로 불러온 화면에서 다시 시도해주세요.']);
+  assert.equal(p.cancels().length, 0);
+  assert.equal(btn.disabled, false);
+});
