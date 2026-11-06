@@ -384,9 +384,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     ORDER_QUANTITY_EXCEEDED: '주문 가능한 수량을 초과했어요. 수량을 확인해주세요.',
     // 받는 사람 검색 단계(아래 "자기 자신에게는..." alert)와 같은 문구로 맞춘다.
     CANNOT_GIFT_TO_SELF: "자기 자신에게는 선물할 수 없습니다. '나에게 선물하기'를 이용해주세요.",
-    RECEIVER_NOT_FOUND: '받는 분 계정을 찾을 수 없어요. 이메일을 다시 확인해주세요.',
-    CART_CHANGED: '다른 화면에서 장바구니가 변경됐어요. 수량을 다시 확인해주세요.',
-    CART_ITEM_NOT_FOUND: '장바구니 항목이 변경됐어요. 다시 확인해주세요.'
+    RECEIVER_NOT_FOUND: '받는 분 계정을 찾을 수 없어요. 닉네임을 다시 검색해주세요.',
+    CART_CHANGED: '다른 화면에서 장바구니가 변경됐어요. 새로고침 후 수량을 다시 확인해주세요.',
+    CART_ITEM_NOT_FOUND: '장바구니 항목이 변경됐어요. 새로고침 후 다시 확인해주세요.'
   };
 
   // 주문 제출(최초 클릭)과 재확인(재시도 버튼) 양쪽에서 같은 규칙으로 오류를 처리한다:
