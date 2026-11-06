@@ -10,10 +10,18 @@ document.addEventListener("header:ready", async () => {
 
   const tabUnused = document.getElementById("tab-unused");
   const tabUsed = document.getElementById("tab-used");
+  const tabCancelled = document.getElementById("tab-cancelled");
   const listContainer = document.getElementById("gift-list-container");
+  const tabs = { unused: tabUnused, used: tabUsed, cancelled: tabCancelled };
+  const EMPTY_MESSAGES = {
+    unused: '미사용 선물이 없습니다.',
+    used: '사용완료 선물이 없습니다.',
+    cancelled: '취소된 선물이 없습니다.'
+  };
 
   const urlParams = new URLSearchParams(window.location.search);
-  const initialTab = urlParams.get('tab') === 'used' ? 'used' : 'unused';
+  const requestedTab = urlParams.get('tab');
+  const initialTab = (requestedTab === 'used' || requestedTab === 'cancelled') ? requestedTab : 'unused';
   let currentStatus = initialTab;
   let loadSequence = 0;
   let activeSettle = null;
@@ -95,12 +103,44 @@ document.addEventListener("header:ready", async () => {
   };
 
   const updateTabStyles = () => {
-    if (currentStatus === 'unused') {
-      tabUnused.classList.add('active');
-      tabUsed.classList.remove('active');
-    } else {
-      tabUsed.classList.add('active');
-      tabUnused.classList.remove('active');
+    Object.entries(tabs).forEach(([status, tab]) => {
+      if (status === currentStatus) tab.classList.add('active');
+      else tab.classList.remove('active');
+    });
+  };
+
+  // 미사용 교환권 취소(BE #153, PATCH /api/gifts/:id/cancel). 환불은 없고 되돌릴 수 없으므로 기본
+  // 확인창으로 한 번 더 확인한다. 받은 선물이면 보낸 사람에게 알림이 가지 않는다는 점도 안내한다.
+  const cancelConfirmMessage = (gift) => [
+    '이 교환권을 취소할까요?',
+    '',
+    '취소하면 더 이상 사용할 수 없고 되돌릴 수 없습니다.',
+    gift.isSelfGift ? '금액은 환불되지 않습니다.' : '금액은 환불되지 않으며, 보낸 분에게 알림이 가지 않습니다.'
+  ].join('\n');
+
+  const CANCEL_ERROR_MESSAGES = {
+    GIFT_ALREADY_USED: '이미 사용 완료된 교환권이라 취소할 수 없어요.',
+    GIFT_NOT_CANCELLABLE: '취소할 수 없는 교환권이에요. 선물함을 다시 확인해주세요.',
+    GIFT_NOT_FOUND: '교환권을 찾을 수 없어요. 선물함을 다시 확인해주세요.',
+    FORBIDDEN_NOT_OWNER: '받은 사람만 교환권을 취소할 수 있어요.'
+  };
+  // 상태가 바뀌어 취소할 수 없게 된 경우 — 안내 후 최신 상태로 다시 불러온다.
+  const RELOAD_AFTER_CANCEL_ERROR = new Set(['GIFT_ALREADY_USED', 'GIFT_NOT_CANCELLABLE', 'GIFT_NOT_FOUND']);
+
+  const cancelGift = async (gift, owner, button) => {
+    if (button.disabled) return;
+    if (!confirm(cancelConfirmMessage(gift))) return;
+    button.disabled = true;
+    try {
+      await guard.ensureAction(owner);
+      const result = await requestJson(`/api/gifts/${gift.giftId}/cancel`, { method: 'PATCH' });
+      if (!result) return; // 401: 공통 처리가 로그인 이동을 맡는다
+      window.showToast('교환권이 취소되었습니다.');
+      loadGifts(currentStatus);
+    } catch (error) {
+      button.disabled = false;
+      alert(CANCEL_ERROR_MESSAGES[error.code] || '교환권을 취소하지 못했어요. 다시 시도해주세요.');
+      if (RELOAD_AFTER_CANCEL_ERROR.has(error.code)) loadGifts(currentStatus);
     }
   };
 
@@ -114,7 +154,7 @@ document.addEventListener("header:ready", async () => {
     listContainer.innerHTML = "";
     
     if (gifts.length === 0) {
-      listContainer.innerHTML = `<div class="empty-state">${currentStatus === 'unused' ? '미사용 선물이 없습니다.' : '사용완료 선물이 없습니다.'}</div>`;
+      listContainer.innerHTML = `<div class="empty-state">${EMPTY_MESSAGES[currentStatus]}</div>`;
       return;
     }
 
@@ -133,8 +173,11 @@ document.addEventListener("header:ready", async () => {
       }
 
       const isUsed = (currentStatus === 'used');
+      const isCancelled = (currentStatus === 'cancelled');
       const senderText = gift.isSelfGift ? "나" : (gift.senderNickname || "친구");
-      const dateText = isUsed && gift.usedAt ? `사용일: ${formatDate(gift.usedAt)}` : `받은일: ${formatDate(gift.createdAt)}`;
+      const dateText = isUsed && gift.usedAt ? `사용일: ${formatDate(gift.usedAt)}`
+        : isCancelled && gift.cancelledAt ? `취소일: ${formatDate(gift.cancelledAt)}`
+        : `받은일: ${formatDate(gift.createdAt)}`;
       // reviewId가 있으면 수정, 없으면 BE가 계산해준 canReview(수신자 본인·결제완료·사용완료·
       // 미작성)를 그대로 따른다. canReview는 정지 여부는 반영하지 않으므로, 정지된 사용자가
       // 실제 작성을 시도했을 때의 최종 판단은 review.js가 저장 시점에 서버 응답으로 다시 확인한다.
@@ -145,6 +188,7 @@ document.addEventListener("header:ready", async () => {
         <div class="gift-img-wrapper">
           <img alt="상품 썸네일" class="gift-img">
           ${isUsed ? '<div class="used-overlay">사용완료</div>' : ''}
+          ${isCancelled ? '<div class="used-overlay cancelled-overlay">취소됨</div>' : ''}
         </div>
         <div class="gift-info">
           <div class="gift-brand"></div>
@@ -154,6 +198,7 @@ document.addEventListener("header:ready", async () => {
             <span class="gift-date">${dateText}</span>
           </div>
           ${showReviewButton ? `<button type="button" class="btn-gift-review">${reviewBtnLabel}</button>` : ''}
+          ${currentStatus === 'unused' ? '<button type="button" class="btn-gift-cancel">취소</button>' : ''}
         </div>
       `;
 
@@ -165,6 +210,15 @@ document.addEventListener("header:ready", async () => {
       if (nameEl) nameEl.textContent = gift.productName || '';
       const senderEl = card.querySelector('.sender-text');
       if (senderEl) senderEl.textContent = `보낸사람: ${senderText}`;
+
+      const cancelBtn = card.querySelector('.btn-gift-cancel');
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', (event) => {
+          // 카드 전체에 걸린 사용 화면 이동이 함께 실행되지 않게 막는다.
+          event.stopPropagation();
+          cancelGift(gift, owner, cancelBtn);
+        });
+      }
 
       if (showReviewButton) {
         const reviewBtn = card.querySelector('.btn-gift-review');
@@ -185,6 +239,7 @@ document.addEventListener("header:ready", async () => {
   // Tab Events
   tabUnused.addEventListener('click', () => loadGifts('unused'));
   tabUsed.addEventListener('click', () => loadGifts('used'));
+  tabCancelled.addEventListener('click', () => loadGifts('cancelled'));
 
   // 리뷰 작성·수정·삭제 모달(review.js)이 완료 후 쏘는 이벤트. 지금 보고 있는 탭을
   // 다시 불러와 canReview/reviewId, 버튼 라벨을 최신 상태로 맞춘다.
