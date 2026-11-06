@@ -135,15 +135,22 @@ document.addEventListener("header:ready", async () => {
     try {
       await guard.ensureAction(owner);
       sent = true;
-      const result = await requestJson(`/api/gifts/${gift.giftId}/cancel`, { method: 'PATCH' });
+      // 이전 계정의 401이 공통 로그인 이동을 예약하지 않도록, 소유자 확인 후 직접 처리한다.
+      const result = await requestJson(`/api/gifts/${gift.giftId}/cancel`, { method: 'PATCH', silent401: true });
       // 응답을 기다리는 사이 계정이 바뀌었으면 이전 계정의 결과를 새 계정 화면에 보여주지 않는다.
       // 새 계정의 선물함은 계정 전환 처리(registerAccountView)가 다시 그린다.
       if (!guard.isCurrent(owner)) return;
-      if (!result) return; // 401: 공통 처리가 로그인 이동을 맡는다
+      if (!result) return;
       window.showToast('교환권이 취소되었습니다.');
       loadGifts(currentStatus);
     } catch (error) {
       if (sent && !guard.isCurrent(owner)) return; // 실패 응답도 같은 이유로 버린다
+      if (sent && error.status === 401) {
+        guard.invalidate();
+        alert('로그인이 필요한 서비스입니다.');
+        navigateToLogin(window.location.href);
+        return;
+      }
       button.disabled = false;
       // 요청 전 계정 확인(ensureAction)에서 난 오류 — 계정이 바뀌었거나 로그아웃된 경우 그 안내를 그대로 보여준다.
       const accountChanged = error.code === 'STALE_ACCOUNT' || (error.status === 401 && !error.code);

@@ -29,7 +29,7 @@ function element() {
   return el;
 }
 
-function giftbox({ search = '', lists = {}, cancel = async () => ({ data: {} }), confirmAnswer = true } = {}) {
+function giftbox({ search = '', lists = {}, cancel = async () => ({ data: {} }), confirmAnswer = true, fetchImpl } = {}) {
   const nodes = new Map(), calls = [], alerts = [], toasts = [], confirms = [];
   const get = id => { if (!nodes.has(id)) nodes.set(id, element()); return nodes.get(id); };
   ['tab-unused', 'tab-used', 'tab-cancelled', 'gift-list-container'].forEach(get);
@@ -60,9 +60,18 @@ function giftbox({ search = '', lists = {}, cancel = async () => ({ data: {} }),
     alert: m => alerts.push(m), confirm: m => { confirms.push(m); return confirmAnswer; },
     createSkeletonGuard: () => () => {}, navigateToLogin() {}, location: window.location
   });
+  // 401은 공통 API 자체가 로그인 이동을 예약할 수 있어 requestJson 모의 함수로만 검증하지 않는다.
+  const redirects = [], timers = [];
+  if (fetchImpl) {
+    get('global-toast');
+    window.location.href = 'https://example.test/giftbox';
+    window.location.replace = url => redirects.push(url);
+    Object.assign(ctx, { fetch: fetchImpl, setTimeout: fn => timers.push(fn), clearTimeout() {} });
+    vm.runInContext(read('api.js'), ctx);
+  }
   vm.runInContext(read('giftbox.js'), ctx);
   return {
-    nodes, calls, alerts, toasts, confirms, window,
+    nodes, calls, alerts, toasts, confirms, window, redirects, timers,
     // 다른 탭에서 다른 계정으로 로그인한 상황: 이전에 잡아 둔 계정 정보는 더 이상 현재 계정이 아니다.
     switchAccount: () => { owner = { userId: 2, generation: owner.generation + 1 }; },
     list: () => nodes.get('gift-list-container'),
@@ -154,13 +163,23 @@ test('일시적 실패면 안내만 하고 카드와 버튼을 그대로 둔다'
   assert.equal(btn.disabled, false);
 });
 
-test('401이면 공통 처리에 맡기고 성공 토스트를 띄우지 않는다', async () => {
-  const p = giftbox({ lists: { unused: [received] }, cancel: async () => undefined });
-  await p.start();
-  await click(p.cards()[0].querySelector('.btn-gift-cancel'));
-  assert.equal(p.toasts.length, 0);
-  assert.equal(p.alerts.length, 0);
-});
+for (const switched of [false, true]) {
+  test(`취소 요청 후 401: ${switched ? '새 계정에는 안내·이동 없음' : '현재 계정은 안내 후 로그인 이동'}`, async () => {
+    let respond;
+    const p = giftbox({ fetchImpl: async url => url.endsWith('/cancel')
+      ? new Promise(resolve => { respond = resolve; })
+      : { ok: true, json: async () => ({ data: [received] }) } });
+    await p.start();
+    await click(p.cards()[0].querySelector('.btn-gift-cancel'));
+    if (switched) p.switchAccount();
+    respond({ status: 401, ok: false, json: async () => ({ code: 'UNAUTHORIZED' }) });
+    await flush();
+    for (const fn of p.timers) fn();
+    assert.equal(p.nodes.get('global-toast').textContent, '');
+    assert.deepEqual(p.alerts, switched ? [] : ['로그인이 필요한 서비스입니다.']);
+    assert.deepEqual(p.redirects, switched ? [] : ['/login?redirect=' + encodeURIComponent(p.window.location.href)]);
+  });
+}
 
 test('?tab=cancelled로 들어오면 취소 내역을 불러와 취소됨 표시와 취소일을 보여준다', async () => {
   const cancelled = { ...received, status: 'cancelled', cancelledAt: '2026-11-07T00:00:00Z' };
