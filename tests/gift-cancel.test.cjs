@@ -41,10 +41,10 @@ function giftbox({ search = '', lists = {}, cancel = async () => ({ data: {} }),
     querySelector: () => null,
     createElement: element
   };
-  const owner = { userId: 1, generation: 0 };
+  let owner = { userId: 1, generation: 0 };
   const window = {
     location: { search, href: '' },
-    accountGuard: { snapshot: () => owner, isCurrent: () => true, ensureAction: async () => owner, invalidate() {} },
+    accountGuard: { snapshot: () => owner, isCurrent: o => o === owner, ensureAction: async () => owner, invalidate() {} },
     registerAccountView: ({ load }) => { window.__load = load; },
     showToast: message => toasts.push(message),
     appendAccountRetryButton() {}
@@ -63,6 +63,8 @@ function giftbox({ search = '', lists = {}, cancel = async () => ({ data: {} }),
   vm.runInContext(read('giftbox.js'), ctx);
   return {
     nodes, calls, alerts, toasts, confirms, window,
+    // 다른 탭에서 다른 계정으로 로그인한 상황: 이전에 잡아 둔 계정 정보는 더 이상 현재 계정이 아니다.
+    switchAccount: () => { owner = { userId: 2, generation: owner.generation + 1 }; },
     list: () => nodes.get('gift-list-container'),
     start: async () => { for (const fn of listeners['header:ready'] || []) await fn(); await window.__load(); await flush(); },
     cards: () => nodes.get('gift-list-container').children,
@@ -162,13 +164,16 @@ test('401이면 공통 처리에 맡기고 성공 토스트를 띄우지 않는�
 
 test('?tab=cancelled로 들어오면 취소 내역을 불러와 취소됨 표시와 취소일을 보여준다', async () => {
   const cancelled = { ...received, status: 'cancelled', cancelledAt: '2026-11-07T00:00:00Z' };
+  // 화면은 사용일·받은일과 같이 브라우저의 현지 날짜로 표시한다(실행 시간대에 따라 11.06 또는 11.07).
+  const local = new Date(cancelled.cancelledAt);
+  const expected = `${local.getFullYear()}.${String(local.getMonth() + 1).padStart(2, '0')}.${String(local.getDate()).padStart(2, '0')}`;
   const p = giftbox({ search: '?tab=cancelled', lists: { cancelled: [cancelled] } });
   await p.start();
   assert.match(p.gets()[0].url, /status=cancelled/);
   assert.equal(p.nodes.get('tab-cancelled').classList.contains('active'), true);
   const card = p.cards()[0];
   assert.match(card.innerHTML, /cancelled-overlay">취소됨/);
-  assert.match(card.innerHTML, /취소일: 2026\.11\.07/);
+  assert.ok(card.innerHTML.includes(`취소일: ${expected}`), card.innerHTML);
   assert.equal(card.querySelector('.btn-gift-cancel'), null);
   assert.equal(card.listeners.click, undefined); // 사용 화면으로 이동하지 않음
 });
@@ -235,6 +240,7 @@ test('사용 화면: 다른 곳에서 먼저 취소돼 사용이 409 GIFT_CANCEL
 test('계정 확인에서 계정이 바뀐 것으로 나오면 그 안내를 보여주고 요청하지 않는다', async () => {
   const p = giftbox({ lists: { unused: [received] } });
   p.window.accountGuard.ensureAction = async () => {
+    p.switchAccount();
     throw Object.assign(new Error('로그인 상태가 변경됐어요. 새로 불러온 화면에서 다시 시도해주세요.'), { code: 'STALE_ACCOUNT' });
   };
   await p.start();
@@ -243,4 +249,33 @@ test('계정 확인에서 계정이 바뀐 것으로 나오면 그 안내를 보
   assert.deepEqual(p.alerts, ['로그인 상태가 변경됐어요. 새로 불러온 화면에서 다시 시도해주세요.']);
   assert.equal(p.cancels().length, 0);
   assert.equal(btn.disabled, false);
+});
+
+test('취소 응답을 기다리는 사이 계정이 바뀌면 이전 계정의 성공 응답을 보여주지 않는다', async () => {
+  let resolve;
+  const p = giftbox({ lists: { unused: [received] }, cancel: () => new Promise(r => { resolve = r; }) });
+  await p.start();
+  const before = p.gets().length;
+  p.cards()[0].querySelector('.btn-gift-cancel').listeners.click({ stopPropagation() {} });
+  await flush();
+  assert.equal(p.cancels().length, 1);
+  p.switchAccount();
+  resolve({ data: {} }); await flush();
+  assert.deepEqual(p.toasts, []);
+  assert.deepEqual(p.alerts, []);
+  assert.equal(p.gets().length, before);
+});
+
+test('취소 응답을 기다리는 사이 계정이 바뀌면 이전 계정의 실패 응답도 보여주지 않는다', async () => {
+  let reject;
+  const p = giftbox({ lists: { unused: [received] }, cancel: () => new Promise((_, r) => { reject = r; }) });
+  await p.start();
+  const before = p.gets().length;
+  p.cards()[0].querySelector('.btn-gift-cancel').listeners.click({ stopPropagation() {} });
+  await flush();
+  p.switchAccount();
+  reject(Object.assign(new Error(''), { code: 'GIFT_ALREADY_USED' })); await flush();
+  assert.deepEqual(p.alerts, []);
+  assert.deepEqual(p.toasts, []);
+  assert.equal(p.gets().length, before);
 });
