@@ -1255,12 +1255,14 @@ body.page-brand-body {
 /* 둘러보기/추천 상품 페이지 전환 슬라이딩 애니메이션 (두 패널이 동시에 화면에 보이며 나란히 이동).
    JS(component.js의 공용 createBrowseCarousel)가 애니메이션 중에는 기존 카드(.browse-panel + 이동 중
    transform)와 다음 카드를 뷰포트 안에 절대위치로 나란히 배치하고, 같은 방향으로 함께 translateX시킨 뒤
-   transitionend 시점에 기존 패널을 제거하고 새 패널을 원래 레이아웃으로 되돌린다.
+   transitionend 시점에 기존 패널을 제거하고 새 패널을 원래 레이아웃으로 되돌린다. 두 패널이 하나의
+   띠처럼 붙어 이동하므로, 1페이지 1열이 화면 밖으로 나가는 순간 2페이지 1열이 1페이지 3열 오른쪽에서
+   자연스럽게 나타난다.
    지속시간/커브를 이 선택자들에 한 번만 정의해, 슬라이드(transform)·높이·페이지 인디케이터
    페이드가 전부 같은 리듬으로 움직이고 값 하나만 바꿔도 셋이 같이 조정되게 한다. */
 #browse-section,
 #product-recommend-section {
-  --browse-slide-duration: 1.0s;
+  --browse-slide-duration: 0.9s;
   --browse-slide-easing: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1763,11 +1765,27 @@ body.page-product {
   overflow-y: auto;
 }
 
+.recent-searches-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 .recent-searches-title {
   font-size: 14px;
   font-weight: 700;
   color: #191919;
-  margin-bottom: 12px;
+  margin-bottom: 0;
+}
+
+.btn-clear-recent-searches {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #999999;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .recent-keywords-list {
@@ -1777,9 +1795,12 @@ body.page-product {
 }
 
 .keyword-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   background-color: #F5F5F5;
   color: #555555;
-  padding: 6px 12px;
+  padding: 6px 8px 6px 12px;
   border-radius: 16px;
   font-size: 12px;
   font-weight: 500;
@@ -1788,6 +1809,83 @@ body.page-product {
 
 .keyword-badge:active {
   background-color: #EAEAEA;
+}
+
+.keyword-badge-text {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+}
+
+.keyword-badge-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 2px;
+  color: #999999;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.recent-searches-empty {
+  font-size: 12px;
+  color: #999999;
+}
+
+.popular-keywords-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24px;
+  margin-bottom: 12px;
+}
+
+.popular-keywords-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #191919;
+  margin-bottom: 0;
+}
+
+.popular-keywords-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.popular-keyword-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 8px 0;
+  text-align: left;
+  font-size: 14px;
+  color: #191919;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.popular-keyword-item:active {
+  background-color: #F5F5F5;
+}
+
+.popular-keyword-rank {
+  min-width: 16px;
+  color: #FF5E5E;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.popular-keyword-text {
+  flex: 1;
 }
 
 /* Empty & Error State UI */
@@ -1898,6 +1996,31 @@ body.page-product {
   margin-top: 16px;
   background-color: #F9F9F9;
   box-shadow: var(--shadow-sm);
+}
+
+/* 썸네일 URL이 없거나 로드에 실패했을 때(has-fallback, brand.js와 동일한 패턴) 보여주는
+   "이미지 준비 중" 대체 표시. 실제 이미지를 다시 요청하지 않는 순수 CSS 표시라, 대체
+   표시 자체가 실패해서 오류 처리가 반복될 가능성이 없다. */
+.product-image-container.has-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.product-image-container.has-fallback::before {
+  content: '\f03e';
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  font-size: 32px;
+  color: #CCCCCC;
+}
+
+.product-image-container.has-fallback::after {
+  content: '이미지 준비 중';
+  font-size: 13px;
+  color: #999999;
 }
 
 .product-detail-img {
@@ -2379,6 +2502,12 @@ body.page-product {
   margin-bottom: 16px;
 }
 
+/* .skeleton의 display: inline-block이 author 스타일이라 [hidden]의 기본 display: none보다
+   우선 적용된다. hidden 처리 시 skeleton 제거를 빠뜨려도 실제로 숨겨지도록 하는 방어선. */
+.tab-panel-description-img-wrapper[hidden] {
+  display: none;
+}
+
 .tab-panel-description-img {
   display: block;
   width: 100%;
@@ -2497,10 +2626,16 @@ body.page-product {
   margin-top: 8px;
 }
 
-.review-card-edit-btn {
+.review-card-edit-btn,
+.review-card-report-btn {
   font-size: 11px;
   color: var(--text-muted);
   text-decoration: underline;
+}
+
+.review-card-report-btn:disabled {
+  text-decoration: none;
+  cursor: default;
 }
 
 .review-error {
@@ -3578,6 +3713,24 @@ body.page-giftbox {
             font-size: 11px;
             color: var(--text-muted);
         }
+/* 취소됨 탭의 썸네일 표시(사용완료보다 진하게)와 미사용 카드의 취소 버튼 */
+.page-giftbox .cancelled-overlay {
+            background-color: rgba(60, 60, 60, 0.85);
+        }
+.page-giftbox .btn-gift-cancel {
+            align-self: flex-start;
+            margin-top: 10px;
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background-color: #FFFFFF;
+            color: var(--text-sub);
+            font-size: 12px;
+            font-weight: 600;
+        }
+.page-giftbox .btn-gift-cancel:disabled {
+            opacity: 0.5;
+        }
 .page-giftbox .btn-gift-review {
             align-self: flex-start;
             margin-top: 10px;
@@ -3848,6 +4001,105 @@ body.page-complete {
     margin-top: 10px;
 }
 
+/* 패널티 정책 화면의 내 경고·제재 내역 */
+.my-sanctions {
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* 불러오는 중·내역 없음·조회 실패 안내 */
+.policy-container .my-sanctions-message {
+    margin-top: 10px;
+    padding: 16px 12px;
+    background-color: #F5F5F5;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--text-sub);
+    text-align: center;
+}
+
+.my-sanctions-message[hidden],
+.my-sanctions-retry[hidden] {
+    display: none;
+}
+
+.my-sanctions-list {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.my-sanctions-item {
+    padding: 12px;
+    background-color: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+.my-sanctions-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.my-sanctions-badge {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.my-sanctions-badge.warning {
+    background-color: #FFF4D6;
+    color: #8A6100;
+}
+
+.my-sanctions-badge.suspension {
+    background-color: #FDECEA;
+    color: #B64535;
+}
+
+.my-sanctions-badge.ended {
+    background-color: #EEEEEE;
+    color: var(--text-sub);
+}
+
+.my-sanctions-date {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.policy-container .my-sanctions-reason {
+    margin-top: 8px;
+    font-size: 13px;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.policy-container .my-sanctions-period {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.my-sanctions-retry {
+    display: block;
+    margin: 10px auto 0;
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background-color: #FFFFFF;
+    color: var(--text-sub);
+    font-size: 12px;
+    font-weight: 600;
+}
+
 .policy-container table {
     width: 100%;
     border-collapse: collapse;
@@ -3864,6 +4116,121 @@ body.page-complete {
 
 .policy-container th {
     background-color: #f2f2f2;
+}
+
+/* 문의하기 Overlay */
+.contact-container {
+    padding: 20px;
+}
+
+.contact-guide {
+    font-size: 13px;
+    color: var(--text-sub, #666);
+    line-height: 1.5;
+    margin-bottom: 14px;
+}
+
+.contact-divider {
+    height: 1px;
+    background-color: var(--border-color, #eee);
+    margin: 24px 0 18px;
+}
+
+.contact-history-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #191919;
+    margin-bottom: 12px;
+}
+
+.contact-history-empty {
+    font-size: 13px;
+    color: #999;
+    text-align: center;
+    padding: 24px 0;
+}
+
+.contact-history-item {
+    border: 1px solid var(--border-color, #eee);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 10px;
+}
+
+.contact-history-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.contact-status-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background-color: #F5F5F5;
+    color: #767676;
+}
+
+.contact-status-badge.answered {
+    background-color: #FFF0EE;
+    color: var(--primary-color, #f15746);
+}
+
+.contact-history-date {
+    font-size: 11px;
+    color: #999;
+}
+
+.contact-history-content {
+    font-size: 13px;
+    color: #191919;
+    line-height: 1.5;
+    white-space: pre-line;
+    word-break: break-word;
+}
+
+.contact-history-reply {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background-color: #FAFAFA;
+    border-radius: 8px;
+}
+
+.contact-history-reply-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--primary-color, #f15746);
+    margin-bottom: 4px;
+}
+
+.contact-history-reply-content {
+    font-size: 13px;
+    color: #191919;
+    line-height: 1.5;
+    white-space: pre-line;
+    word-break: break-word;
+}
+
+.contact-history-more-btn {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    padding: 12px;
+    background-color: #F5F5F5;
+    color: var(--text-main, #191919);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.contact-history-more-btn:disabled {
+    opacity: 0.5;
+}
+
+.contact-history-more-btn[hidden] {
+    display: none;
 }
 
 /* Auth Form Optimizations */
@@ -4088,6 +4455,32 @@ body.page-complete {
   display: none;
 }
 
+/* 후기 신고 모달: 안내 문구와 신고 대상 후기 미리보기(긴 후기는 3줄까지만) */
+.review-report-guide {
+  font-size: 12px;
+  color: var(--text-sub);
+  margin-bottom: 10px;
+}
+
+.review-report-target {
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background-color: #FAFAFA;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-sub);
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.review-report-target:empty {
+  display: none;
+}
+
 .review-confirm-body {
   padding: 26px 22px 22px;
   text-align: center;
@@ -4104,6 +4497,12 @@ body.page-complete {
   font-size: 12px;
   color: var(--text-sub);
   line-height: 1.6;
+}
+
+/* 페이지 내 확인창(confirm-modal.js): 안내 문구의 줄바꿈을 그대로 보여준다 */
+.confirm-modal-message {
+  white-space: pre-line;
+  word-break: keep-all;
 }
 
 .review-confirm-actions {
