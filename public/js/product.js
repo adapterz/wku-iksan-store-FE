@@ -24,9 +24,23 @@ function renderProduct(product) {
   const cardElement = document.querySelector('.product-detail-card');
   if (cardElement) cardElement.style.display = '';
 
-  if (imgElement) {
-    imgElement.src = product.thumbnailUrl;
-    imgElement.style.display = 'block';
+  // 썸네일 URL이 없으면 img.src에 null을 그대로 넣지 않는다 — 브라우저가 이를 문자열 "null"로
+  // 취급해 존재하지 않는 경로로 요청하면서 깨진 이미지 아이콘이 노출되기 때문이다. 대신
+  // 브랜드 목록(brand.js)과 동일한 has-fallback 패턴으로 "이미지 준비 중" 대체 표시를 보여준다.
+  // URL이 있어도 실제 로드가 실패하는 경우는 product.html의 #product-img onerror가 같은 방식으로 처리한다.
+  if (imgElement && imgWrapper) {
+    imgWrapper.classList.remove('has-fallback');
+    imgWrapper.removeAttribute('aria-hidden');
+    if (product.thumbnailUrl) {
+      imgElement.hidden = false;
+      imgElement.style.display = 'block';
+      imgElement.src = product.thumbnailUrl;
+    } else {
+      imgElement.hidden = true;
+      imgElement.style.display = 'none';
+      imgWrapper.classList.add('has-fallback');
+      imgWrapper.setAttribute('aria-hidden', 'true');
+    }
   }
   if (imgWrapper) imgWrapper.classList.remove('skeleton');
 
@@ -57,7 +71,10 @@ function renderProduct(product) {
       descImgElement.src = product.descriptionImageUrl;
       descImgElement.alt = `${product.name} 상품 이미지`;
     } else {
+      // hidden만 주면 .skeleton의 display: inline-block이 [hidden]의 기본 display: none을
+      // 덮어써서(author 스타일이 UA 스타일보다 우선) 빈 회색 영역이 그대로 남는다.
       descImgWrapperElement.hidden = true;
+      descImgWrapperElement.classList.remove('skeleton');
     }
   }
   if (descElement) descElement.textContent = product.description || '등록된 상품설명이 없습니다.';
@@ -227,6 +244,11 @@ function initBottomSheet(productId) {
       // 나에게 선물하기/선물하기 둘 다 기존처럼 결제 페이지(order.html)로 이동한다.
       // order.html은 즉시 구매 그룹 주문 API(POST /api/order-groups/direct)를 쓰므로 수량이 반영된다.
       sessionStorage.setItem('orderEntryProductId', String(productId));
+      // 주문 시도 ID(이슈 #74). 로그인을 거쳐 주문서가 다시 열려도 같은 ID를 이어받아, 결제 완료 후
+      // 뒤로가기 시 주문서들을 모두 건너뛰고 이 상품 상세로 돌아온다(order.js 참고).
+      try {
+        sessionStorage.setItem('orderEntryFlow', JSON.stringify({ flowId: crypto.randomUUID(), target: `product:${productId}` }));
+      } catch (e) { /* 없으면 order.js가 직접 만든다 */ }
       window.location.href = `order.html?productId=${productId}&type=${sheetState.orderType}&quantity=${sheetState.quantity}`;
     });
   }
@@ -420,6 +442,25 @@ function createReviewCard(review) {
     editBtn.addEventListener('click', () => window.openReviewEditor({ reviewId: review.reviewId }));
     actions.appendChild(editBtn);
     card.appendChild(actions);
+  } else {
+    // 다른 사람이 쓴 후기에만 신고 버튼을 둔다. BE는 본인 후기 신고를 막지 않으므로 FE에서 isMine으로 거른다.
+    // 위치·스타일은 내 후기의 "수정 · 삭제"와 같게 맞춰 후기 읽기를 방해하지 않게 한다.
+    const actions = document.createElement('div');
+    actions.className = 'review-card-actions';
+    const reportBtn = document.createElement('button');
+    reportBtn.type = 'button';
+    reportBtn.className = 'review-card-report-btn';
+    reportBtn.textContent = '신고';
+    reportBtn.addEventListener('click', () => window.openReviewReport({
+      reviewId: review.reviewId,
+      content: review.content,
+      onReported: () => {
+        reportBtn.disabled = true;
+        reportBtn.textContent = '신고함';
+      }
+    }));
+    actions.appendChild(reportBtn);
+    card.appendChild(actions);
   }
 
   return card;
@@ -519,6 +560,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // 후기 응답의 isMine(내 후기면 "수정 · 삭제", 아니면 "신고")은 조회한 계정 기준이다. 다른 탭에서 계정을
+  // 바꾸고 새로고침 없이 돌아오면 이전 계정 기준 버튼이 남아, 새 계정이 자기 후기를 신고할 수 있었다
+  // (BE는 본인 후기 신고를 막지 않는다). 계정이 실제로 바뀐 경우에만 목록을 다시 받는다 — account:ready는
+  // 탭 복귀 때마다 같은 계정으로도 발생하므로 userId를 비교한다. 첫 이벤트는 기준값만 기록한다.
+  let reviewViewerUserId;
+  document.addEventListener('account:ready', (e) => {
+    const userId = e.detail.user?.userId ?? null;
+    if (reviewViewerUserId !== undefined && userId !== reviewViewerUserId) {
+      loadProductReviews(productId);
+    }
+    reviewViewerUserId = userId;
+  });
+
   // 뒤로가기 버튼은 component.js의 bindHeaderBackButton()이 공통으로 처리한다.
   // (여기서 별도로 또 바인딩하면 클릭 한 번에 history.back()이 두 번 호출되어
   //  히스토리가 2칸 뒤로 이동하면서 홈을 건너뛰는 문제가 있었다.)
@@ -613,4 +667,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   window.addEventListener('saved-products-updated', syncProductSaveButtons);
+  // bfcache 복원 후 accountGuard의 인증 확인 결과로 전달되는 auth:updated에도 반응해,
+  // 로그인 상태가 바뀐 채 뒤로가기로 돌아왔을 때 저장 버튼 아이콘이 예전 상태로 남지 않도록 한다.
+  document.addEventListener('auth:updated', syncProductSaveButtons);
 });
