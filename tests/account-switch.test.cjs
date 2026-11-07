@@ -259,7 +259,7 @@ test('giftbox ignores late list response after switching account or filter', asy
   const old = deferred(); let lists = 0;
   const p = page(url => url.startsWith('/api/gifts?') ? (++lists === 1 ? old.promise : Promise.resolve({ data: [] })) : Promise.resolve({ data: {} }));
   p.document.body = element(); const list = p.add('gift-list-container'); p.add('tab-unused'); p.add('tab-used'); p.add('tab-cancelled');
-  p.run('giftbox.js'); p.ctx.createSkeletonGuard = () => () => {};
+  p.run('confirm-modal.js'); p.run('giftbox.js'); p.ctx.createSkeletonGuard = () => () => {};
   await p.document.fire('header:ready'); await flush();
   p.user(2); await p.guard.refresh(); await flush(); const expected = list.innerHTML;
   old.resolve({ data: [{ giftId: 10, productName: 'A gift' }] }); await flush();
@@ -339,7 +339,7 @@ test('giftbox filter change ignores a late response even within the same account
   const old = deferred(); let lists = 0;
   const p = page(url => url.startsWith('/api/gifts?') ? (++lists === 1 ? old.promise : Promise.resolve({ data: [] })) : Promise.resolve({ data: {} }));
   p.document.body = element(); const list = p.add('gift-list-container'); p.add('tab-unused'); const used = p.add('tab-used'); p.add('tab-cancelled');
-  p.run('giftbox.js'); p.ctx.createSkeletonGuard = () => () => {};
+  p.run('confirm-modal.js'); p.run('giftbox.js'); p.ctx.createSkeletonGuard = () => () => {};
   await p.document.fire('header:ready'); await flush();
   await used.fire('click'); const expected = list.innerHTML;
   old.resolve({ data: [{ giftId: 10 }] }); await flush();
@@ -413,6 +413,7 @@ async function openPrivatePage(p, name) {
   p.add('main'); p.add('gift-list-container'); p.add('tab-unused'); p.add('tab-used'); p.add('tab-cancelled'); p.add('wishlist-product-list');
   p.window.location.href = `https://example.test/${name}?${name === 'complete' ? 'orderGroupId=10' : 'tab=used'}`;
   p.window.location.search = name === 'complete' ? '?orderGroupId=10' : '?tab=used';
+  if (name === 'giftbox') p.run('confirm-modal.js'); // giftbox.html과 같은 순서로 불러온다
   p.run(`${name}.js`);
   if (name === 'complete') p.ctx.renderCompletePage = () => {};
   if (name === 'wishlist') p.document.listeners.get('DOMContentLoaded').at(-1)();

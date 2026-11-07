@@ -45,10 +45,19 @@ function giftbox({ search = '', lists = {}, cancel = async () => ({ data: {} }),
   const window = {
     location: { search, href: '' },
     accountGuard: { snapshot: () => owner, isCurrent: o => o === owner, ensureAction: async () => owner, invalidate() {} },
-    registerAccountView: ({ load }) => { window.__load = load; },
+    registerAccountView: ({ load, clear }) => { window.__load = load; window.__clear = clear; },
     showToast: message => toasts.push(message),
-    appendAccountRetryButton() {}
+    appendAccountRetryButton() {},
+    // 페이지 내 확인창(confirm-modal.js) 모의: 받은 옵션을 기록하고 confirmAnswer로 답한다.
+    // confirmAnswer가 'pending'이면 closeConfirmModal()이나 answer()로 끝날 때까지 열어 둔다.
+    showConfirmModal: options => {
+      confirms.push(options);
+      if (confirmAnswer !== 'pending') return Promise.resolve(confirmAnswer);
+      return new Promise(resolve => { openConfirm = resolve; });
+    },
+    closeConfirmModal: () => { closedConfirms++; if (openConfirm) { openConfirm(false); openConfirm = null; } }
   };
+  let openConfirm = null, closedConfirms = 0;
   const requestJson = async (url, options = {}) => {
     calls.push({ url, options });
     if (url.includes('/cancel')) return cancel(url, options);
@@ -57,7 +66,8 @@ function giftbox({ search = '', lists = {}, cancel = async () => ({ data: {} }),
   };
   const ctx = vm.createContext({
     window, document, requestJson, URLSearchParams, console: { error() {} },
-    alert: m => alerts.push(m), confirm: m => { confirms.push(m); return confirmAnswer; },
+    alert: m => alerts.push(m),
+    confirm: () => { throw new Error('브라우저 기본 확인창을 쓰면 안 된다'); },
     createSkeletonGuard: () => () => {}, navigateToLogin() {}, location: window.location
   });
   // 401은 공통 API 자체가 로그인 이동을 예약할 수 있어 requestJson 모의 함수로만 검증하지 않는다.
@@ -72,6 +82,8 @@ function giftbox({ search = '', lists = {}, cancel = async () => ({ data: {} }),
   vm.runInContext(read('giftbox.js'), ctx);
   return {
     nodes, calls, alerts, toasts, confirms, window, redirects, timers,
+    closedConfirms: () => closedConfirms,
+    answer: value => { const resolve = openConfirm; openConfirm = null; resolve(value); },
     // 다른 탭에서 다른 계정으로 로그인한 상황: 이전에 잡아 둔 계정 정보는 더 이상 현재 계정이 아니다.
     switchAccount: () => { owner = { userId: 2, generation: owner.generation + 1 }; },
     list: () => nodes.get('gift-list-container'),
@@ -97,16 +109,24 @@ test('미사용 탭 카드에만 취소 버튼이 있다', async () => {
 test('취소 버튼은 카드의 사용 화면 이동을 막고, 받은 선물은 보낸 분 알림 안내를 확인창에 넣는다', async () => {
   const p = giftbox({ lists: { unused: [received] } });
   await p.start();
-  const event = await click(p.cards()[0].querySelector('.btn-gift-cancel'));
+  const btn = p.cards()[0].querySelector('.btn-gift-cancel');
+  const event = await click(btn);
   assert.equal(event.stopped, true);
-  assert.match(p.confirms[0], /^이 교환권을 취소할까요\?\n\n취소하면 더 이상 사용할 수 없고 되돌릴 수 없습니다\.\n금액은 환불되지 않으며, 보낸 분에게 알림이 가지 않습니다\.$/);
+  const { returnFocusTo, ...shown } = p.confirms[0];
+  assert.deepEqual(shown, {
+    title: '이 교환권을 취소할까요?',
+    message: '취소하면 더 이상 사용할 수 없고 되돌릴 수 없습니다.\n금액은 환불되지 않으며, 보낸 분에게 알림이 가지 않습니다.',
+    confirmText: '취소하기',
+    cancelText: '닫기'
+  });
+  assert.equal(returnFocusTo, btn); // 닫힌 뒤 취소 버튼으로 포커스를 돌려준다
 });
 
 test('나에게 구매한 교환권은 확인창 마지막 줄이 환불 안내만 있다', async () => {
   const p = giftbox({ lists: { unused: [self] } });
   await p.start();
   await click(p.cards()[0].querySelector('.btn-gift-cancel'));
-  assert.match(p.confirms[0], /\n금액은 환불되지 않습니다\.$/);
+  assert.match(p.confirms[0].message, /\n금액은 환불되지 않습니다\.$/);
 });
 
 test('확인창에서 취소하면 요청을 보내지 않는다', async () => {
@@ -205,7 +225,7 @@ test('취소됨 탭이 비어 있으면 전용 안내를 보여준다', async ()
 });
 
 // ---- giftuse.js ----
-function giftuse({ detail, use = async () => ({ data: {} }) }) {
+function giftuse({ detail, use = async () => ({ data: {} }), confirmAnswer = true }) {
   const nodes = new Map(), alerts = [];
   const get = id => { if (!nodes.has(id)) nodes.set(id, element()); return nodes.get(id); };
   const listeners = {};
@@ -214,18 +234,23 @@ function giftuse({ detail, use = async () => ({ data: {} }) }) {
     addEventListener: (type, fn) => { listeners[type] = fn; },
     getElementById: get
   };
-  const window = { location: { search: '?giftId=22', href: '' }, registerBfcacheRevalidation: async fn => fn() };
+  const confirms = [], uses = [];
+  const window = {
+    location: { search: '?giftId=22', href: '' }, registerBfcacheRevalidation: async fn => fn(),
+    showConfirmModal: async options => { confirms.push(options); return confirmAnswer; }
+  };
   const requestJson = async (url, options = {}) => {
     if (url === '/api/auth/me') return { data: { userId: 1 } };
-    if (url.endsWith('/use')) return use(url, options);
+    if (url.endsWith('/use')) { uses.push(url); return use(url, options); }
     return { data: detail };
   };
   const ctx = vm.createContext({
     window, document, requestJson, URLSearchParams, console: { error() {} },
-    alert: m => alerts.push(m), confirm: () => true, createSkeletonGuard: () => () => {}, location: window.location
+    alert: m => alerts.push(m), confirm: () => { throw new Error('브라우저 기본 확인창을 쓰면 안 된다'); },
+    createSkeletonGuard: () => () => {}, location: window.location
   });
   vm.runInContext(read('giftuse.js'), ctx);
-  return { nodes, alerts, start: async () => { await listeners.DOMContentLoaded(); await flush(); }, card: () => get('barcode-card') };
+  return { nodes, alerts, confirms, uses, start: async () => { await listeners.DOMContentLoaded(); await flush(); }, card: () => get('barcode-card') };
 }
 
 test('사용 화면: 취소된 교환권은 바코드·사용 버튼 대신 안내를 보여준다', async () => {
@@ -297,4 +322,53 @@ test('취소 응답을 기다리는 사이 계정이 바뀌면 이전 계정의 
   assert.deepEqual(p.alerts, []);
   assert.deepEqual(p.toasts, []);
   assert.equal(p.gets().length, before);
+});
+
+test('확인창이 열려 있는 동안 취소 버튼을 다시 눌러도 확인창이 겹쳐 열리지 않는다', async () => {
+  const p = giftbox({ lists: { unused: [received] }, confirmAnswer: 'pending' });
+  await p.start();
+  const btn = p.cards()[0].querySelector('.btn-gift-cancel');
+  btn.listeners.click({ stopPropagation() {} }); await flush();
+  btn.listeners.click({ stopPropagation() {} }); await flush();
+  assert.equal(p.confirms.length, 1);
+  assert.equal(btn.disabled, true);
+  p.answer(false); await flush();
+  assert.equal(btn.disabled, false);
+  assert.equal(p.cancels().length, 0);
+});
+
+test('확인창이 열린 채 계정이 바뀌면 화면을 비우면서 확인창을 닫고 요청하지 않는다', async () => {
+  const p = giftbox({ lists: { unused: [received] }, confirmAnswer: 'pending' });
+  await p.start();
+  p.cards()[0].querySelector('.btn-gift-cancel').listeners.click({ stopPropagation() {} }); await flush();
+  p.switchAccount();
+  p.window.__clear(); await flush();
+  assert.equal(p.closedConfirms(), 1);
+  assert.equal(p.cancels().length, 0);
+  assert.deepEqual(p.alerts, []);
+  assert.deepEqual(p.toasts, []);
+});
+
+test('사용 화면: 페이지 내 확인창으로 사용 여부를 묻는다', async () => {
+  const p = giftuse({ detail: { giftId: 22, status: 'unused', barcode: '1234567812345678', isSelfGift: true } });
+  await p.start();
+  await p.nodes.get('btn-use').listeners.click(); await flush();
+  const { returnFocusTo, ...shown } = p.confirms[0];
+  assert.deepEqual(shown, {
+    title: '선물을 사용하시겠습니까?',
+    message: '사용 후에는 취소할 수 없습니다.',
+    confirmText: '사용하기',
+    cancelText: '닫기'
+  });
+  assert.equal(returnFocusTo, p.nodes.get('btn-use'));
+  assert.deepEqual(p.uses, ['/api/gifts/22/use']);
+});
+
+test('사용 화면: 확인창에서 닫으면 요청하지 않고 버튼을 다시 쓸 수 있다', async () => {
+  const p = giftuse({ detail: { giftId: 22, status: 'unused', barcode: '1234567812345678', isSelfGift: true }, confirmAnswer: false });
+  await p.start();
+  const btn = p.nodes.get('btn-use');
+  await btn.listeners.click(); await flush();
+  assert.equal(p.uses.length, 0);
+  assert.equal(btn.disabled, false);
 });

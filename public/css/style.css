@@ -4499,6 +4499,12 @@ body.page-complete {
   line-height: 1.6;
 }
 
+/* 페이지 내 확인창(confirm-modal.js): 안내 문구의 줄바꿈을 그대로 보여준다 */
+.confirm-modal-message {
+  white-space: pre-line;
+  word-break: keep-all;
+}
+
 .review-confirm-actions {
   display: flex;
   gap: 8px;

@@ -62,7 +62,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     btnUse.addEventListener('click', async () => {
-        if (!confirm("선물을 사용하시겠습니까? 사용 후에는 취소할 수 없습니다.")) return;
+        if (btnUse.disabled) return;
+        // 확인창이 열려 있는 동안 버튼을 잠가 확인창이 겹쳐 열리지 않게 한다.
+        btnUse.disabled = true;
+        const confirmed = await window.showConfirmModal({
+            title: '선물을 사용하시겠습니까?',
+            message: '사용 후에는 취소할 수 없습니다.',
+            confirmText: '사용하기',
+            cancelText: '닫기',
+            returnFocusTo: btnUse
+        });
+        if (!confirmed) {
+            btnUse.disabled = false;
+            return;
+        }
 
         try {
             btnUse.disabled = true;
