@@ -109,14 +109,17 @@ document.addEventListener("header:ready", async () => {
     });
   };
 
-  // 미사용 교환권 취소(BE #153, PATCH /api/gifts/:id/cancel). 환불은 없고 되돌릴 수 없으므로 기본
-  // 확인창으로 한 번 더 확인한다. 받은 선물이면 보낸 사람에게 알림이 가지 않는다는 점도 안내한다.
-  const cancelConfirmMessage = (gift) => [
-    '이 교환권을 취소할까요?',
-    '',
-    '취소하면 더 이상 사용할 수 없고 되돌릴 수 없습니다.',
-    gift.isSelfGift ? '금액은 환불되지 않습니다.' : '금액은 환불되지 않으며, 보낸 분에게 알림이 가지 않습니다.'
-  ].join('\n');
+  // 미사용 교환권 취소(BE #153, PATCH /api/gifts/:id/cancel). 환불은 없고 되돌릴 수 없으므로 페이지 내
+  // 확인창(confirm-modal.js)으로 한 번 더 확인한다. 받은 선물이면 보낸 사람에게 알림이 가지 않는다는 점도 안내한다.
+  const cancelConfirmOptions = (gift) => ({
+    title: '이 교환권을 취소할까요?',
+    message: [
+      '취소하면 더 이상 사용할 수 없고 되돌릴 수 없습니다.',
+      gift.isSelfGift ? '금액은 환불되지 않습니다.' : '금액은 환불되지 않으며, 보낸 분에게 알림이 가지 않습니다.'
+    ].join('\n'),
+    confirmText: '취소하기',
+    cancelText: '닫기'
+  });
 
   const CANCEL_ERROR_MESSAGES = {
     GIFT_ALREADY_USED: '이미 사용 완료된 교환권이라 취소할 수 없어요.',
@@ -129,8 +132,13 @@ document.addEventListener("header:ready", async () => {
 
   const cancelGift = async (gift, owner, button) => {
     if (button.disabled) return;
-    if (!confirm(cancelConfirmMessage(gift))) return;
+    // 확인창이 열려 있는 동안에도 버튼을 잠가 확인창이 겹쳐 열리지 않게 한다.
     button.disabled = true;
+    // 확인창이 열린 사이 계정이 바뀌면 clear()가 확인창을 닫아 false가 된다.
+    if (!(await window.showConfirmModal({ ...cancelConfirmOptions(gift), returnFocusTo: button }))) {
+      button.disabled = false;
+      return;
+    }
     let sent = false;
     try {
       await guard.ensureAction(owner);
@@ -267,6 +275,8 @@ document.addEventListener("header:ready", async () => {
   // Init
   window.registerAccountView({
     clear: () => {
+      // 이전 계정 화면에서 열어 둔 취소 확인창이 새 계정 화면에 남지 않게 닫는다.
+      window.closeConfirmModal();
       loadSequence++;
       if (activeSettle) activeSettle();
       listContainer.innerHTML = '<div class="empty-state">로그인 상태를 확인하고 있습니다.</div>';
