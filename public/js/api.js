@@ -25,8 +25,9 @@ function showToast(message, duration = 800) {
     toastEl.setAttribute('role', 'alert');
     toastEl.setAttribute('aria-live', 'assertive');
     toastEl.style.cssText = [
+      // left:50%면 쓸 수 있는 폭이 화면 절반으로 줄어 긴 문구가 여러 줄로 좁아지므로 내용 폭을 직접 지정한다.
       'position:fixed', 'left:50%', 'bottom:32px', 'transform:translateX(-50%)',
-      'max-width:calc(100vw - 32px)', 'padding:12px 20px', 'border-radius:8px',
+      'width:max-content', 'max-width:calc(100vw - 32px)', 'padding:12px 20px', 'border-radius:8px',
       'background:rgba(0,0,0,0.85)', 'color:#fff', 'font-size:14px', 'line-height:1.5',
       'text-align:center', 'word-break:keep-all', 'z-index:9999',
       'opacity:0', 'transition:opacity 0.2s ease', 'pointer-events:none'
@@ -50,6 +51,37 @@ function showUnauthorizedToast(message) {
   // 곧바로 로그인 페이지로 리다이렉트되므로 자동으로 숨기지 않는다.
   showToast(message, 0);
 }
+
+// 로그인 페이지로 이동할 때는 항상 replace를 쓴다. href(push)로 이동하면 login 항목이 히스토리에 남아
+// 로그인 후(또는 로그인 화면에서) 뒤로가기를 눌렀을 때 로그인 화면이 다시 나타난다.
+// redirect를 넘기면 로그인 성공 후 돌아올 주소로 전달한다.
+function navigateToLogin(redirect) {
+  const query = redirect ? `?redirect=${encodeURIComponent(redirect)}` : '';
+  window.location.replace(`/login${query}`);
+}
+
+// 새 탭/새 창 열기(Ctrl/Cmd/Shift/Alt 클릭, 가운데 버튼)가 아닌 일반 왼쪽 클릭인지 판별한다.
+function isPlainLeftClick(e) {
+  return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+}
+
+// <a href="login...">으로 로그인에 가는 링크(하단 네비, 장바구니 안내 패널, 회원가입 화면 등)는
+// 링크마다 바인딩하지 않고 위임으로 가로채 같은 규칙(replace)을 적용한다.
+// capture 단계에 등록해, 링크를 감싼 요소의 핸들러가 stopPropagation()을 호출해도 가로채기가 무력화되지 않게 한다.
+document.addEventListener('click', (e) => {
+  if (e.defaultPrevented || !isPlainLeftClick(e)) return;
+  const link = e.target.closest && e.target.closest('a[href]');
+  if (!link || (link.target && link.target !== '_self') || link.hasAttribute('download')) return;
+  let url;
+  try {
+    url = new URL(link.href, window.location.href);
+  } catch (error) {
+    return;
+  }
+  if (url.origin !== window.location.origin || !/^\/login(?:\.html)?\/?$/.test(url.pathname)) return;
+  e.preventDefault();
+  window.location.replace(url.href);
+}, true);
 
 // 세션 쿠키, JSON 변환, HTTP·네트워크 오류 처리를 공통으로 수행한다.
 async function requestJson(path, options = {}) {
@@ -97,15 +129,16 @@ async function requestJson(path, options = {}) {
   if (!response.ok) {
     // silent401: 로그인 여부만 조용히 확인하는 배경 호출(예: 전역 네비게이션 상태 갱신)은
     // 인증이 필수인 페이지가 아니므로 전역 리다이렉트를 건너뛰고 호출부에서 직접 처리하게 한다.
-    if (response.status === 401 && !silent401 && !isLoginRequest) {
+    // INVALID_PASSWORD: 이메일/비밀번호 변경, 회원 탈퇴에서 현재 비밀번호 재확인 실패도 BE 스펙상
+    // 401로 내려오므로(세션 만료가 아님), 전역 리다이렉트에서 제외하고 각 화면이 직접 처리하게 한다.
+    const isInvalidPassword = result && result.code === 'INVALID_PASSWORD';
+    if (response.status === 401 && !silent401 && !isLoginRequest && !isInvalidPassword) {
       showUnauthorizedToast('로그인이 필요한 서비스입니다.');
-      const redirectTarget = encodeURIComponent(window.location.href);
-      setTimeout(() => {
-        // href(push)로 이동하면 현재 페이지가 히스토리에 그대로 남아, 로그인 후 돌아왔다가
-        // 다시 뒤로가기를 누를 때 이 미인증 방문 기록을 다시 거치게 된다. replace로 대체해
-        // 로그인 왕복 과정이 히스토리에 여분의 항목을 남기지 않도록 한다.
-        window.location.replace(`/login.html?redirect=${redirectTarget}`);
-      }, UNAUTHORIZED_REDIRECT_DELAY_MS);
+      // href(push)로 이동하면 현재 페이지가 히스토리에 그대로 남아, 로그인 후 돌아왔다가
+      // 다시 뒤로가기를 누를 때 이 미인증 방문 기록을 다시 거치게 된다. navigateToLogin은
+      // replace로 대체해 로그인 왕복 과정이 히스토리에 여분의 항목을 남기지 않도록 한다.
+      const redirectTarget = window.location.href;
+      setTimeout(() => navigateToLogin(redirectTarget), UNAUTHORIZED_REDIRECT_DELAY_MS);
       return;
     }
 

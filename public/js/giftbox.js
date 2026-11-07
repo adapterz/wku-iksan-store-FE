@@ -6,40 +6,30 @@ document.addEventListener('header:ready', () => {
   if (giftboxLink) giftboxLink.remove();
 });
 
-// 로그인 여부 확인 (화면을 그리기 전에 먼저 검증 - Route Guard)
-// 401은 api.js 전역 인터셉터가 처리(redirect 파라미터 포함 로그인 이동)하므로 여기선 그 외 오류만 다룬다.
-async function checkGiftboxAuth() {
-  try {
-    const authResult = await requestJson('/api/auth/me');
-    if (!authResult || !authResult.data) {
-      return false;
-    }
-  } catch (error) {
-    console.error("인증 확인 실패:", error);
-    alert("사용자 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
-    return false;
-  }
-
-  document.body.style.visibility = "visible";
-  document.body.style.opacity = "1";
-  return true;
-}
-
 document.addEventListener("header:ready", async () => {
-
-  // component.js의 공통 헬퍼: 최초 실행 후 bfcache 복원 시 재검증까지 등록해준다.
-  const isAuthenticated = await window.registerBfcacheRevalidation(checkGiftboxAuth);
-  if (!isAuthenticated) {
-    return;
-  }
 
   const tabUnused = document.getElementById("tab-unused");
   const tabUsed = document.getElementById("tab-used");
+  const tabCancelled = document.getElementById("tab-cancelled");
   const listContainer = document.getElementById("gift-list-container");
+  const tabs = { unused: tabUnused, used: tabUsed, cancelled: tabCancelled };
+  const EMPTY_MESSAGES = {
+    unused: '미사용 선물이 없습니다.',
+    used: '사용완료 선물이 없습니다.',
+    cancelled: '취소된 선물이 없습니다.'
+  };
 
   const urlParams = new URLSearchParams(window.location.search);
-  const initialTab = urlParams.get('tab') === 'used' ? 'used' : 'unused';
+  const requestedTab = urlParams.get('tab');
+  const initialTab = (requestedTab === 'used' || requestedTab === 'cancelled') ? requestedTab : 'unused';
   let currentStatus = initialTab;
+  let loadSequence = 0;
+  let activeSettle = null;
+  const guard = window.accountGuard;
+  const showBody = () => {
+    document.body.style.visibility = 'visible';
+    document.body.style.opacity = '1';
+  };
 
   // 마이페이지 "나에게 선물"/"받은 선물" 카드에서 넘어올 때만 쓰는 구분 필터.
   // /api/gifts 응답에 이미 항목마다 isSelfGift가 들어있어서 서버에 새 쿼리를 추가할 필요 없이
@@ -74,23 +64,37 @@ document.addEventListener("header:ready", async () => {
 
   // Load gifts
   const loadGifts = async (status) => {
+    const owner = guard.snapshot();
+    if (!guard.isCurrent(owner) || !owner.userId) return;
+    const sequence = ++loadSequence;
+    if (activeSettle) activeSettle();
+    const isActive = () => sequence === loadSequence && guard.isCurrent(owner);
     currentStatus = status;
     updateTabStyles();
     renderGiftSkeleton();
     const settle = createSkeletonGuard(() => {
-      listContainer.innerHTML = `<div class="empty-state">선물 목록을 불러오지 못했습니다.</div>`;
+      if (isActive()) listContainer.innerHTML = `<div class="empty-state">선물 목록을 불러오지 못했습니다.</div>`;
     }, 1500);
+    activeSettle = settle;
 
     try {
-      const result = await requestJson(`/api/gifts?status=${status}`);
+      const result = await requestJson(`/api/gifts?status=${status}`, { silent401: true });
       settle();
-      renderGiftList(filterByType(result.data || []));
+      if (!isActive() || !result) return;
+      renderGiftList(filterByType(result.data || []), owner);
     } catch (error) {
       settle();
-      // 401은 api.js 전역 인터셉터가 처리하므로 여기선 403 등 나머지 오류만 다룬다.
+      if (!isActive()) return;
+      // silent401 요청이므로 현재 소유자의 로그인 만료만 직접 처리한다.
+      if (error.status === 401) {
+        guard.invalidate();
+        window.location.replace(`login.html?redirect=${encodeURIComponent(window.location.href)}`);
+        return;
+      }
       if (error.status === 403) {
+        guard.invalidate();
         alert("접근 권한이 없습니다.");
-        location.href = "login.html";
+        navigateToLogin();
         return;
       }
       console.error("선물함 조회 실패:", error);
@@ -99,12 +103,69 @@ document.addEventListener("header:ready", async () => {
   };
 
   const updateTabStyles = () => {
-    if (currentStatus === 'unused') {
-      tabUnused.classList.add('active');
-      tabUsed.classList.remove('active');
-    } else {
-      tabUsed.classList.add('active');
-      tabUnused.classList.remove('active');
+    Object.entries(tabs).forEach(([status, tab]) => {
+      if (status === currentStatus) tab.classList.add('active');
+      else tab.classList.remove('active');
+    });
+  };
+
+  // 미사용 교환권 취소(BE #153, PATCH /api/gifts/:id/cancel). 환불은 없고 되돌릴 수 없으므로 페이지 내
+  // 확인창(confirm-modal.js)으로 한 번 더 확인한다. 받은 선물이면 보낸 사람에게 알림이 가지 않는다는 점도 안내한다.
+  const cancelConfirmOptions = (gift) => ({
+    title: '이 교환권을 취소할까요?',
+    message: [
+      '취소하면 더 이상 사용할 수 없고 되돌릴 수 없습니다.',
+      gift.isSelfGift ? '금액은 환불되지 않습니다.' : '금액은 환불되지 않으며, 보낸 분에게 알림이 가지 않습니다.'
+    ].join('\n'),
+    confirmText: '취소하기',
+    cancelText: '닫기'
+  });
+
+  const CANCEL_ERROR_MESSAGES = {
+    GIFT_ALREADY_USED: '이미 사용 완료된 교환권이라 취소할 수 없어요.',
+    GIFT_NOT_CANCELLABLE: '취소할 수 없는 교환권이에요. 선물함을 다시 확인해주세요.',
+    GIFT_NOT_FOUND: '교환권을 찾을 수 없어요. 선물함을 다시 확인해주세요.',
+    FORBIDDEN_NOT_OWNER: '받은 사람만 교환권을 취소할 수 있어요.'
+  };
+  // 상태가 바뀌어 취소할 수 없게 된 경우 — 안내 후 최신 상태로 다시 불러온다.
+  const RELOAD_AFTER_CANCEL_ERROR = new Set(['GIFT_ALREADY_USED', 'GIFT_NOT_CANCELLABLE', 'GIFT_NOT_FOUND']);
+
+  const cancelGift = async (gift, owner, button) => {
+    if (button.disabled) return;
+    // 확인창이 열려 있는 동안에도 버튼을 잠가 확인창이 겹쳐 열리지 않게 한다.
+    button.disabled = true;
+    // 확인창이 열린 사이 계정이 바뀌면 clear()가 확인창을 닫아 false가 된다.
+    if (!(await window.showConfirmModal({ ...cancelConfirmOptions(gift), returnFocusTo: button }))) {
+      button.disabled = false;
+      return;
+    }
+    let sent = false;
+    try {
+      await guard.ensureAction(owner);
+      sent = true;
+      // 이전 계정의 401이 공통 로그인 이동을 예약하지 않도록, 소유자 확인 후 직접 처리한다.
+      const result = await requestJson(`/api/gifts/${gift.giftId}/cancel`, { method: 'PATCH', silent401: true });
+      // 응답을 기다리는 사이 계정이 바뀌었으면 이전 계정의 결과를 새 계정 화면에 보여주지 않는다.
+      // 새 계정의 선물함은 계정 전환 처리(registerAccountView)가 다시 그린다.
+      if (!guard.isCurrent(owner)) return;
+      if (!result) return;
+      window.showToast('교환권이 취소되었습니다.');
+      loadGifts(currentStatus);
+    } catch (error) {
+      if (sent && !guard.isCurrent(owner)) return; // 실패 응답도 같은 이유로 버린다
+      if (sent && error.status === 401) {
+        guard.invalidate();
+        alert('로그인이 필요한 서비스입니다.');
+        navigateToLogin(window.location.href);
+        return;
+      }
+      button.disabled = false;
+      // 요청 전 계정 확인(ensureAction)에서 난 오류 — 계정이 바뀌었거나 로그아웃된 경우 그 안내를 그대로 보여준다.
+      const accountChanged = error.code === 'STALE_ACCOUNT' || (error.status === 401 && !error.code);
+      alert(CANCEL_ERROR_MESSAGES[error.code]
+        || (accountChanged && error.message)
+        || '교환권을 취소하지 못했어요. 다시 시도해주세요.');
+      if (RELOAD_AFTER_CANCEL_ERROR.has(error.code)) loadGifts(currentStatus);
     }
   };
 
@@ -114,11 +175,11 @@ document.addEventListener("header:ready", async () => {
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
   };
 
-  const renderGiftList = (gifts) => {
+  const renderGiftList = (gifts, owner) => {
     listContainer.innerHTML = "";
     
     if (gifts.length === 0) {
-      listContainer.innerHTML = `<div class="empty-state">${currentStatus === 'unused' ? '미사용 선물이 없습니다.' : '사용완료 선물이 없습니다.'}</div>`;
+      listContainer.innerHTML = `<div class="empty-state">${EMPTY_MESSAGES[currentStatus]}</div>`;
       return;
     }
 
@@ -128,14 +189,20 @@ document.addEventListener("header:ready", async () => {
       
       // Click event for unused gifts
       if (currentStatus === 'unused') {
-        card.addEventListener('click', () => {
-          location.href = `giftuse.html?giftId=${gift.giftId}`;
+        card.addEventListener('click', async () => {
+          try {
+            await guard.ensureAction(owner);
+            location.href = `giftuse.html?giftId=${gift.giftId}`;
+          } catch (error) { alert(error.message || '로그인 상태를 확인하지 못했습니다.'); }
         });
       }
 
       const isUsed = (currentStatus === 'used');
+      const isCancelled = (currentStatus === 'cancelled');
       const senderText = gift.isSelfGift ? "나" : (gift.senderNickname || "친구");
-      const dateText = isUsed && gift.usedAt ? `사용일: ${formatDate(gift.usedAt)}` : `받은일: ${formatDate(gift.createdAt)}`;
+      const dateText = isUsed && gift.usedAt ? `사용일: ${formatDate(gift.usedAt)}`
+        : isCancelled && gift.cancelledAt ? `취소일: ${formatDate(gift.cancelledAt)}`
+        : `받은일: ${formatDate(gift.createdAt)}`;
       // reviewId가 있으면 수정, 없으면 BE가 계산해준 canReview(수신자 본인·결제완료·사용완료·
       // 미작성)를 그대로 따른다. canReview는 정지 여부는 반영하지 않으므로, 정지된 사용자가
       // 실제 작성을 시도했을 때의 최종 판단은 review.js가 저장 시점에 서버 응답으로 다시 확인한다.
@@ -146,6 +213,7 @@ document.addEventListener("header:ready", async () => {
         <div class="gift-img-wrapper">
           <img alt="상품 썸네일" class="gift-img">
           ${isUsed ? '<div class="used-overlay">사용완료</div>' : ''}
+          ${isCancelled ? '<div class="used-overlay cancelled-overlay">취소됨</div>' : ''}
         </div>
         <div class="gift-info">
           <div class="gift-brand"></div>
@@ -155,6 +223,7 @@ document.addEventListener("header:ready", async () => {
             <span class="gift-date">${dateText}</span>
           </div>
           ${showReviewButton ? `<button type="button" class="btn-gift-review">${reviewBtnLabel}</button>` : ''}
+          ${currentStatus === 'unused' ? '<button type="button" class="btn-gift-cancel">취소</button>' : ''}
         </div>
       `;
 
@@ -167,11 +236,23 @@ document.addEventListener("header:ready", async () => {
       const senderEl = card.querySelector('.sender-text');
       if (senderEl) senderEl.textContent = `보낸사람: ${senderText}`;
 
+      const cancelBtn = card.querySelector('.btn-gift-cancel');
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', (event) => {
+          // 카드 전체에 걸린 사용 화면 이동이 함께 실행되지 않게 막는다.
+          event.stopPropagation();
+          cancelGift(gift, owner, cancelBtn);
+        });
+      }
+
       if (showReviewButton) {
         const reviewBtn = card.querySelector('.btn-gift-review');
         if (reviewBtn) {
-          reviewBtn.addEventListener('click', () => {
-            window.openReviewEditor(gift.reviewId ? { reviewId: gift.reviewId } : { giftId: gift.giftId });
+          reviewBtn.addEventListener('click', async () => {
+            try {
+              await guard.ensureAction(owner);
+              window.openReviewEditor(gift.reviewId ? { reviewId: gift.reviewId } : { giftId: gift.giftId });
+            } catch (error) { alert(error.message || '로그인 상태를 확인하지 못했습니다.'); }
           });
         }
       }
@@ -183,6 +264,7 @@ document.addEventListener("header:ready", async () => {
   // Tab Events
   tabUnused.addEventListener('click', () => loadGifts('unused'));
   tabUsed.addEventListener('click', () => loadGifts('used'));
+  tabCancelled.addEventListener('click', () => loadGifts('cancelled'));
 
   // 리뷰 작성·수정·삭제 모달(review.js)이 완료 후 쏘는 이벤트. 지금 보고 있는 탭을
   // 다시 불러와 canReview/reviewId, 버튼 라벨을 최신 상태로 맞춘다.
@@ -191,7 +273,22 @@ document.addEventListener("header:ready", async () => {
   });
 
   // Init
-  loadGifts(currentStatus);
+  window.registerAccountView({
+    clear: () => {
+      // 이전 계정 화면에서 열어 둔 취소 확인창이 새 계정 화면에 남지 않게 닫는다.
+      window.closeConfirmModal();
+      loadSequence++;
+      if (activeSettle) activeSettle();
+      listContainer.innerHTML = '<div class="empty-state">로그인 상태를 확인하고 있습니다.</div>';
+      showBody();
+    },
+    load: () => { showBody(); return loadGifts(currentStatus); },
+    error: () => {
+      listContainer.innerHTML = '<div class="empty-state">로그인 상태를 확인하지 못했습니다. 다시 시도해주세요.</div>';
+      window.appendAccountRetryButton(listContainer);
+      showBody();
+    }
+  });
 
 
 
