@@ -3713,6 +3713,24 @@ body.page-giftbox {
             font-size: 11px;
             color: var(--text-muted);
         }
+/* 취소됨 탭의 썸네일 표시(사용완료보다 진하게)와 미사용 카드의 취소 버튼 */
+.page-giftbox .cancelled-overlay {
+            background-color: rgba(60, 60, 60, 0.85);
+        }
+.page-giftbox .btn-gift-cancel {
+            align-self: flex-start;
+            margin-top: 10px;
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background-color: #FFFFFF;
+            color: var(--text-sub);
+            font-size: 12px;
+            font-weight: 600;
+        }
+.page-giftbox .btn-gift-cancel:disabled {
+            opacity: 0.5;
+        }
 .page-giftbox .btn-gift-review {
             align-self: flex-start;
             margin-top: 10px;

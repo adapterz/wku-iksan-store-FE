@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (gift) {
                 renderGift(gift);
             } else {
-                showError('선물 정보를 찾을 수 없거나 이미 사용된 선물입니다.');
+                showError('선물 정보를 찾을 수 없거나 이미 사용·취소된 선물입니다.');
             }
         } catch (fallbackError) {
             settle();
@@ -75,6 +75,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             
         } catch (err) {
             console.error(err);
+            // 다른 탭에서 먼저 취소한 교환권(BE #153) — 바코드와 사용 버튼을 숨기고 사유를 안내한다.
+            if (err.code === 'GIFT_CANCELLED') {
+                showError(CANCELLED_GIFT_MESSAGE);
+                return;
+            }
             alert("사용 처리에 실패했습니다. 서버 API 구현 여부를 확인해주세요.");
             btnUse.disabled = false;
             btnUse.textContent = "선물 사용하기";
@@ -82,10 +87,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 });
 
+const CANCELLED_GIFT_MESSAGE = '취소된 교환권이라 사용할 수 없습니다.';
+
 function renderGift(gift) {
     if (gift.status === 'used') {
         alert("이미 사용 완료된 선물입니다.");
         location.href = 'giftbox.html?tab=used';
+        return;
+    }
+    // 취소된 교환권은 BE가 바코드를 null로 내려준다. 바코드와 사용 버튼을 보여주지 않는다.
+    if (gift.status === 'cancelled') {
+        showError(CANCELLED_GIFT_MESSAGE);
+        return;
+    }
+    // 바코드가 없으면 사용할 수 없는 상태다. 임의의 바코드 값을 대신 보여주지 않는다.
+    if (!gift.barcode) {
+        showError('교환권 정보를 확인할 수 없습니다. 선물함에서 다시 확인해주세요.');
         return;
     }
 
@@ -127,8 +144,7 @@ function renderGift(gift) {
     productName.style.minHeight = 'unset';
 
     // 바코드 노출 및 스켈레톤 해제
-    const barcodeVal = gift.barcode || "2350978230953538";
-    const formatted = barcodeVal.replace(/(\d{4})(?=\d)/g, '$1 ');
+    const formatted = String(gift.barcode).replace(/(\d{4})(?=\d)/g, '$1 ');
     document.getElementById('barcode-text').textContent = formatted;
 
     barcodeSkeleton.style.display = 'none';
